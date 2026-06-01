@@ -1,0 +1,169 @@
+// Reto de Constancia — modelo de datos
+// Diseñado para ser reutilizable mes a mes:
+// cada reto = una entidad Challenge con sus reglas y participantes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Usuarios ----------
+
+enum UserRole {
+  PARTICIPANT
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(PARTICIPANT)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  participations ChallengeParticipant[]
+  activities     DailyActivity[]
+  validatedActs  DailyActivity[]        @relation("ValidatedBy")
+  awards         ChallengeAward[]
+
+  @@index([email])
+}
+
+// ---------- Reto mensual ----------
+
+enum ChallengeStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
+model Challenge {
+  id                  String          @id @default(uuid())
+  name                String // "Reto Mayo 2026"
+  month               Int // 1..12
+  year                Int
+  startDate           DateTime
+  endDate             DateTime
+  validDays           Int[]           @default([1, 2, 3, 4, 5, 6]) // 0=Dom .. 6=Sáb
+  minHeartRateMinutes Int             @default(20)
+  feePerParticipant   Decimal         @default(0) @db.Decimal(10, 2)
+  budgetTotal         Decimal         @default(0) @db.Decimal(10, 2)
+  currency            String          @default("BOB")
+  prizeDescription    String?
+  status              ChallengeStatus @default(DRAFT)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  participants ChallengeParticipant[]
+  activities   DailyActivity[]
+  awards       ChallengeAward[]
+
+  @@unique([month, year])
+  @@index([status])
+}
+
+model ChallengeParticipant {
+  id                       String    @id @default(uuid())
+  challengeId              String
+  userId                   String
+  paid                     Boolean   @default(false)
+  paidAt                   DateTime?
+  amountPaid               Decimal?  @db.Decimal(10, 2)
+  paymentProofUrl          String?
+  paymentProofCloudinaryId String?
+  paymentProofUploadedAt   DateTime?
+  joinedAt                 DateTime  @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([challengeId])
+  @@index([userId])
+}
+
+model ChallengeAward {
+  id          String   @id @default(uuid())
+  challengeId String
+  userId      String
+  notes       String?
+  awardedAt   DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([challengeId])
+  @@index([userId])
+}
+
+// ---------- Actividad diaria ----------
+
+enum ExerciseType {
+  RUNNING
+  ELLIPTICAL
+  TREADMILL
+  CYCLING
+  OTHER
+}
+
+enum ActivityStatus {
+  PENDING // subida, pendiente de validar
+  VALIDATED // cuenta para la constancia
+  REJECTED // no cumple requisitos
+}
+
+model DailyActivity {
+  id                String         @id @default(uuid())
+  challengeId       String
+  userId            String
+  date              DateTime       @db.Date // día de la actividad (no del upload)
+  exerciseType      ExerciseType
+  durationMinutes   Int
+  distanceKm        Decimal?       @db.Decimal(6, 2)
+  avgHeartRate      Int?
+  hasHeartRateProof Boolean        @default(false)
+  notes             String?
+  status            ActivityStatus @default(PENDING)
+  rejectionReason   String?
+  validatedById     String?
+  validatedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  challenge   Challenge       @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  validatedBy User?           @relation("ValidatedBy", fields: [validatedById], references: [id])
+  photos      ActivityPhoto[]
+
+  // Un participante solo puede tener UNA actividad por día por reto.
+  @@unique([challengeId, userId, date])
+  @@index([challengeId, date])
+  @@index([userId, status])
+}
+
+enum PhotoType {
+  ACTIVITY // foto/captura general
+  HEART_RATE // captura de FC
+  METRICS // captura de distancia/tiempo/etc.
+}
+
+model ActivityPhoto {
+  id           String    @id @default(uuid())
+  activityId   String
+  url          String
+  cloudinaryId String // public_id para borrar
+  type         PhotoType @default(ACTIVITY)
+  uploadedAt   DateTime  @default(now())
+
+  activity DailyActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+}

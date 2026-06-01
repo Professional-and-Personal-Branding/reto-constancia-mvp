@@ -1,0 +1,4 @@
+email,name,challengeMonth,challengeYear,date,exerciseType,durationMinutes,distanceKm,avgHeartRate,hasHeartRateProof,status,notes,photoUrl
+ana@reto.local,Ana Pérez,5,2026,2026-05-04,RUNNING,35,5.2,148,true,VALIDATED,Trote matutino,https://picsum.photos/seed/ana-0504/900/600
+bruno@reto.local,Bruno Díaz,5,2026,2026-05-05,CYCLING,40,12,135,false,VALIDATED,,
+carla@reto.local,Carla Soto,5,2026,2026-05-05,TREADMILL,30,4,150,true,PENDING,Cinta del gym,
