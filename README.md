@@ -147,6 +147,8 @@ App en `http://localhost:3001`.
 
 ### Opción principal: Seenode + Cloudinary
 
+> Guía paso a paso (root directory, build/start, puertos, env y post-deploy): [`docs/deploy-seenode.md`](docs/deploy-seenode.md).
+
 Seenode despliega desde GitHub autodetectando el runtime; se configuran los
 comandos de build/start y las variables de entorno desde el panel. La app debe
 escuchar en `0.0.0.0` y el puerto que definas en el panel (define `PORT` con ese
