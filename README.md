@@ -105,7 +105,7 @@ cp .env.example .env
 # Edita .env: DATABASE_URL, JWT_SECRET (openssl rand -base64 64),
 #             CLOUDINARY_*, SEED_ADMIN_*
 
-# Si usas Postgres local:
+# Si usas Postgres local (expuesto en el puerto 5433 del host para no chocar con otros Postgres):
 cd .. && docker compose up -d && cd backend
 
 npm install
@@ -200,6 +200,12 @@ Pasos:
   - Frontend: `npm ci` → `lint` → `build`.
 - Gitflow y convención de commits: ver `docs/gitflow.md`.
 - Seguridad / OWASP: ver `docs/security-owasp.md`.
+- Casos de prueba (paso a paso): ver `docs/test-cases.md`.
+- Sesiones paralelas (admin+participante): `node scripts/parallel-session-test.mjs`.
+- Documentación técnica + diagramas: ver `docs/architecture.md`.
+- Reglas configurables y variabilidad mes a mes: ver `docs/challenge-rules.md`.
+- Metodología Spec-Driven Development (OpenSpec): specs en `openspec/`, comandos `/opsx:*` en `.claude/commands/opsx/`.
+- Optimización de tokens en Claude Code (`rtk` + `headroom`): ver `docs/token-optimization.md`.
 
 ## Reglas del reto (configurables por `Challenge`)
 
@@ -235,7 +241,8 @@ No se toca código, no se migra nada. Los datos históricos quedan accesibles.
 - `GET /api/auth/me` — perfil actual
 
 ### Challenges
-- `GET /api/challenges/active` — reto vigente
+- `GET /api/challenges/active` — reto activo por defecto del usuario (el más reciente donde participa; si no, el activo más reciente)
+- `GET /api/challenges/active/list` — todos los retos activos (más reciente primero) con `isParticipant`
 - `GET /api/challenges/:id/results` — ranking + ganadores + notas
 - `POST /api/challenges` (admin) — crear
 - `POST /api/challenges/:id/close` (admin) — cerrar
