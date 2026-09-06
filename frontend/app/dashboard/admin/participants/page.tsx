@@ -3,15 +3,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Challenge, ChallengeParticipant, SafeUser } from '@/lib/types';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import type { ChallengeParticipant, SafeUser } from '@/lib/types';
 
 export default function ParticipantsPage() {
   const qc = useQueryClient();
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const { data: participants } = useQuery<ChallengeParticipant[]>({
     queryKey: ['participants', challenge?.id],

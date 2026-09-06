@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import type { Challenge, ExerciseType, PhotoType } from '@/lib/types';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import type { ExerciseType, PhotoType } from '@/lib/types';
 
 interface PhotoSlot {
   file: File | null;
@@ -31,10 +32,7 @@ export default function UploadPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const [date, setDate] = useState(isoToday());
   const [exerciseType, setExerciseType] = useState<ExerciseType>('RUNNING');

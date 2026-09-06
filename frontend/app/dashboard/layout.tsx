@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/cn';
+import { ChallengeSelector } from '@/components/challenge-selector';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -74,6 +75,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <ChallengeSelector />
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium leading-tight">{user.name}</p>
               <p className="text-xs text-ink-mute">
