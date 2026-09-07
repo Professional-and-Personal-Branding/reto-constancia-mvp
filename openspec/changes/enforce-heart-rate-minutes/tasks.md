@@ -43,5 +43,5 @@
 
 - [x] 8.1 `openspec validate enforce-heart-rate-minutes --strict`; map every scenario to a test or manual check above
 - [x] 8.2 Backend lint+build+unit+e2e and frontend lint+tsc+build green locally
-- [ ] 8.3 Conventional Commits on `feature/enforce-heart-rate-minutes`, PR to `develop`, CI green
+- [x] 8.3 Conventional Commits on `feature/enforce-heart-rate-minutes`, PR to `develop`, CI green
 - [ ] 8.4 After merge: `/opsx:archive enforce-heart-rate-minutes` and verify `openspec/specs/activity-heart-rate-compliance/spec.md`
