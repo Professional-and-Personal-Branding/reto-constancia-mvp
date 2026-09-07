@@ -7,7 +7,7 @@ Cubren backend (API) y frontend (UI), con datos concretos del seed local.
 
 | Recurso | Valor |
 |---|---|
-| Frontend | http://localhost:3001 |
+| Frontend | http://localhost:3005 |
 | API | http://localhost:3002/api |
 | Swagger | http://localhost:3002/api/docs |
 | Admin | `admin@reto.local` / `ChangeMe123!` |
@@ -22,7 +22,7 @@ docker start reto-constancia-db
 cd backend && npm run prisma:seed
 # 3) Servidores
 cd backend && npm run start:dev      # API en :3002
-cd frontend && npm run dev           # UI en :3001
+cd frontend && npm run dev           # UI en :3005
 ```
 
 **Cobertura automatizada (referencia):**
@@ -40,7 +40,7 @@ Convención de cada caso: **ID · Objetivo · Precondición · Pasos · Resultad
 ### TC-AUTH-01 · Registro de participante (happy path)
 - **Precondición:** email no registrado.
 - **Pasos:**
-  1. UI: ir a http://localhost:3001/register.
+  1. UI: ir a http://localhost:3005/register.
   2. Nombre "Test User", email `test1@reto.local`, password `Passw0rd1`.
   3. Enviar.
 - **Esperado:** 201; sesión iniciada; redirección a `/dashboard`; rol `PARTICIPANT`.
