@@ -131,11 +131,11 @@ npm install
 npm run dev
 ```
 
-App en `http://localhost:3001`.
+App en `http://localhost:3005` (el frontend usa :3005 y la API :3002 para no chocar con otros proyectos locales en :3000/:3001; Postgres local en :5433).
 
 ### Probando el flujo
 
-1. Entra a `http://localhost:3001/login` con las credenciales del admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`).
+1. Entra a `http://localhost:3005/login` con las credenciales del admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`).
 2. Registra a tus 4 amigos en `/register` (o que se registren ellos).
 3. Como admin, ve a "Participantes" y agrégalos al reto.
 4. Cada participante entra y sube actividades en "Subir actividad".

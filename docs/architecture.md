@@ -25,7 +25,7 @@ reto mensual de constancia. Complementa:
 flowchart TB
   participante["Participante"] -->|navegador| fe
   admin["Administrador"] -->|navegador| fe
-  subgraph cliente["Frontend (Next.js :3001)"]
+  subgraph cliente["Frontend (Next.js :3005)"]
     fe["UI + TanStack Query"]
   end
   subgraph servidor["Backend (NestJS :3002, prefijo /api)"]
