@@ -130,9 +130,11 @@ model DailyActivity {
   distanceKm        Decimal?       @db.Decimal(6, 2)
   avgHeartRate      Int?
   hasHeartRateProof Boolean        @default(false)
+  heartRateMinutes  Int? // minutos de registro de FC según la captura (regla minHeartRateMinutes del reto)
   notes             String?
   status            ActivityStatus @default(PENDING)
   rejectionReason   String?
+  validationNote    String? // nota del admin al validar una actividad que no cumple la regla de FC (override)
   validatedById     String?
   validatedAt       DateTime?
   createdAt         DateTime       @default(now())

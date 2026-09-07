@@ -213,6 +213,34 @@ Convención de cada caso: **ID · Objetivo · Precondición · Pasos · Resultad
 - **Pasos:** participante elimina su actividad `PENDING`; e intenta eliminar una `VALIDATED`.
 - **Esperado:** la `PENDING` → 204; la `VALIDATED` → 403 (admin sí puede borrar cualquiera).
 
+### TC-ACT-13 · Regla de FC: registro por debajo del mínimo
+- **Precondición:** reto `ACTIVE` con `minHeartRateMinutes = 30`, participante inscrito.
+- **Pasos:** `POST /activities` con `heartRateMinutes: 20` y foto `HEART_RATE`.
+- **Esperado:** 400; el mensaje menciona `30`; no se crea la actividad. También 400 si falta la foto `HEART_RATE`, si falta `heartRateMinutes`, o si `heartRateMinutes > durationMinutes`.
+- *(Automatizado en `backend/test/activity-heart-rate.e2e-spec.ts` y `activities.service.spec.ts`.)*
+
+### TC-ACT-14 · Regla de FC: registro conforme
+- **Pasos:** `POST /activities` con `durationMinutes: 45`, `heartRateMinutes: 35`, fotos `ACTIVITY` + `HEART_RATE` (aunque `hasHeartRateProof` venga `false`).
+- **Esperado:** 201; `hasHeartRateProof: true` (derivado de las fotos), `heartRateCompliant: true`.
+
+### TC-ACT-15 · Validar actividad no conforme requiere override
+- **Precondición:** actividad `PENDING` con `heartRateMinutes` bajo el mínimo o sin captura (p. ej. importada).
+- **Pasos:** `POST /activities/:id/validate` sin cuerpo; luego con `{ override: true }`; luego con `{ override: true, note: "..." }`.
+- **Esperado:** 400, 400, y finalmente `VALIDATED` con `validationNote` igual a la nota y `heartRateCompliant: false`. Una actividad conforme se valida sin cuerpo y deja `validationNote: null`.
+- **UI:** en Validaciones la tarjeta muestra "No cumple FC"; al pulsar Validar pide la nota antes de enviar.
+
+### TC-ACT-16 · Importación con `heartRateMinutes` y advertencias
+- **Pasos:** previsualizar un CSV con una fila sin `heartRateMinutes` ni `hasHeartRateProof` para un reto con mínimo 20, y otra conforme.
+- **Esperado:** ambas válidas; la primera con `warnings` que mencionan el mínimo; `summary.warnings = 1`; el commit importa ambas. Una fila con `heartRateMinutes > durationMinutes` es error.
+
+### TC-ACT-17 · Reto sin regla de FC
+- **Pasos:** crear reto con `minHeartRateMinutes: 0`; registrar una actividad sin `heartRateMinutes` ni captura.
+- **Esperado:** 201 en ambos; `heartRateCompliant: true`.
+
+### TC-ACT-18 · Formulario de subida guiado
+- **Pasos:** con el reto de diciembre (mínimo 30) seleccionado, ingresar 20 en "Minutos con FC"; luego 30 sin captura; luego 30 con captura.
+- **Esperado:** botón deshabilitado con explicación en los dos primeros casos; habilitado en el tercero.
+
 ---
 
 ## 5. Resultados y premiación

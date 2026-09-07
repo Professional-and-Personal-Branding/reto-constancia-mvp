@@ -36,7 +36,13 @@ describe('Ciclo de vida de retos y múltiples activos (e2e)', () => {
     cloudinaryId: 'e2e/lifecycle/activity',
     type: 'ACTIVITY',
   };
+  const hrPhoto = {
+    url: 'https://example.com/e2e/hr.jpg',
+    cloudinaryId: 'e2e/lifecycle/hr',
+    type: 'HEART_RATE',
+  };
 
+  // Cumple la regla de FC por defecto (minHeartRateMinutes = 20): minutos con FC + captura
   function activityBody(challengeId: string, date: string) {
     return {
       challengeId,
@@ -45,8 +51,8 @@ describe('Ciclo de vida de retos y múltiples activos (e2e)', () => {
       durationMinutes: 30,
       distanceKm: 5,
       avgHeartRate: 140,
-      hasHeartRateProof: true,
-      photos: [photo],
+      heartRateMinutes: 25,
+      photos: [photo, hrPhoto],
     };
   }
 

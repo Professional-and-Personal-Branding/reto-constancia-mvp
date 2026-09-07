@@ -72,12 +72,17 @@ async function main() {
   // ---- 2. Participante consulta el reto activo ----
   section('2. Participante consulta el reto activo');
   const active = await req('GET', '/challenges/active', { token: anaTok });
-  const challengeId = active.json?.id;
-  check('Hay un reto activo', !!challengeId, active.json?.name);
+  // Puede haber varios retos activos (p. ej. diciembre si una corrida anterior se interrumpió):
+  // las secciones 3-6 trabajan sobre el reto seed de mayo 2026.
+  const activeListStart = await req('GET', '/challenges/active/list', { token: anaTok });
+  const mayChallenge = activeListStart.json?.find((c) => c.month === 5 && c.year === 2026);
+  const challengeId = mayChallenge?.id ?? active.json?.id;
+  check('Hay un reto activo', !!challengeId, mayChallenge?.name ?? active.json?.name);
+  check('GET /challenges/active devuelve un reto donde Ana participa', active.json?.participants?.some((p) => p.userId === meAna.json?.id) === true, active.json?.name);
 
   // ---- 3. Participante registra una actividad (día válido libre) ----
   section('3. Participante registra actividad del día');
-  const candidateDates = ['2026-05-06', '2026-05-07', '2026-05-08', '2026-05-11'];
+  const candidateDates = ['2026-05-06', '2026-05-07', '2026-05-08', '2026-05-11', '2026-05-12', '2026-05-13', '2026-05-14', '2026-05-15'];
   let created = null;
   for (const date of candidateDates) {
     const r = await req('POST', '/activities', {
@@ -89,10 +94,11 @@ async function main() {
         durationMinutes: 32,
         distanceKm: 5.5,
         avgHeartRate: 145,
-        hasHeartRateProof: true,
+        heartRateMinutes: 25, // regla de FC del reto (mínimo 20 en mayo)
         notes: 'Sesión paralela: actividad de prueba.',
         photos: [
           { url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/parallel', type: 'ACTIVITY' },
+          { url: `${BASE.replace('/api', '')}/uploads/test-hr.png`, cloudinaryId: 'test/parallel-hr', type: 'HEART_RATE' },
         ],
       },
     });
@@ -229,9 +235,10 @@ async function main() {
         durationMinutes: 40,
         distanceKm: 12,
         avgHeartRate: 138,
-        hasHeartRateProof: true,
+        heartRateMinutes: 35, // regla de FC del reto (mínimo 30 en diciembre)
         photos: [
           { url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/parallel-dec', type: 'ACTIVITY' },
+          { url: `${BASE.replace('/api', '')}/uploads/test-hr.png`, cloudinaryId: 'test/parallel-dec-hr', type: 'HEART_RATE' },
         ],
       },
     });
@@ -243,6 +250,63 @@ async function main() {
   check('Ranking del segundo reto disponible', Array.isArray(decResults.json?.ranking));
   const mayAfter = await req('GET', `/challenges/${challengeId}/results`, { token: adminTok });
   check('El ranking de mayo no cambia por actividades de diciembre', mayAfter.json?.topScore === results.json?.topScore, `topScore=${mayAfter.json?.topScore}`);
+
+  // ---- 9. Regla de FC (OpenSpec: activity-heart-rate-compliance) ----
+  section('9. Regla de frecuencia cardíaca (minHeartRateMinutes)');
+  check('Actividad conforme trae heartRateCompliant=true', decCreated?.heartRateCompliant === true && decCreated?.hasHeartRateProof === true);
+  const belowMin = await req('POST', '/activities', {
+    token: anaTok,
+    body: {
+      challengeId: sid,
+      date: '2026-12-20',
+      exerciseType: 'RUNNING',
+      durationMinutes: 40,
+      heartRateMinutes: 20,
+      photos: [
+        { url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/below', type: 'ACTIVITY' },
+        { url: `${BASE.replace('/api', '')}/uploads/test-hr.png`, cloudinaryId: 'test/below-hr', type: 'HEART_RATE' },
+      ],
+    },
+  });
+  check('Registro con 20 min de FC en reto de 30 -> 400 mencionando 30', belowMin.status === 400 && JSON.stringify(belowMin.json?.message).includes('30'), `status=${belowMin.status}`);
+  const noCapture = await req('POST', '/activities', {
+    token: anaTok,
+    body: {
+      challengeId: sid,
+      date: '2026-12-20',
+      exerciseType: 'RUNNING',
+      durationMinutes: 40,
+      heartRateMinutes: 35,
+      photos: [{ url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/nocap', type: 'ACTIVITY' }],
+    },
+  });
+  check('Registro sin captura de FC -> 400', noCapture.status === 400, `status=${noCapture.status}`);
+
+  // Registro histórico importado como PENDING sin FC -> el admin necesita override + nota para validarlo
+  const csv = [
+    'email,name,challengeMonth,challengeYear,date,exerciseType,durationMinutes,distanceKm,avgHeartRate,heartRateMinutes,hasHeartRateProof,status,notes,photoUrl',
+    `${ANA.email},Ana,12,2026,2026-12-26,RUNNING,40,5,140,,false,PENDING,historico,`,
+  ].join('\n');
+  const fd = new FormData();
+  fd.append('file', new Blob([csv], { type: 'text/csv' }), 'historico.csv');
+  const previewRes = await fetch(`${BASE}/import/activities/preview`, { method: 'POST', headers: { Authorization: `Bearer ${adminTok}` }, body: fd });
+  const previewJson = await previewRes.json().catch(() => null);
+  check('Import preview marca la fila sin FC como advertencia (no error)', previewJson?.summary?.valid === 1 && previewJson?.summary?.warnings === 1, JSON.stringify(previewJson?.summary));
+  const fd2 = new FormData();
+  fd2.append('file', new Blob([csv], { type: 'text/csv' }), 'historico.csv');
+  const commitRes = await fetch(`${BASE}/import/activities/commit?defaultStatus=PENDING&duplicateStrategy=update`, { method: 'POST', headers: { Authorization: `Bearer ${adminTok}` }, body: fd2 });
+  const commitJson = await commitRes.json().catch(() => null);
+  check('Import commit crea/actualiza la fila histórica', (commitJson?.created ?? 0) + (commitJson?.updated ?? 0) === 1, JSON.stringify(commitJson));
+  const pendingDec = await req('GET', `/activities/pending?challengeId=${sid}`, { token: adminTok });
+  const historic = pendingDec.json?.find((a) => a.notes === 'historico' && a.user?.email === ANA.email);
+  check('La actividad histórica figura como no conforme', !!historic && historic.heartRateCompliant === false, historic ? `hr=${historic.heartRateMinutes}` : 'no encontrada');
+  if (historic) {
+    const plain = await req('POST', `/activities/${historic.id}/validate`, { token: adminTok });
+    check('Validar sin override -> 400', plain.status === 400, `status=${plain.status}`);
+    const withNote = await req('POST', `/activities/${historic.id}/validate`, { token: adminTok, body: { override: true, note: 'Registro histórico verificado en persona' } });
+    check('Validar con override + nota -> VALIDATED con validationNote', withNote.json?.status === 'VALIDATED' && withNote.json?.validationNote === 'Registro histórico verificado en persona', `status=${withNote.status}`);
+    await req('DELETE', `/activities/${historic.id}`, { token: adminTok });
+  }
 
   // Cierre del segundo reto: mayo sigue activo, el cerrado ya no se lista ni se reactiva
   const closeDec = await req('POST', `/challenges/${sid}/close`, { token: adminTok });
@@ -257,6 +321,9 @@ async function main() {
   if (decCreated) await req('DELETE', `/activities/${decCreated.id}`, { token: anaTok });
   const reset = await req('PATCH', `/challenges/${sid}`, { token: adminTok, body: { status: 'DRAFT' } });
   check('Segundo reto vuelve a DRAFT (limpieza)', reset.json?.status === 'DRAFT', `status=${reset.status}`);
+
+  // Limpieza: la actividad de mayo creada en la sección 3 se elimina (admin) para que la corrida sea repetible
+  if (created) await req('DELETE', `/activities/${created.id}`, { token: adminTok });
 
   // ---- Resumen ----
   section('Resumen');

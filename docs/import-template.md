@@ -36,6 +36,7 @@ Solo usuarios con rol `ADMIN` pueden importar.
 - `durationMinutes` (obligatorio): entero >= 1.
 - `distanceKm` (opcional): número (admite coma o punto decimal).
 - `avgHeartRate` (opcional): entero >= 30.
+- `heartRateMinutes` (opcional): entero >= 1 con los minutos de registro de FC de la captura; no puede superar `durationMinutes`. Junto con `hasHeartRateProof` determina si la fila cumple la regla `minHeartRateMinutes` del reto.
 - `hasHeartRateProof` (opcional): `true`/`false` (también `si`, `1`, `x`).
 - `status` (opcional): `PENDING`, `VALIDATED` o `REJECTED`. Si se omite, se usa el "Estado por defecto" elegido en la UI (por defecto `VALIDATED`).
 - `notes` (opcional): texto libre.
@@ -48,6 +49,7 @@ Solo usuarios con rol `ADMIN` pueden importar.
   - Si ya existe y la estrategia es **Omitir** (`skip`), la fila se cuenta como omitida.
   - Si la estrategia es **Actualizar** (`update`), se sobrescribe con los datos de la fila.
 - Si `status = VALIDATED`, la actividad queda validada por el admin que importa (cuenta para el ranking).
+- **Regla de FC:** una fila válida que no cumple `minHeartRateMinutes` del reto (falta `heartRateMinutes`, es menor al mínimo o `hasHeartRateProof` es `false`) se reporta como **advertencia** (`warnings`) y se importa igual. Si queda `PENDING`, el admin deberá validarla con override y nota.
 - Usuarios creados durante la importación reciben un password temporal (configurable en la UI; si no, se genera aleatorio). Deben restablecerlo para iniciar sesión.
 
 ## Endpoints (backend)

@@ -112,8 +112,11 @@ erDiagram
     int durationMinutes
     decimal distanceKm
     int avgHeartRate
+    int heartRateMinutes "minutos de FC según la captura"
+    bool hasHeartRateProof
     enum status "PENDING|VALIDATED|REJECTED"
     string rejectionReason
+    string validationNote "nota del admin al validar con override"
   }
   ChallengeAward {
     uuid id PK
@@ -204,10 +207,12 @@ sequenceDiagram
   CL-->>FE: secure_url, public_id
   FE->>API: POST /activities (challengeId, fecha, fotos)
   API->>API: valida activo + participante + período + día válido + 1/día + foto
+  API->>API: regla FC: heartRateMinutes >= minHeartRateMinutes y foto HEART_RATE (400 si no cumple)
   API-->>FE: actividad PENDING
 
   A->>API: GET /activities/pending
   A->>API: POST /activities/:id/validate (o /reject)
+  Note over A,API: si la actividad no cumple la regla de FC: 400 salvo { override: true, note } (queda en validationNote)
   API-->>A: VALIDATED / REJECTED
 
   Note over API: ResultsService recalcula ranking

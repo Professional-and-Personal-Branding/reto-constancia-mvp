@@ -249,10 +249,10 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
           />
         </div>
         <div>
-          <label className="label">Min FC (minutos)</label>
+          <label className="label">Min FC (minutos, 0 = sin regla)</label>
           <input
             type="number"
-            min={1}
+            min={0}
             className="input"
             value={minHr}
             onChange={(e) => setMinHr(parseInt(e.target.value, 10))}

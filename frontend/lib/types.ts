@@ -82,9 +82,15 @@ export interface DailyActivity {
   distanceKm: string | null;
   avgHeartRate: number | null;
   hasHeartRateProof: boolean;
+  /** Minutos de registro de FC según la captura (regla minHeartRateMinutes) */
+  heartRateMinutes: number | null;
   notes: string | null;
   status: ActivityStatus;
   rejectionReason: string | null;
+  /** Nota del admin cuando validó con override una actividad que no cumple la regla de FC */
+  validationNote: string | null;
+  /** Derivado por la API: cumple la regla de FC del reto */
+  heartRateCompliant: boolean;
   validatedAt: string | null;
   createdAt: string;
   photos: ActivityPhoto[];
@@ -137,11 +143,12 @@ export interface ImportPreviewRow {
   row: number;
   data: Record<string, unknown>;
   errors: string[];
+  warnings: string[];
   valid: boolean;
 }
 
 export interface ImportPreviewResult {
-  summary: { total: number; valid: number; invalid: number };
+  summary: { total: number; valid: number; invalid: number; warnings: number };
   rows: ImportPreviewRow[];
 }
 
