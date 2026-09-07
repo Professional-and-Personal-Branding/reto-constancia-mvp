@@ -138,6 +138,21 @@ async function main() {
   const top = results.json?.ranking?.[0];
   check('Top del ranking calculado', !!top, top ? `${top.name} (${top.validatedDays} días)` : '');
 
+  // ---- 5b. Finanzas del reto (OpenSpec: challenge-finance) ----
+  section('5b. Finanzas: cuota, pagos y payout');
+  const fin = await req('GET', `/challenges/${challengeId}/finance`, { token: adminTok });
+  const f = fin.json ?? {};
+  const r2 = (n) => Math.round(n * 100) / 100;
+  check('Admin obtiene el resumen financiero', fin.status === 200 && typeof f.expectedTotal === 'number', `status=${fin.status}`);
+  check('Esperado = cuota x inscritos', f.expectedTotal === r2(f.feePerParticipant * f.participantsTotal), `${f.expectedTotal} vs ${f.feePerParticipant}x${f.participantsTotal}`);
+  check('Pendiente = max(0, esperado - recaudado)', f.pendingTotal === Math.max(0, r2(f.expectedTotal - f.collectedTotal)), `recaudado=${f.collectedTotal} pendiente=${f.pendingTotal}`);
+  check('Cobertura del presupuesto coherente', f.budgetCovered === (f.collectedTotal >= f.budgetTotal) && f.budgetDelta === r2(f.collectedTotal - f.budgetTotal), `delta=${f.budgetDelta}`);
+  check('Estado de pago válido por participante', Array.isArray(f.participants) && f.participants.length === f.participantsTotal && f.participants.every((p) => ['paid', 'partial', 'unpaid'].includes(p.state)) && f.counts.paid + f.counts.partial + f.counts.unpaid === f.participantsTotal);
+  const finAna = await req('GET', `/challenges/${challengeId}/finance`, { token: anaTok });
+  check('Ana NO puede ver finanzas (403)', finAna.status === 403, `status=${finAna.status}`);
+  const payout = results.json?.payout;
+  check('Results incluye payout con pote = presupuesto', !!payout && payout.pot === f.budgetTotal && typeof payout.perWinner === 'number' && payout.monetary === (f.budgetTotal > 0), JSON.stringify(payout));
+
   // ---- 6. RBAC: el participante NO puede acciones de admin ----
   section('6. RBAC (control de acceso por rol)');
   const anaCreateChallenge = await req('POST', '/challenges', {

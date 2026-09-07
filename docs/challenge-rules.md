@@ -98,9 +98,24 @@ peso por tipo de ejercicio, etc.
 → Si esto cambia entre meses, hay que parametrizarlo (nuevos campos en
 `Challenge`) o introducir un motor de reglas.
 
-**Gap #4 — Cuota/presupuesto son informativos.**
-`feePerParticipant`/`budgetTotal` se muestran pero no se concilian con los pagos
-ni se reparte el premio automáticamente.
+**Gap #4 — Cuota/presupuesto conciliados con los pagos. RESUELTO** (cambio
+OpenSpec `budget-payout-reconciliation`, spec `challenge-finance`).
+
+- **Estado de pago** por participante: `paid` (pagó al menos la cuota), `partial`
+  (pagó menos; incluye filas históricas marcadas pagadas sin monto), `unpaid`.
+  Con cuota 0 todos cuentan como pagados.
+- **Resumen financiero** (`GET /challenges/:id/finance`, solo admin): esperado
+  (cuota × inscritos), recaudado (suma de montos confirmados por el admin),
+  pendiente, cobertura del presupuesto (`budgetCovered`, `budgetDelta`) y la lista
+  con el estado de cada participante. La página de participantes lo muestra en
+  tarjetas.
+- **Payout** en `GET /challenges/:id/results`: el pote es el `budgetTotal` del reto
+  y se reparte entre los premiados manuales si existen, si no entre los ganadores
+  calculados (redondeo hacia abajo a 2 decimales). Presupuesto 0 = premio no
+  monetario. No altera el ranking ni los ganadores.
+- Marcar pagado sin monto registra la cuota; marcar impago limpia monto y fecha.
+- **Pendiente de negocio (no implementado):** excluir morosos del premio o usar
+  lo recaudado como pote. Ambas cosas requieren una decisión explícita.
 
 ## 4. Plantilla para comparar reglas de dos meses
 

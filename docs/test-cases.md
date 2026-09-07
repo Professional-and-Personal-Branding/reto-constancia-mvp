@@ -266,6 +266,28 @@ Convención de cada caso: **ID · Objetivo · Precondición · Pasos · Resultad
 - **Pasos:** `award` con un `userId` que no participa.
 - **Esperado:** 400 "Solo se puede premiar a participantes del reto".
 
+### TC-FIN-01 · Marcar pago sin monto
+- **Pasos:** `PATCH /challenges/:id/participants/:userId/payment` con `{ paid: true }`; luego con `{ paid: true, amountPaid: 60 }`; luego `{ paid: false }`.
+- **Esperado:** primero `amountPaid` = cuota del reto y `paidAt` seteado; luego 60; al marcar impago `amountPaid` y `paidAt` quedan `null`.
+
+### TC-FIN-02 · Resumen financiero
+- **Precondición:** reto con cuota 120, presupuesto 600 y 5 inscritos: 3 pagaron 120, 1 pagó 60, 1 no pagó.
+- **Pasos:** `GET /challenges/:id/finance` como admin.
+- **Esperado:** `expectedTotal 600`, `collectedTotal 420`, `pendingTotal 180`, `budgetCovered false`, `budgetDelta -180`, `counts { paid: 3, partial: 1, unpaid: 1 }`, cada participante con su `state`.
+- *(Automatizado en `backend/test/challenge-finance.e2e-spec.ts` y `finance.service.spec.ts`.)*
+
+### TC-FIN-03 · Finanzas solo admin
+- **Pasos:** `GET /challenges/:id/finance` como participante; y como admin con un id inexistente.
+- **Esperado:** 403 y 404.
+
+### TC-FIN-04 · Payout en resultados
+- **Pasos:** `GET /challenges/:id/results` con presupuesto 600 y un ganador; con dos empatados; con premiación manual de 3; con presupuesto 0.
+- **Esperado:** `payout.perWinner` 600, 300, 200; con presupuesto 0 `monetary false` y `perWinner 0`. El ranking no cambia.
+
+### TC-FIN-05 · UI de finanzas
+- **Pasos:** admin abre Participantes; marca/desmarca un pago; participante abre Ranking.
+- **Esperado:** tarjetas Esperado / Recaudado / Pendiente / Presupuesto que se actualizan al cambiar pagos; chip `Parcial` con el monto y lo que debe; en Ranking se ve "Premio: X por ganador" (o "Premio no monetario"), marcado como proyectado mientras el reto está activo.
+
 ---
 
 ## 6. Carga de archivos (Cloudinary / simulador local)

@@ -17,6 +17,7 @@ const baseChallenge = {
   startDate: new Date('2026-05-01T00:00:00Z'),
   endDate: new Date('2026-05-31T00:00:00Z'),
   validDays: [1, 2, 3, 4, 5, 6],
+  budgetTotal: '600.00',
   participants: [
     { userId: 'u1', paid: true, user: { id: 'u1', name: 'Ana', email: 'a@x' } },
     { userId: 'u2', paid: true, user: { id: 'u2', name: 'Bruno', email: 'b@x' } },
@@ -38,6 +39,7 @@ describe('ResultsService.getResults', () => {
     expect(r.winners).toHaveLength(1);
     expect(r.winners[0].userId).toBe('u1');
     expect(r.drawNeeded).toBe(false);
+    expect(r.payout).toEqual({ pot: 600, winnersCount: 1, perWinner: 600, monetary: true });
   });
 
   it('empate de 2 -> ambos ganan sin sorteo', async () => {
@@ -50,6 +52,8 @@ describe('ResultsService.getResults', () => {
     expect(r.tiedAtTop).toHaveLength(2);
     expect(r.winners).toHaveLength(2);
     expect(r.drawNeeded).toBe(false);
+    expect(r.payout.perWinner).toBe(300);
+    expect(r.payout.winnersCount).toBe(2);
   });
 
   it('sin actividades validadas -> sin ganador', async () => {
@@ -58,6 +62,7 @@ describe('ResultsService.getResults', () => {
     const r = await svc.getResults('c1');
     expect(r.topScore).toBe(0);
     expect(r.winners).toHaveLength(0);
+    expect(r.payout).toEqual({ pot: 600, winnersCount: 0, perWinner: 0, monetary: true });
   });
 
   it('una premiación registrada manda sobre el cálculo automático', async () => {
@@ -81,5 +86,17 @@ describe('ResultsService.getResults', () => {
     expect(r.winners).toHaveLength(1);
     expect(r.winners[0].userId).toBe('u2');
     expect(r.drawNeeded).toBe(false);
+    expect(r.payout.winnersCount).toBe(1);
+    expect(r.payout.perWinner).toBe(600);
+  });
+
+  it('presupuesto 0 -> premio no monetario', async () => {
+    const acts = [{ userId: 'u1', status: 'VALIDATED', distanceKm: 5 }];
+    const svc = new ResultsService(
+      buildPrismaMock({ ...baseChallenge, budgetTotal: '0.00' }, acts),
+    );
+    const r = await svc.getResults('c1');
+    expect(r.payout.monetary).toBe(false);
+    expect(r.payout.perWinner).toBe(0);
   });
 });
