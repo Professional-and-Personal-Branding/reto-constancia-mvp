@@ -128,6 +128,42 @@ export interface ChallengeResults {
   awards: ChallengeAward[];
   drawNeeded: boolean;
   notes: string[];
+  /** Reparto del presupuesto entre ganadores (informativo) */
+  payout: ChallengePayout;
+}
+
+export interface ChallengePayout {
+  pot: number;
+  winnersCount: number;
+  perWinner: number;
+  monetary: boolean;
+}
+
+export type PaymentState = 'paid' | 'partial' | 'unpaid';
+
+export interface ParticipantFinance {
+  userId: string;
+  name: string;
+  email: string;
+  state: PaymentState;
+  amountPaid: number;
+  paidAt: string | null;
+}
+
+export interface ChallengeFinance {
+  challengeId: string;
+  challengeName: string;
+  currency: string;
+  feePerParticipant: number;
+  budgetTotal: number;
+  participantsTotal: number;
+  counts: { paid: number; partial: number; unpaid: number };
+  expectedTotal: number;
+  collectedTotal: number;
+  pendingTotal: number;
+  budgetCovered: boolean;
+  budgetDelta: number;
+  participants: ParticipantFinance[];
 }
 
 export interface CloudinarySignature {

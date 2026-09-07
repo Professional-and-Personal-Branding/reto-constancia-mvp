@@ -56,6 +56,18 @@ export default function ResultsPage() {
             {results.topScore} día{results.topScore === 1 ? '' : 's'}
           </span>
         </p>
+        {results.payout && (
+          <p className="text-sm text-ink-dim mt-2" aria-label="Premio por ganador">
+            {!results.payout.monetary
+              ? 'Premio no monetario (presupuesto 0).'
+              : results.payout.winnersCount === 0
+                ? `Pote ${results.payout.pot} ${challenge.currency} · aún sin ganador.`
+                : `Premio: ${results.payout.perWinner} ${challenge.currency} por ganador` +
+                  (results.payout.winnersCount > 1 ? ` (${results.payout.winnersCount})` : '') +
+                  ` · pote ${results.payout.pot} ${challenge.currency}` +
+                  (results.status === 'COMPLETED' ? '' : ' · proyectado')}
+          </p>
+        )}
       </div>
 
       {/* Ganadores (si el reto está cerrado) */}

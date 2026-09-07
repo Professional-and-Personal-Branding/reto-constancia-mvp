@@ -285,7 +285,7 @@ Comandos, variables y pasos: `docs/deploy-seenode.md`. Migraciones con
 | Área | Endpoint | Rol |
 |---|---|---|
 | Auth | `POST /auth/register` · `POST /auth/login` · `POST /auth/refresh` · `GET /auth/me` | público / autenticado |
-| Retos | `POST /challenges` · `PATCH /challenges/:id` · `:id/activate` · `:id/close` · `:id/awards` | ADMIN |
+| Retos | `POST /challenges` · `PATCH /challenges/:id` · `:id/activate` · `:id/close` · `:id/awards` · `GET :id/finance` | ADMIN |
 | Retos | `GET /challenges` · `GET /challenges/active` · `GET /challenges/active/list` · `GET /challenges/:id` · `:id/results` · `:id/participants` | autenticado |
 | Participantes | `POST/DELETE /challenges/:id/participants...` · `PATCH .../payment` | ADMIN |
 | Pagos | `PATCH /challenges/:id/participants/me/payment-proof` | participante |

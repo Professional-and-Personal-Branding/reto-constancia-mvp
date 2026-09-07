@@ -192,12 +192,25 @@ export class ChallengesService {
     userId: string,
     dto: MarkPaymentDto,
   ) {
+    // Pagado sin monto explícito: se registra la cuota del reto (spec challenge-finance)
+    let amountPaid: number | null = null;
+    if (dto.paid) {
+      if (dto.amountPaid !== undefined) {
+        amountPaid = dto.amountPaid;
+      } else {
+        const challenge = await this.prisma.challenge.findUnique({
+          where: { id: challengeId },
+          select: { feePerParticipant: true },
+        });
+        amountPaid = challenge ? Number(challenge.feePerParticipant) : 0;
+      }
+    }
     return this.prisma.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId } },
       data: {
         paid: dto.paid,
         paidAt: dto.paid ? new Date() : null,
-        amountPaid: dto.paid ? (dto.amountPaid ?? null) : null,
+        amountPaid,
         paymentProofUrl: dto.paymentProofUrl,
         paymentProofCloudinaryId: dto.paymentProofCloudinaryId,
         paymentProofUploadedAt: dto.paymentProofUrl ? new Date() : undefined,

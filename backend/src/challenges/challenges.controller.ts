@@ -20,6 +20,7 @@ import { ChallengeStatus, UserRole } from '@prisma/client';
 
 import { ChallengesService } from './challenges.service';
 import { ResultsService } from './results.service';
+import { FinanceService } from './finance.service';
 import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
@@ -40,6 +41,7 @@ export class ChallengesController {
   constructor(
     private readonly challenges: ChallengesService,
     private readonly results: ResultsService,
+    private readonly finance: FinanceService,
   ) {}
 
   @Post()
@@ -103,6 +105,16 @@ export class ChallengesController {
   @ApiResponse({ status: 403, description: 'Solo administradores' })
   activate(@Param('id') id: string) {
     return this.challenges.activate(id);
+  }
+
+  @Get(':id/finance')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Resumen financiero del reto (admin): esperado, recaudado, pendiente, cobertura del presupuesto y estado de pago por participante',
+  })
+  getFinance(@Param('id') id: string) {
+    return this.finance.getFinance(id);
   }
 
   @Get(':id/results')

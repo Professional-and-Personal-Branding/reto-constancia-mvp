@@ -175,3 +175,40 @@ describe('ChallengesService.findActive', () => {
     expect(await svc.findActive('u1')).toBeNull();
   });
 });
+
+describe('ChallengesService.markPayment', () => {
+  function build() {
+    const update = jest.fn(({ data }: { data: Record<string, unknown> }) =>
+      Promise.resolve({ id: 'p1', ...data }),
+    );
+    const prisma = {
+      challenge: { findUnique: jest.fn().mockResolvedValue({ feePerParticipant: '120.00' }) },
+      challengeParticipant: { update },
+    } as unknown as PrismaService;
+    return { prisma, update };
+  }
+
+  it('pagado sin monto registra la cuota del reto', async () => {
+    const { prisma, update } = build();
+    await new ChallengesService(prisma).markPayment('c1', 'u1', { paid: true });
+    const data = update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data.amountPaid).toBe(120);
+    expect(data.paidAt).toBeInstanceOf(Date);
+  });
+
+  it('pagado con monto explícito respeta el monto', async () => {
+    const { prisma, update } = build();
+    await new ChallengesService(prisma).markPayment('c1', 'u1', { paid: true, amountPaid: 150 });
+    const data = update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data.amountPaid).toBe(150);
+  });
+
+  it('impago limpia monto y fecha', async () => {
+    const { prisma, update } = build();
+    await new ChallengesService(prisma).markPayment('c1', 'u1', { paid: false });
+    const data = update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data.paid).toBe(false);
+    expect(data.amountPaid).toBeNull();
+    expect(data.paidAt).toBeNull();
+  });
+});
