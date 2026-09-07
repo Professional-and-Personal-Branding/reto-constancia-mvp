@@ -64,6 +64,16 @@ export class CreateActivityDto {
   @Min(30)
   avgHeartRate?: number;
 
+  @ApiPropertyOptional({
+    minimum: 1,
+    description:
+      'Minutos de registro de FC según la captura. Obligatorio cuando el reto tiene minHeartRateMinutes > 0; no puede superar durationMinutes',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  heartRateMinutes?: number;
+
   @ApiPropertyOptional({ default: false })
   @IsOptional()
   @IsBoolean()

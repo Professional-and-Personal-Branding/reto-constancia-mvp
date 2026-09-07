@@ -14,6 +14,7 @@ describe('ImportService (parseo y validación)', () => {
     durationMinutes: '35',
     distanceKm: '5.2',
     avgHeartRate: '148',
+    heartRateMinutes: '30',
     hasHeartRateProof: 'true',
     status: 'VALIDATED',
     notes: 'ok',
@@ -58,6 +59,47 @@ describe('ImportService (parseo y validación)', () => {
     });
   });
 
+  describe('heartRateMinutes y advertencias de la regla de FC', () => {
+    it('parsea heartRateMinutes', () => {
+      const { normalized, errors } = service.validateRow({ ...base });
+      expect(errors).toHaveLength(0);
+      expect(normalized?.heartRateMinutes).toBe(30);
+    });
+
+    it('rechaza heartRateMinutes mayor que durationMinutes', () => {
+      const { normalized, errors } = service.validateRow({
+        ...base,
+        durationMinutes: '30',
+        heartRateMinutes: '45',
+      });
+      expect(normalized).toBeNull();
+      expect(errors.join(' ')).toMatch(/heartRateMinutes/);
+    });
+
+    it('la plantilla incluye la columna heartRateMinutes', () => {
+      const rows = service.parse(service.buildTemplate('csv').buffer);
+      expect(Object.keys(rows[0])).toContain('heartRateMinutes');
+    });
+
+    it('preview: fila sin FC en un reto con mínimo -> válida con advertencia', async () => {
+      const prisma = {
+        challenge: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'c', minHeartRateMinutes: 20 }),
+        },
+      } as unknown as PrismaService;
+      const svc = new ImportService(prisma);
+      const preview = await svc.preview(svc.buildTemplate('csv').buffer);
+      expect(preview.summary.invalid).toBe(0);
+      expect(preview.summary.warnings).toBe(1);
+      const ana = preview.rows.find((r) => String(r.data.email).startsWith('ana'));
+      const bruno = preview.rows.find((r) => String(r.data.email).startsWith('bruno'));
+      expect(ana?.valid).toBe(true);
+      expect(ana?.warnings).toHaveLength(0);
+      expect(bruno?.valid).toBe(true);
+      expect(bruno?.warnings.join(' ')).toMatch(/20/);
+    });
+  });
+
   describe('plantilla + parse', () => {
     it('genera CSV reparseable con las cabeceras esperadas', () => {
       const { buffer, filename } = service.buildTemplate('csv');
@@ -67,6 +109,14 @@ describe('ImportService (parseo y validación)', () => {
       expect(Object.keys(rows[0])).toEqual(
         expect.arrayContaining(['email', 'date', 'exerciseType']),
       );
+    });
+
+    it('conserva las fechas ISO de un CSV sin desfase de zona horaria', () => {
+      const csv = Buffer.from('email,date,durationMinutes\nx@y.z,2026-12-26,40\n', 'utf8');
+      const rows = service.parse(csv);
+      expect(rows[0].date).toBe('2026-12-26');
+      const { normalized } = service.validateRow({ ...base, ...rows[0] });
+      expect(normalized?.date).toBe('2026-12-26');
     });
 
     it('genera XLSX reparseable', () => {

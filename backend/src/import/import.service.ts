@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ImportOptionsDto, DuplicateStrategy } from './dto/import-options.dto';
+import { assessHeartRate } from '../activities/heart-rate-rule';
 
 export const TEMPLATE_HEADERS = [
   'email',
@@ -22,6 +23,7 @@ export const TEMPLATE_HEADERS = [
   'durationMinutes',
   'distanceKm',
   'avgHeartRate',
+  'heartRateMinutes',
   'hasHeartRateProof',
   'status',
   'notes',
@@ -41,6 +43,7 @@ export interface NormalizedRow {
   durationMinutes: number;
   distanceKm?: number;
   avgHeartRate?: number;
+  heartRateMinutes?: number;
   hasHeartRateProof: boolean;
   status?: ActivityStatus;
   notes?: string;
@@ -51,11 +54,13 @@ export interface PreviewRow {
   row: number;
   data: RawRow;
   errors: string[];
+  /** Filas válidas que no cumplen la regla de FC del reto (se importan igual) */
+  warnings: string[];
   valid: boolean;
 }
 
 export interface PreviewResult {
-  summary: { total: number; valid: number; invalid: number };
+  summary: { total: number; valid: number; invalid: number; warnings: number };
   rows: PreviewRow[];
 }
 
@@ -85,7 +90,9 @@ export class ImportService {
   parse(buffer: Buffer): RawRow[] {
     let wb: XLSX.WorkBook;
     try {
-      wb = XLSX.read(buffer, { type: 'buffer' });
+      // raw: true evita que el parser de CSV convierta fechas a serial con desfase de zona horaria
+      // ('2026-12-26' llegaba como '12/25/26'). Las celdas de XLSX conservan su tipo.
+      wb = XLSX.read(buffer, { type: 'buffer', raw: true });
     } catch {
       throw new BadRequestException(
         'No se pudo leer el archivo. Usa un CSV o XLSX válido.',
@@ -157,6 +164,17 @@ export class ImportService {
       }
     }
 
+    const hrMinRaw = get('heartRateMinutes');
+    let heartRateMinutes: number | undefined;
+    if (hrMinRaw) {
+      heartRateMinutes = Number(hrMinRaw);
+      if (!Number.isInteger(heartRateMinutes) || heartRateMinutes < 1) {
+        errors.push('heartRateMinutes debe ser un entero >= 1');
+      } else if (Number.isInteger(durationMinutes) && heartRateMinutes > durationMinutes) {
+        errors.push('heartRateMinutes no puede superar durationMinutes');
+      }
+    }
+
     const hasHeartRateProof = this.parseBool(get('hasHeartRateProof'));
 
     const statusRaw = get('status').toUpperCase();
@@ -185,6 +203,7 @@ export class ImportService {
         durationMinutes,
         distanceKm,
         avgHeartRate,
+        heartRateMinutes,
         hasHeartRateProof,
         status,
         notes,
@@ -198,19 +217,21 @@ export class ImportService {
 
   async preview(buffer: Buffer): Promise<PreviewResult> {
     const rows = this.parse(buffer);
-    const challengeExists = new Map<string, boolean>();
+    const challengeCache = new Map<string, Challenge | null>();
     const previews: PreviewRow[] = [];
     let valid = 0;
+    let warnings = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const { normalized, errors } = this.validateRow(rows[i]);
       const rowErrors = [...errors];
+      const rowWarnings: string[] = [];
 
       if (normalized) {
         const key = `${normalized.challengeMonth}-${normalized.challengeYear}`;
-        let exists = challengeExists.get(key);
-        if (exists === undefined) {
-          const ch = await this.prisma.challenge.findUnique({
+        let challenge = challengeCache.get(key);
+        if (challenge === undefined) {
+          challenge = await this.prisma.challenge.findUnique({
             where: {
               month_year: {
                 month: normalized.challengeMonth,
@@ -218,23 +239,40 @@ export class ImportService {
               },
             },
           });
-          exists = !!ch;
-          challengeExists.set(key, exists);
+          challengeCache.set(key, challenge);
         }
-        if (!exists) {
+        if (!challenge) {
           rowErrors.push(
             `No existe un reto para ${normalized.challengeMonth}/${normalized.challengeYear}`,
           );
+        } else {
+          // Regla de FC: se informa como advertencia, la fila se importa igual (registros históricos)
+          const assessment = assessHeartRate(challenge, {
+            heartRateMinutes: normalized.heartRateMinutes ?? null,
+            hasHeartRateProof: normalized.hasHeartRateProof,
+          });
+          if (!assessment.compliant) {
+            rowWarnings.push(
+              `No cumple la regla de FC del reto: ${assessment.reasons.join('. ')}`,
+            );
+          }
         }
       }
 
       const isValid = rowErrors.length === 0;
       if (isValid) valid++;
-      previews.push({ row: i + 2, data: rows[i], errors: rowErrors, valid: isValid });
+      if (isValid && rowWarnings.length > 0) warnings++;
+      previews.push({
+        row: i + 2,
+        data: rows[i],
+        errors: rowErrors,
+        warnings: isValid ? rowWarnings : [],
+        valid: isValid,
+      });
     }
 
     return {
-      summary: { total: rows.length, valid, invalid: rows.length - valid },
+      summary: { total: rows.length, valid, invalid: rows.length - valid, warnings },
       rows: previews,
     };
   }
@@ -359,6 +397,7 @@ export class ImportService {
           durationMinutes: n.durationMinutes,
           distanceKm: n.distanceKm ?? null,
           avgHeartRate: n.avgHeartRate ?? null,
+          heartRateMinutes: n.heartRateMinutes ?? null,
           hasHeartRateProof: n.hasHeartRateProof,
           notes: n.notes ?? null,
           status,
@@ -379,6 +418,7 @@ export class ImportService {
         durationMinutes: n.durationMinutes,
         distanceKm: n.distanceKm ?? null,
         avgHeartRate: n.avgHeartRate ?? null,
+        heartRateMinutes: n.heartRateMinutes ?? null,
         hasHeartRateProof: n.hasHeartRateProof,
         notes: n.notes ?? null,
         status,
@@ -417,6 +457,7 @@ export class ImportService {
         durationMinutes: 35,
         distanceKm: 5.2,
         avgHeartRate: 148,
+        heartRateMinutes: 30,
         hasHeartRateProof: 'true',
         status: 'VALIDATED',
         notes: 'Trote matutino',
@@ -432,6 +473,7 @@ export class ImportService {
         durationMinutes: 40,
         distanceKm: 12,
         avgHeartRate: 135,
+        heartRateMinutes: '',
         hasHeartRateProof: 'false',
         status: 'VALIDATED',
         notes: '',

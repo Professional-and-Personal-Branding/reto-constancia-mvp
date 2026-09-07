@@ -70,11 +70,25 @@ las reglas entre meses:
 - Actividades y ranking son independientes por reto: **una actividad por día por
   reto**; el mismo día puede registrarse en dos retos distintos.
 
-**Gap #2 — `minHeartRateMinutes` no se valida.**
-Es configurable pero la validación es **manual** por el admin; el sistema no
-rechaza automáticamente actividades que no cumplan los minutos de FC.
-→ Si la regla cambia mes a mes y debe ser automática, hay que aplicarla en
-`ActivitiesService.create`/`validate` (requiere capturar minutos de FC).
+**Gap #2 — `minHeartRateMinutes` se valida automáticamente. RESUELTO** (cambio
+OpenSpec `enforce-heart-rate-minutes`, spec `activity-heart-rate-compliance`).
+
+- Cada actividad registra **`heartRateMinutes`**: los minutos de registro de FC
+  que muestra la captura (distinto de `durationMinutes`, la duración de la sesión).
+  Nunca puede superar `durationMinutes`.
+- **Cumple** la regla cuando `heartRateMinutes ≥ minHeartRateMinutes` **y** hay
+  captura de FC. En el registro, `hasHeartRateProof` se deriva de las fotos: es
+  `true` solo si se adjunta una foto `HEART_RATE`.
+- **Registro**: una actividad que no cumple se rechaza con 400 (el mensaje indica
+  el mínimo). La web bloquea el envío y explica qué falta.
+- **Validación del admin**: una actividad que no cumple (p. ej. importada como
+  `PENDING`) solo se valida con `{ override: true, note }`; la nota queda en
+  `validationNote`. Las que cumplen se validan como siempre.
+- **Importación**: nueva columna opcional `heartRateMinutes`; las filas que no
+  cumplen se reportan como **advertencias** y se importan igual (registros
+  históricos).
+- Todas las respuestas de actividades incluyen `heartRateCompliant` (derivado).
+- `minHeartRateMinutes = 0` desactiva la regla para ese reto.
 
 **Gap #3 — Reglas de premiación/puntaje fijas en código.**
 El criterio (días validados → km), el número de ganadores (2) y el reparto de

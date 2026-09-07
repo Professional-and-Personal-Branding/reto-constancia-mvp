@@ -287,6 +287,11 @@ export default function ImportPage() {
                 {preview.summary.invalid} con error
               </span>
             )}
+            {preview.summary.warnings > 0 && (
+              <span className="badge bg-warn/15 text-warn">
+                {preview.summary.warnings} sin cumplir la regla de FC (se importan igual)
+              </span>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -321,6 +326,9 @@ export default function ImportPage() {
                     </td>
                     <td className="py-2 pr-3 text-ink-dim">
                       {r.errors.join('; ')}
+                      {r.warnings.length > 0 && (
+                        <span className="text-warn">{r.warnings.join('; ')}</span>
+                      )}
                     </td>
                   </tr>
                 ))}
