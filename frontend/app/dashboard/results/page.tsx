@@ -4,16 +4,14 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import type { Challenge, ChallengeResults, ParticipantRanking } from '@/lib/types';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import type { ChallengeResults, ParticipantRanking } from '@/lib/types';
 
 export default function ResultsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const { data: results, isLoading } = useQuery<ChallengeResults>({
     queryKey: ['results', challenge?.id],

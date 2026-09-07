@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import type {
-  Challenge,
   ChallengeParticipant,
   DailyActivity,
   ChallengeResults,
@@ -55,10 +55,7 @@ export default function DashboardPage() {
   const paymentInputRef = useRef<HTMLInputElement>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const { data: activities } = useQuery<DailyActivity[]>({
     queryKey: ['activities', 'me', challenge?.id],
