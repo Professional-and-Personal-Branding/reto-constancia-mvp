@@ -44,6 +44,13 @@ enum ChallengeStatus {
   COMPLETED
 }
 
+/// Qué hacer cuando hay más empatados en el tope que ganadores admitidos (spec challenge-scoring)
+enum TiebreakRule {
+  DRAW // sorteo aleatorio entre los empatados (comportamiento histórico)
+  TOTAL_KM // gana quien acumuló más kilómetros
+  SHARE_ALL // ganan todos los empatados y comparten el premio
+}
+
 model Challenge {
   id                  String          @id @default(uuid())
   name                String // "Reto Mayo 2026"
@@ -58,6 +65,14 @@ model Challenge {
   currency            String          @default("BOB")
   prizeDescription    String?
   status              ChallengeStatus @default(DRAFT)
+
+  // Reglas de puntaje configurables (spec challenge-scoring). Los defaults reproducen
+  // el comportamiento histórico: puntaje = días validados, 2 ganadores, desempate por sorteo.
+  pointsPerValidatedDay     Int          @default(1)
+  pointsPerKm               Decimal      @default(0) @db.Decimal(6, 2)
+  minValidatedDaysToQualify Int          @default(0)
+  maxWinners                Int          @default(2)
+  tiebreakRule              TiebreakRule @default(DRAW)
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 

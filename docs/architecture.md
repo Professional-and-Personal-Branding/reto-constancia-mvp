@@ -98,6 +98,11 @@ erDiagram
     decimal budgetTotal
     string currency
     enum status "DRAFT|ACTIVE|COMPLETED"
+    int pointsPerValidatedDay "regla de puntaje"
+    decimal pointsPerKm
+    int minValidatedDaysToQualify
+    int maxWinners
+    enum tiebreakRule "DRAW|TOTAL_KM|SHARE_ALL"
   }
   ChallengeParticipant {
     uuid id PK

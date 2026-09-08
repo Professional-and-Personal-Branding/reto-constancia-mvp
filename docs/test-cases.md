@@ -266,6 +266,30 @@ Convención de cada caso: **ID · Objetivo · Precondición · Pasos · Resultad
 - **Pasos:** `award` con un `userId` que no participa.
 - **Esperado:** 400 "Solo se puede premiar a participantes del reto".
 
+### TC-SCORE-01 · Puntaje configurable
+- **Precondición:** reto con `pointsPerValidatedDay = 10` y `pointsPerKm = 1`.
+- **Pasos:** `GET /challenges/:id/results` con un participante de 3 días validados y 12.5 km.
+- **Esperado:** su `score` es `42.5`; con los defaults (`1` y `0`) el `score` es igual a `validatedDays`.
+- *(Automatizado en `backend/src/challenges/scoring.spec.ts` y `challenge-scoring.e2e-spec.ts`.)*
+
+### TC-SCORE-02 · Mínimo de días para calificar
+- **Precondición:** reto con `minValidatedDaysToQualify = 2` y un participante con 1 día validado pero el puntaje más alto.
+- **Esperado:** aparece en el ranking con `qualified: false`, no entra en `tiedAtTop` ni gana; si nadie califica, el reto queda sin ganador y `payout.winnersCount` es 0.
+
+### TC-SCORE-03 · Número de ganadores y desempate
+- **Pasos:** con empate en el tope, probar `maxWinners = 1` con `tiebreakRule = TOTAL_KM`; luego `DRAW`; luego `SHARE_ALL`.
+- **Esperado:** `TOTAL_KM` elige al de más kilómetros sin sorteo (si los km también empatan, `drawNeeded: true`); `DRAW` elige `maxWinners` al azar entre los empatados con `drawNeeded: true`; `SHARE_ALL` declara ganadores a todos los empatados y el premio por ganador se divide entre ellos.
+
+### TC-SCORE-04 · Validación de la configuración
+- **Pasos:** crear un reto con `maxWinners = 0`; luego con `pointsPerValidatedDay = 10`, `pointsPerKm = 0.5`, `minValidatedDaysToQualify = 8`, `maxWinners = 1`, `tiebreakRule = TOTAL_KM`.
+- **Esperado:** 400 en el primero; 201 en el segundo y los valores quedan persistidos.
+
+### TC-SCORE-05 · UI de reglas de puntaje
+- **Pasos:** abrir el formulario de nuevo reto; abrir el ranking de un reto con reglas propias y de uno con los defaults.
+- **Esperado:** el formulario muestra el bloque "Reglas de puntaje" con los defaults; el ranking del reto configurado describe la regla, agrega la columna `Puntos` y marca "no califica" a quien no llega al mínimo; el reto con defaults se ve igual que antes (sin columna de puntos).
+
+---
+
 ### TC-FIN-01 · Marcar pago sin monto
 - **Pasos:** `PATCH /challenges/:id/participants/:userId/payment` con `{ paid: true }`; luego con `{ paid: true, amountPaid: 60 }`; luego `{ paid: false }`.
 - **Esperado:** primero `amountPaid` = cuota del reto y `paidAt` seteado; luego 60; al marcar impago `amountPaid` y `paidAt` quedan `null`.
