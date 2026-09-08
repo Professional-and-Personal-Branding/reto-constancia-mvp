@@ -24,7 +24,7 @@ No **BREAKING** change: file endpoints keep their contracts; sheet endpoints are
 ## Impact
 
 - **Backend**: `backend/src/import/sheets.client.ts` (thin client: service-account JWT + Sheets REST `values.get` and `spreadsheets.get`, injectable so tests can fake it), `import.service.ts` (refactor: `previewRows()`/`commitRows()` shared by file and sheet; `previewSheet()`/`commitSheet()`), `import.controller.ts` (three endpoints), `import.module.ts`, `dto/sheet-import.dto.ts`, config (`GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, optional `GOOGLE_SHEETS_DEFAULT_RANGE`), unit specs (`sheets.client.spec.ts`, `import.service.spec.ts` extended), e2e `import-sheet.e2e-spec.ts` with a fake client.
-- **Dependencies**: `google-auth-library` (JWT for the service account). No `googleapis` bundle; Sheets REST is called with `fetch`.
+- **Dependencies**: none added. The service-account JWT is signed with Node's `crypto` and exchanged with `fetch` (owner decision; alternatives such as `google-auth-library` are documented in design.md for future refactors).
 - **Database**: no schema change.
 - **Frontend**: `app/dashboard/admin/import/page.tsx` (new section), `lib/types.ts` (`SheetStatus`).
 - **Scripts/Docs**: `scripts/parallel-session-test.mjs` (status endpoint reports not configured or configured), `docs/import-template.md`, `docs/test-cases.md`, `docs/architecture.md`, `backend/.env.example`, `README.md`.

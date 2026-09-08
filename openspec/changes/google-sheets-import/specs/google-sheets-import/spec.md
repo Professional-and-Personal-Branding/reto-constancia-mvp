@@ -5,12 +5,13 @@ Defines how an admin imports daily activities directly from a Google Sheet: how 
 ## ADDED Requirements
 
 ### Requirement: Integration is configured server-side and optional
-The system SHALL read Google Sheets with a service account configured through environment variables (`GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`). When they are missing, every sheet endpoint SHALL respond `503 Service Unavailable` with a message that the integration is not configured, and the file import SHALL keep working unchanged.
+The system SHALL read Google Sheets with a service account configured through environment variables (`GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`). When they are missing, the sheet preview and commit endpoints SHALL respond `503 Service Unavailable` with a message that the integration is not configured, the status endpoint SHALL report `configured: false`, and the file import SHALL keep working unchanged.
 
 #### Scenario: Not configured
 - **GIVEN** the service account variables are not set
-- **WHEN** an admin calls any sheet endpoint
+- **WHEN** an admin calls the sheet preview or commit endpoint
 - **THEN** the response is `503` with a message naming the missing configuration
+- **AND** the status endpoint returns `configured: false`
 
 #### Scenario: File import unaffected
 - **GIVEN** the service account variables are not set

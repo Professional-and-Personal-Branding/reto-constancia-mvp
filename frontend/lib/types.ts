@@ -197,3 +197,15 @@ export interface ImportCommitResult {
   participantsCreated: number;
   errors: { row: number; message: string }[];
 }
+
+/** GET /import/sheet/status (spec google-sheets-import) */
+export interface SheetStatus {
+  configured: boolean;
+  readable: boolean;
+  reason?: 'not_configured' | 'not_shared' | 'not_found' | 'invalid_range' | 'api_error';
+  message?: string;
+  title?: string;
+  sheets?: string[];
+  range?: string;
+  rowCount?: number;
+}

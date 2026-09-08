@@ -24,8 +24,17 @@ See proposal.md - Why. Current state that shapes the approach:
 
 ## Decisions
 
-1. **Service account + Sheets REST via `fetch`, JWT from `google-auth-library`.**
-   `SheetsClient` (`backend/src/import/sheets.client.ts`) builds a `JWT` with scope `https://www.googleapis.com/auth/spreadsheets.readonly` from `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` (with `\n` unescaping, as Seenode env vars are single-line) and calls `GET https://sheets.googleapis.com/v4/spreadsheets/{id}?fields=properties.title,sheets.properties.title` and `GET .../values/{range}?valueRenderOption=FORMATTED_VALUE`. Alternative: the full `googleapis` package - rejected (tens of MB, slow cold start on Seenode); alternative: public CSV export link without credentials - rejected because the sheet holds emails and would have to be public.
+1. **Service account + Sheets REST via `fetch`, JWT signed with Node's `crypto` (zero dependencies).**
+   `SheetsAuth` (`backend/src/import/sheets-auth.ts`) implements the service-account flow documented by Google: build a JWT (`RS256`, claims `iss` = service account email, `scope` = `https://www.googleapis.com/auth/spreadsheets.readonly`, `aud` = `https://oauth2.googleapis.com/token`, `iat`/`exp` = now + 1h), sign it with `crypto.sign('RSA-SHA256', ...)` using `GOOGLE_PRIVATE_KEY` (with `\n` unescaping, as Seenode env vars are single-line), exchange it at the token endpoint with `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`, and cache the access token until 5 minutes before expiry. `SheetsClient` (`backend/src/import/sheets.client.ts`) uses it to call `GET https://sheets.googleapis.com/v4/spreadsheets/{id}?fields=properties.title,sheets.properties.title` and `GET .../values/{range}?valueRenderOption=FORMATTED_VALUE`.
+
+   **Alternatives considered (kept here for future refactors):**
+   - `google-auth-library` (official Google client): same flow with token caching, retries and clock-skew handling built in; adds one dependency plus transitives. Preferred if the integration grows (Drive, more scopes, many calls) - swap `SheetsAuth` for `new JWT({ email, key, scopes })` and keep `SheetsClient` untouched.
+   - `googleapis` (full SDK): typed clients for every Google API; rejected for the MVP (tens of MB, slow cold start on Seenode).
+   - Public CSV export link (`.../export?format=csv`) without credentials: trivial, but the sheet holds emails and would have to be public; rejected.
+   - User OAuth (each admin authorizes their Google account): no service account needed, but requires a consent screen, per-user refresh tokens and more UI; excessive for the MVP.
+   - Google API key: only works for public spreadsheets; rejected for the same privacy reason.
+
+   Rationale for the zero-dependency choice: one or two calls per admin action, a stable and documented protocol, smaller supply-chain surface and faster cold starts. The auth class is ~40 lines, unit-tested with a mocked `fetch`, and isolated behind `SheetsClient` so any of the alternatives can replace it without touching the import pipeline.
 
 2. **Client as an injectable boundary.** `SheetsClient` exposes `isConfigured()`, `getSpreadsheet(id)` and `getValues(id, range)`, and maps Google errors (403 -> `not_shared`, 404 -> `not_found`, 400 -> `invalid_range`). Tests provide a fake through Nest DI (`overrideProvider(SheetsClient)`) in e2e and a stub object in unit tests.
 

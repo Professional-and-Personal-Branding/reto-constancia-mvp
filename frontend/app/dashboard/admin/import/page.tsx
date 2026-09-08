@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { getTokens } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -9,6 +9,7 @@ import type {
   ActivityStatus,
   ImportCommitResult,
   ImportPreviewResult,
+  SheetStatus,
 } from '@/lib/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
@@ -44,6 +45,8 @@ export default function ImportPage() {
     useState<DuplicateStrategy>('skip');
   const [defaultPassword, setDefaultPassword] = useState('');
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [sheetId, setSheetId] = useState('');
+  const [sheetRange, setSheetRange] = useState('');
 
   const previewMut = useMutation<ImportPreviewResult, Error, File>({
     mutationFn: async (f) => {
@@ -68,6 +71,57 @@ export default function ImportPage() {
       const res = await authFetch(`/import/activities/commit?${qs.toString()}`, {
         method: 'POST',
         body: fd,
+      });
+      if (!res.ok) throw new Error(await errorMessage(res));
+      return res.json() as Promise<ImportCommitResult>;
+    },
+  });
+
+  // ---- Google Sheets (spec google-sheets-import) ----
+  const sheetStatusQuery = useQuery<SheetStatus>({
+    queryKey: ['import', 'sheet', 'status'],
+    queryFn: async () => {
+      const res = await authFetch('/import/sheet/status', { method: 'GET' });
+      if (!res.ok) throw new Error(await errorMessage(res));
+      return res.json() as Promise<SheetStatus>;
+    },
+  });
+  const sheetConfigured = sheetStatusQuery.data?.configured === true;
+  const sheetBody = () =>
+    JSON.stringify({ spreadsheetId: sheetId.trim(), range: sheetRange.trim() || undefined });
+
+  const sheetCheckMut = useMutation<SheetStatus, Error, void>({
+    mutationFn: async () => {
+      const qs = new URLSearchParams({ spreadsheetId: sheetId.trim() });
+      if (sheetRange.trim()) qs.set('range', sheetRange.trim());
+      const res = await authFetch(`/import/sheet/status?${qs.toString()}`, { method: 'GET' });
+      if (!res.ok) throw new Error(await errorMessage(res));
+      return res.json() as Promise<SheetStatus>;
+    },
+  });
+
+  const sheetPreviewMut = useMutation<ImportPreviewResult, Error, void>({
+    mutationFn: async () => {
+      previewMut.reset();
+      commitMut.reset();
+      const res = await authFetch('/import/sheet/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: sheetBody(),
+      });
+      if (!res.ok) throw new Error(await errorMessage(res));
+      return res.json() as Promise<ImportPreviewResult>;
+    },
+  });
+
+  const sheetCommitMut = useMutation<ImportCommitResult, Error, void>({
+    mutationFn: async () => {
+      const qs = new URLSearchParams({ defaultStatus, duplicateStrategy });
+      if (defaultPassword) qs.set('defaultPassword', defaultPassword);
+      const res = await authFetch(`/import/sheet/commit?${qs.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: sheetBody(),
       });
       if (!res.ok) throw new Error(await errorMessage(res));
       return res.json() as Promise<ImportCommitResult>;
@@ -99,6 +153,8 @@ export default function ImportPage() {
     setFile(f);
     previewMut.reset();
     commitMut.reset();
+    sheetPreviewMut.reset();
+    sheetCommitMut.reset();
   }
 
   if (user && user.role !== 'ADMIN') {
@@ -109,8 +165,9 @@ export default function ImportPage() {
     );
   }
 
-  const preview = previewMut.data;
-  const result = commitMut.data;
+  // Las tablas de resultado se comparten entre la carga por archivo y la de Google Sheets
+  const preview = previewMut.data ?? sheetPreviewMut.data;
+  const result = commitMut.data ?? sheetCommitMut.data;
 
   return (
     <div className="space-y-8">
@@ -226,14 +283,14 @@ export default function ImportPage() {
             type="button"
             className="btn-primary"
             disabled={
-              !preview || preview.summary.valid === 0 || commitMut.isPending
+              !previewMut.data || previewMut.data.summary.valid === 0 || commitMut.isPending
             }
             onClick={() => commitMut.mutate()}
           >
             {commitMut.isPending
               ? 'Importando…'
               : `Importar${
-                  preview ? ` ${preview.summary.valid} válidas` : ''
+                  previewMut.data ? ` ${previewMut.data.summary.valid} válidas` : ''
                 }`}
           </button>
         </div>
@@ -243,6 +300,99 @@ export default function ImportPage() {
         {commitMut.error && (
           <p className="text-bad text-sm">{commitMut.error.message}</p>
         )}
+      </section>
+
+      {/* Paso 3: Google Sheets (spec google-sheets-import) */}
+      <section className="card p-5 space-y-4" aria-label="Importar desde Google Sheets">
+        <h2 className="display text-2xl">3. Desde Google Sheets</h2>
+        {sheetStatusQuery.isLoading ? (
+          <p className="text-ink-dim text-sm">Comprobando la integración…</p>
+        ) : !sheetConfigured ? (
+          <p className="text-ink-dim text-sm" role="status">
+            Integración no configurada en el servidor (faltan{' '}
+            <code>GOOGLE_SERVICE_ACCOUNT_EMAIL</code> y <code>GOOGLE_PRIVATE_KEY</code>).
+            Mientras tanto usa la carga por archivo. Guía: <code>docs/import-template.md</code>.
+          </p>
+        ) : (
+          <p className="text-ink-dim text-sm">
+            Comparte la hoja (lector) con el email de la cuenta de servicio y mantén la
+            cabecera de la plantilla en la fila 1. Se usan las mismas opciones del paso 2.
+          </p>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs uppercase tracking-wider text-ink-mute">Spreadsheet ID</span>
+            <input
+              type="text"
+              className="input"
+              placeholder="Segmento entre /d/ y /edit de la URL"
+              value={sheetId}
+              onChange={(e) => setSheetId(e.target.value)}
+              disabled={!sheetConfigured}
+              aria-label="Spreadsheet ID"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs uppercase tracking-wider text-ink-mute">
+              Hoja o rango (opcional)
+            </span>
+            <input
+              type="text"
+              className="input"
+              placeholder="mayo · mayo!A:Z"
+              value={sheetRange}
+              onChange={(e) => setSheetRange(e.target.value)}
+              disabled={!sheetConfigured}
+              aria-label="Hoja o rango"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={!sheetConfigured || !sheetId.trim() || sheetCheckMut.isPending}
+            onClick={() => sheetCheckMut.mutate()}
+          >
+            {sheetCheckMut.isPending ? 'Comprobando…' : 'Comprobar'}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={!sheetConfigured || !sheetId.trim() || sheetPreviewMut.isPending}
+            onClick={() => sheetPreviewMut.mutate()}
+          >
+            {sheetPreviewMut.isPending ? 'Analizando…' : 'Previsualizar'}
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={
+              !sheetPreviewMut.data ||
+              sheetPreviewMut.data.summary.valid === 0 ||
+              sheetCommitMut.isPending
+            }
+            onClick={() => sheetCommitMut.mutate()}
+          >
+            {sheetCommitMut.isPending
+              ? 'Importando…'
+              : `Importar${
+                  sheetPreviewMut.data ? ` ${sheetPreviewMut.data.summary.valid} válidas` : ''
+                }`}
+          </button>
+        </div>
+        {sheetCheckMut.data && (
+          <p className={`text-sm ${sheetCheckMut.data.readable ? 'text-ok' : 'text-warn'}`}>
+            {sheetCheckMut.data.readable
+              ? `Legible: "${sheetCheckMut.data.title}" · hojas: ${sheetCheckMut.data.sheets?.join(', ')} · rango ${sheetCheckMut.data.range} · ${sheetCheckMut.data.rowCount} filas de datos`
+              : (sheetCheckMut.data.message ?? 'No se pudo leer la hoja')}
+          </p>
+        )}
+        {sheetCheckMut.error && <p className="text-bad text-sm">{sheetCheckMut.error.message}</p>}
+        {sheetPreviewMut.error && (
+          <p className="text-bad text-sm">{sheetPreviewMut.error.message}</p>
+        )}
+        {sheetCommitMut.error && <p className="text-bad text-sm">{sheetCommitMut.error.message}</p>}
       </section>
 
       {/* Resultado del commit */}

@@ -292,5 +292,5 @@ Comandos, variables y pasos: `docs/deploy-seenode.md`. Migraciones con
 | Actividades | `POST /activities` · `GET /activities/me` · `DELETE /activities/:id` | autenticado |
 | Actividades | `GET /activities` · `GET /activities/pending` · `:id/validate` · `:id/reject` | ADMIN |
 | Upload | `POST /upload/sign` · `POST /upload/local` (dev) | autenticado / público(dev) |
-| Import | `GET /import/template` · `POST /import/activities/preview` · `/commit` | ADMIN |
+| Import | `GET /import/template` · `POST /import/activities/preview` · `/commit` · `GET /import/sheet/status` · `POST /import/sheet/preview` · `/commit` | ADMIN |
 | Health | `GET /health` · `GET /health/db` | público |

@@ -207,6 +207,13 @@ async function main() {
   check('currency configurable (USD)', c?.currency === 'USD', c?.currency);
   check('Coexisten >= 2 retos', (all.json?.length ?? 0) >= 1 && !!sid);
 
+  // ---- 7b. Google Sheets: estado de la integración (OpenSpec: google-sheets-import) ----
+  section('7b. Integración Google Sheets (estado)');
+  const sheetStatus = await req('GET', '/import/sheet/status', { token: adminTok });
+  check('Admin consulta el estado de la integración', sheetStatus.status === 200 && typeof sheetStatus.json?.configured === 'boolean', `configured=${sheetStatus.json?.configured}`);
+  const sheetAna = await req('GET', '/import/sheet/status', { token: anaTok });
+  check('Ana NO puede consultar la integración (403)', sheetAna.status === 403, `status=${sheetAna.status}`);
+
   // ---- 8. Múltiples retos ACTIVOS a la vez (OpenSpec: challenge-lifecycle) ----
   section('8. Múltiples retos activos a la vez y selección por participante');
   if (c?.status === 'COMPLETED') {

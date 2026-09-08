@@ -1,5 +1,8 @@
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+
 import { ImportService } from './import.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SheetsClient, SheetsReadError } from './sheets.client';
 
 describe('ImportService (parseo y validación)', () => {
   const service = new ImportService({} as unknown as PrismaService);
@@ -97,6 +100,101 @@ describe('ImportService (parseo y validación)', () => {
       expect(ana?.warnings).toHaveLength(0);
       expect(bruno?.valid).toBe(true);
       expect(bruno?.warnings.join(' ')).toMatch(/20/);
+    });
+  });
+
+  describe('rowsFromSheet (Google Sheets -> filas de la plantilla)', () => {
+    const header = ['email', 'name', 'challengeMonth', 'challengeYear', 'date', 'exerciseType', 'durationMinutes'];
+
+    it('mapea la cabecera y conserva las celdas como texto', () => {
+      const rows = service.rowsFromSheet([
+        header,
+        ['a@x.y', 'Ana', '5', '2026', '2026-05-04', 'RUNNING', '35'],
+      ]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ email: 'a@x.y', durationMinutes: '35', date: '2026-05-04' });
+    });
+
+    it('acepta cabeceras con mayúsculas y espacios', () => {
+      const rows = service.rowsFromSheet([
+        [' EMAIL ', 'Name', 'challengemonth', 'CHALLENGEYEAR', 'Date', 'ExerciseType', 'DurationMinutes'],
+        ['a@x.y', 'Ana', '5', '2026', '2026-05-04', 'RUNNING', '35'],
+      ]);
+      expect(Object.keys(rows[0])).toEqual(header);
+    });
+
+    it('ignora filas vacías (incluida una cabecera precedida de filas en blanco)', () => {
+      const rows = service.rowsFromSheet([
+        [],
+        header,
+        ['a@x.y', 'Ana', '5', '2026', '2026-05-04', 'RUNNING', '35'],
+        ['', '', ''],
+        ['b@x.y', 'Bruno', '5', '2026', '2026-05-05', 'CYCLING', '40'],
+      ]);
+      expect(rows).toHaveLength(2);
+    });
+
+    it('rechaza cabeceras incompletas nombrando las columnas que faltan', () => {
+      expect(() => service.rowsFromSheet([['email', 'name'], ['a@x.y', 'Ana']])).toThrow(
+        /challengeMonth.*date/,
+      );
+      expect(() => service.rowsFromSheet([])).toThrow(BadRequestException);
+    });
+  });
+
+  describe('estado, preview y commit desde Google Sheets', () => {
+    const header = ['email', 'name', 'challengeMonth', 'challengeYear', 'date', 'exerciseType', 'durationMinutes', 'heartRateMinutes', 'hasHeartRateProof'];
+    const values = [
+      header,
+      ['a@x.y', 'Ana', '5', '2026', '2026-05-04', 'RUNNING', '35', '25', 'true'],
+      ['b@x.y', 'Bruno', '5', '2026', '2026-05-05', 'CYCLING', '40', '', 'false'],
+      ['no-email', 'Carla', '5', '2026', '2026-05-05', 'RUNNING', '30', '25', 'true'],
+    ];
+    const prisma = {
+      challenge: { findUnique: jest.fn().mockResolvedValue({ id: 'c', minHeartRateMinutes: 20 }) },
+    } as unknown as PrismaService;
+
+    function stubClient(over: Partial<SheetsClient> = {}): SheetsClient {
+      return {
+        isConfigured: () => true,
+        defaultRange: () => undefined,
+        getSpreadsheet: jest.fn().mockResolvedValue({ title: 'Reto', sheets: ['mayo', 'junio'] }),
+        getValues: jest.fn().mockResolvedValue(values),
+        ...over,
+      } as unknown as SheetsClient;
+    }
+
+    it('sin configuración: status configured=false y preview 503', async () => {
+      const svc = new ImportService(prisma, stubClient({ isConfigured: () => false }));
+      expect(await svc.getSheetStatus('sheet')).toMatchObject({ configured: false, reason: 'not_configured' });
+      await expect(svc.previewSheet({ spreadsheetId: 'sheet' })).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('status legible: título, hojas, rango resuelto (primera hoja) y filas de datos', async () => {
+      const client = stubClient();
+      const status = await new ImportService(prisma, client).getSheetStatus('sheet');
+      expect(status).toMatchObject({ configured: true, readable: true, title: 'Reto', sheets: ['mayo', 'junio'], range: 'mayo', rowCount: 3 });
+      expect(client.getValues).toHaveBeenCalledWith('sheet', 'mayo');
+    });
+
+    it('status no compartida: readable=false con motivo', async () => {
+      const client = stubClient({
+        getSpreadsheet: jest.fn().mockRejectedValue(new SheetsReadError('not_shared', 'Sin acceso a la hoja: compártela con la cuenta')),
+      });
+      const status = await new ImportService(prisma, client).getSheetStatus('sheet');
+      expect(status).toMatchObject({ configured: true, readable: false, reason: 'not_shared' });
+    });
+
+    it('preview desde hoja refleja el mismo resumen que el archivo', async () => {
+      const preview = await new ImportService(prisma, stubClient()).previewSheet({ spreadsheetId: 'sheet', range: 'junio' });
+      expect(preview.summary).toEqual({ total: 3, valid: 2, invalid: 1, warnings: 1 });
+    });
+
+    it('fallo de lectura en preview/commit -> 400 con el motivo', async () => {
+      const client = stubClient({ getValues: jest.fn().mockRejectedValue(new SheetsReadError('invalid_range', 'Rango u hoja inválidos')) });
+      await expect(new ImportService(prisma, client).previewSheet({ spreadsheetId: 'sheet', range: 'nope' })).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
