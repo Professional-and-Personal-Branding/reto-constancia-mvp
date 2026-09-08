@@ -102,6 +102,17 @@ function paymentProofSeed(userEmail: string) {
 }
 
 async function main() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  // En producción el seed solo crea el admin: los datos de demo (participantes con password
+  // conocido, reto y actividades de mayo) se siembran únicamente con SEED_DEMO=true.
+  const seedDemo = !isProduction || process.env.SEED_DEMO === 'true';
+
+  if (isProduction && !process.env.SEED_ADMIN_PASSWORD) {
+    throw new Error(
+      'SEED_ADMIN_PASSWORD es obligatorio en producción: define uno antes de correr el seed.',
+    );
+  }
+
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@reto.local';
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? TEST_PASSWORD;
   const adminName = process.env.SEED_ADMIN_NAME ?? 'Administrador';
@@ -128,6 +139,14 @@ async function main() {
   });
 
   console.log(`✅ Admin: ${admin.email}`);
+
+  if (!seedDemo) {
+    console.log(
+      'ℹ️  NODE_ENV=production: se omiten los datos de demo (participantes, reto y actividades). ' +
+        'Usa SEED_DEMO=true si de verdad los necesitas.',
+    );
+    return;
+  }
 
   const year = 2026;
   const challenge = await prisma.challenge.upsert({
