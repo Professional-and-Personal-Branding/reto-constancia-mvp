@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import type { Challenge } from '@/lib/types';
+import type { Challenge, TiebreakRule } from '@/lib/types';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -156,6 +156,12 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
   const [prize, setPrize] = useState(
     'Suplemento para gym al ganador (o sorteo en caso de empate)',
   );
+  // Reglas de puntaje (defaults = comportamiento histórico)
+  const [pointsPerValidatedDay, setPointsPerValidatedDay] = useState(1);
+  const [pointsPerKm, setPointsPerKm] = useState(0);
+  const [minValidatedDaysToQualify, setMinValidatedDaysToQualify] = useState(0);
+  const [maxWinners, setMaxWinners] = useState(2);
+  const [tiebreakRule, setTiebreakRule] = useState<TiebreakRule>('DRAW');
   const [err, setErr] = useState<string | null>(null);
 
   const create = useMutation({
@@ -175,6 +181,11 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
           budgetTotal: budget,
           currency,
           prizeDescription: prize,
+          pointsPerValidatedDay,
+          pointsPerKm,
+          minValidatedDaysToQualify,
+          maxWinners,
+          tiebreakRule,
         },
       });
     },
@@ -299,6 +310,77 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
           ))}
         </div>
       </div>
+
+      <fieldset className="space-y-3 border-t border-line pt-4">
+        <legend className="text-xs uppercase tracking-wider text-ink-mute mb-2">
+          Reglas de puntaje
+        </legend>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="label">Puntos por día validado</label>
+            <input
+              type="number"
+              min={0}
+              className="input"
+              value={pointsPerValidatedDay}
+              onChange={(e) => setPointsPerValidatedDay(parseInt(e.target.value, 10) || 0)}
+              aria-label="Puntos por día validado"
+            />
+            <p className="text-xs text-ink-mute mt-1">1 = el puntaje son los días validados.</p>
+          </div>
+          <div>
+            <label className="label">Puntos por km</label>
+            <input
+              type="number"
+              min={0}
+              step="0.1"
+              className="input"
+              value={pointsPerKm}
+              onChange={(e) => setPointsPerKm(parseFloat(e.target.value) || 0)}
+              aria-label="Puntos por km"
+            />
+            <p className="text-xs text-ink-mute mt-1">0 = la distancia no suma puntos.</p>
+          </div>
+          <div>
+            <label className="label">Mínimo de días para calificar</label>
+            <input
+              type="number"
+              min={0}
+              className="input"
+              value={minValidatedDaysToQualify}
+              onChange={(e) =>
+                setMinValidatedDaysToQualify(parseInt(e.target.value, 10) || 0)
+              }
+              aria-label="Mínimo de días para calificar"
+            />
+            <p className="text-xs text-ink-mute mt-1">0 = basta un día validado.</p>
+          </div>
+          <div>
+            <label className="label">Máximo de ganadores</label>
+            <input
+              type="number"
+              min={1}
+              className="input"
+              value={maxWinners}
+              onChange={(e) => setMaxWinners(parseInt(e.target.value, 10) || 1)}
+              aria-label="Máximo de ganadores"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="label">Si empatan más que los cupos</label>
+            <select
+              className="input"
+              value={tiebreakRule}
+              onChange={(e) => setTiebreakRule(e.target.value as TiebreakRule)}
+              aria-label="Regla de desempate"
+            >
+              <option value="DRAW">Sorteo entre los empatados</option>
+              <option value="TOTAL_KM">Gana quien acumuló más km</option>
+              <option value="SHARE_ALL">Ganan todos y comparten el premio</option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
 
       <div>
         <label className="label">Premio</label>

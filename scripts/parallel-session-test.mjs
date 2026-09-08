@@ -153,6 +153,43 @@ async function main() {
   const payout = results.json?.payout;
   check('Results incluye payout con pote = presupuesto', !!payout && payout.pot === f.budgetTotal && typeof payout.perWinner === 'number' && payout.monetary === (f.budgetTotal > 0), JSON.stringify(payout));
 
+  // ---- 5c. Reglas de puntaje configurables (OpenSpec: challenge-scoring) ----
+  section('5c. Reglas de puntaje configurables');
+  const topRank = results.json?.ranking?.[0];
+  check('El ranking expone score y qualified', typeof topRank?.score === 'number' && typeof topRank?.qualified === 'boolean', `score=${topRank?.score} qualified=${topRank?.qualified}`);
+  const mayChallenge2 = await req('GET', `/challenges/${challengeId}`, { token: adminTok });
+  const mc = mayChallenge2.json ?? {};
+  check('El reto seed conserva las reglas por defecto', mc.pointsPerValidatedDay === 1 && Number(mc.pointsPerKm) === 0 && mc.minValidatedDaysToQualify === 0 && mc.maxWinners === 2 && mc.tiebreakRule === 'DRAW', `maxWinners=${mc.maxWinners} tiebreak=${mc.tiebreakRule}`);
+  check('Con los defaults el puntaje son los días validados', topRank?.score === topRank?.validatedDays, `${topRank?.score} vs ${topRank?.validatedDays}`);
+
+  const scoringRules = {
+    name: 'Reto Noviembre 2026 (puntaje configurable)',
+    month: 11,
+    year: 2026,
+    startDate: '2026-11-01',
+    endDate: '2026-11-30',
+    minHeartRateMinutes: 0,
+    budgetTotal: 900,
+    pointsPerValidatedDay: 10,
+    pointsPerKm: 1,
+    minValidatedDaysToQualify: 5,
+    maxWinners: 1,
+    tiebreakRule: 'TOTAL_KM',
+  };
+  let scoring = await req('POST', '/challenges', { token: adminTok, body: scoringRules });
+  if (scoring.status === 409) {
+    const list = await req('GET', '/challenges', { token: adminTok });
+    const existing = list.json.find((c) => c.month === 11 && c.year === 2026);
+    scoring = await req('PATCH', `/challenges/${existing.id}`, { token: adminTok, body: scoringRules });
+  }
+  const sc = scoring.json ?? {};
+  check('Reto con reglas de puntaje propias creado/actualizado', scoring.status === 201 || scoring.status === 200, `status=${scoring.status}`);
+  check('Reglas de puntaje persistidas', sc.pointsPerValidatedDay === 10 && Number(sc.pointsPerKm) === 1 && sc.minValidatedDaysToQualify === 5 && sc.maxWinners === 1 && sc.tiebreakRule === 'TOTAL_KM', `${sc.pointsPerValidatedDay}/${sc.pointsPerKm}/${sc.minValidatedDaysToQualify}/${sc.maxWinners}/${sc.tiebreakRule}`);
+  const scoringResults = await req('GET', `/challenges/${sc.id}/results`, { token: adminTok });
+  check('Sus resultados describen la regla activa', (scoringResults.json?.notes ?? []).join(' ').includes('Mínimo para calificar'), (scoringResults.json?.notes ?? []).join(' | '));
+  const badRules = await req('POST', '/challenges', { token: adminTok, body: { ...scoringRules, month: 10, name: 'inválido', maxWinners: 0 } });
+  check('maxWinners = 0 se rechaza (400)', badRules.status === 400, `status=${badRules.status}`);
+
   // ---- 6. RBAC: el participante NO puede acciones de admin ----
   section('6. RBAC (control de acceso por rol)');
   const anaCreateChallenge = await req('POST', '/challenges', {

@@ -2,6 +2,8 @@ export type UserRole = 'PARTICIPANT' | 'ADMIN';
 
 export type ChallengeStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
 
+export type TiebreakRule = 'DRAW' | 'TOTAL_KM' | 'SHARE_ALL';
+
 export type ExerciseType =
   | 'RUNNING'
   | 'ELLIPTICAL'
@@ -47,6 +49,12 @@ export interface Challenge {
   currency: string;
   prizeDescription: string | null;
   status: ChallengeStatus;
+  /** Reglas de puntaje (spec challenge-scoring). Defaults: 1 / 0 / 0 / 2 / DRAW */
+  pointsPerValidatedDay: number;
+  pointsPerKm: string;
+  minValidatedDaysToQualify: number;
+  maxWinners: number;
+  tiebreakRule: TiebreakRule;
   participants?: ChallengeParticipant[];
 }
 
@@ -101,6 +109,9 @@ export interface ParticipantRanking {
   userId: string;
   name: string;
   email: string;
+  /** Puntaje según las reglas del reto y si califica para ganar */
+  score: number;
+  qualified: boolean;
   validatedDays: number;
   pendingDays: number;
   rejectedDays: number;

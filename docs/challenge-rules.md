@@ -40,11 +40,18 @@ Endpoints (admin) para gestionarlo:
 5. Una sola actividad por día por usuario (`@@unique(challengeId,userId,date)`).
 6. Al menos una foto/captura es obligatoria.
 
-**Cálculo de ganadores** (`ResultsService`):
-- Ranking por **días validados** (desc), desempate suave por **km** (desc).
-- 1 en el tope → gana solo. 2 empatados → ganan ambos (se divide presupuesto).
-  3+ empatados → sorteo aleatorio, eligen 2. 0 → sin ganador.
+**Cálculo de ganadores** (`ResultsService` + `scoring.ts`, configurable por reto):
+- Puntaje = `días validados × pointsPerValidatedDay + km × pointsPerKm`
+  (defaults `1` y `0` → el puntaje son los días validados). Ranking por puntaje
+  (desc) y desempate suave por km (desc).
+- Califica quien alcanza `minValidatedDaysToQualify` (default `0`) y tiene
+  puntaje > 0. Los que no califican aparecen en el ranking pero no pueden ganar.
+- Ganan hasta `maxWinners` (default `2`). Si empatan más que los cupos se aplica
+  `tiebreakRule`: `DRAW` (sorteo, default), `TOTAL_KM` (más kilómetros) o
+  `SHARE_ALL` (ganan todos y comparten el premio).
 - Si el admin registra premiación manual, esta **prevalece** sobre el cálculo.
+- El premio por ganador sale del presupuesto (ver `challenge-finance`), así que
+  cambiar `maxWinners` o usar `SHARE_ALL` ajusta el monto automáticamente.
 
 ## 3. Brechas (gaps) para la variabilidad mes a mes
 
@@ -90,13 +97,29 @@ OpenSpec `enforce-heart-rate-minutes`, spec `activity-heart-rate-compliance`).
 - Todas las respuestas de actividades incluyen `heartRateCompliant` (derivado).
 - `minHeartRateMinutes = 0` desactiva la regla para ese reto.
 
-**Gap #3 — Reglas de premiación/puntaje fijas en código.**
-El criterio (días validados → km), el número de ganadores (2) y el reparto de
-presupuesto están **hardcodeados** en `ResultsService`. No hay parámetros como:
-mínimo de días para calificar, puntaje por km, número de ganadores variable,
-peso por tipo de ejercicio, etc.
-→ Si esto cambia entre meses, hay que parametrizarlo (nuevos campos en
-`Challenge`) o introducir un motor de reglas.
+**Gap #3 — Reglas de puntaje configurables por reto. RESUELTO** (cambio OpenSpec
+`configurable-scoring-rules`, spec `challenge-scoring`).
+
+Cinco campos nuevos en `Challenge`, con defaults que reproducen exactamente el
+comportamiento histórico:
+
+| Campo | Default | Qué controla |
+|---|---|---|
+| `pointsPerValidatedDay` | 1 | Puntos por cada día validado |
+| `pointsPerKm` | 0 | Puntos por kilómetro acumulado |
+| `minValidatedDaysToQualify` | 0 | Días validados mínimos para poder ganar |
+| `maxWinners` | 2 | Cuántos ganadores admite el reto |
+| `tiebreakRule` | `DRAW` | `DRAW` / `TOTAL_KM` / `SHARE_ALL` |
+
+Se editan desde el formulario de reto (bloque "Reglas de puntaje"). El ranking
+expone `score` y `qualified` por participante, y las notas del resultado
+describen la regla aplicada.
+
+> Cambiar las reglas a mitad de mes recalcula el ranking de inmediato: los
+> resultados se computan en cada lectura, no se congelan al cerrar el reto.
+
+**Fuera de alcance (requerirían su propio cambio):** bonus por rachas, pesos por
+tipo de ejercicio, cuotas semanales, elegibilidad por pago.
 
 **Gap #4 — Cuota/presupuesto conciliados con los pagos. RESUELTO** (cambio
 OpenSpec `budget-payout-reconciliation`, spec `challenge-finance`).
@@ -129,10 +152,10 @@ OpenSpec `budget-payout-reconciliation`, spec `challenge-finance`).
 | Minutos mín. de FC | | | | Parcial (no se valida) | Definir si es automático |
 | Cuota / moneda | | | | Sí (config, informativo) | — |
 | Presupuesto / premio | | | | Sí (informativo) | Definir si se reparte |
-| Criterio de ranking | | | | No (fijo) | Posible parametrización |
-| Nº de ganadores | | | | No (fijo en 2 si empate 3+) | Posible parametrización |
-| Regla de desempate | | | | No (fijo: sorteo) | Posible parametrización |
-| Mínimo para calificar | | | | No existe | Posible nuevo campo |
+| Criterio de ranking | | | | Sí (`pointsPerValidatedDay`, `pointsPerKm`) | — |
+| Nº de ganadores | | | | Sí (`maxWinners`) | — |
+| Regla de desempate | | | | Sí (`tiebreakRule`) | — |
+| Mínimo para calificar | | | | Sí (`minValidatedDaysToQualify`) | — |
 
 ## 5. Recomendación
 

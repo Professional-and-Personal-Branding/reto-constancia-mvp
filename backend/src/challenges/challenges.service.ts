@@ -43,6 +43,12 @@ export class ChallengesService {
         budgetTotal: dto.budgetTotal ?? 0,
         currency: dto.currency ?? 'BOB',
         prizeDescription: dto.prizeDescription,
+        // Reglas de puntaje: undefined deja el default del modelo (spec challenge-scoring)
+        pointsPerValidatedDay: dto.pointsPerValidatedDay,
+        pointsPerKm: dto.pointsPerKm,
+        minValidatedDaysToQualify: dto.minValidatedDaysToQualify,
+        maxWinners: dto.maxWinners,
+        tiebreakRule: dto.tiebreakRule,
       },
     });
   }
@@ -137,6 +143,13 @@ export class ChallengesService {
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.prizeDescription !== undefined)
       data.prizeDescription = dto.prizeDescription;
+    if (dto.pointsPerValidatedDay !== undefined)
+      data.pointsPerValidatedDay = dto.pointsPerValidatedDay;
+    if (dto.pointsPerKm !== undefined) data.pointsPerKm = dto.pointsPerKm;
+    if (dto.minValidatedDaysToQualify !== undefined)
+      data.minValidatedDaysToQualify = dto.minValidatedDaysToQualify;
+    if (dto.maxWinners !== undefined) data.maxWinners = dto.maxWinners;
+    if (dto.tiebreakRule !== undefined) data.tiebreakRule = dto.tiebreakRule;
     if (dto.status !== undefined && dto.status !== ChallengeStatus.ACTIVE) {
       data.status = dto.status;
     }
