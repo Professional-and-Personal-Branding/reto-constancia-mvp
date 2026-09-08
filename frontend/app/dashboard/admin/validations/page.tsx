@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import type { DailyActivity } from '@/lib/types';
 
 function formatDate(iso: string): string {
@@ -21,22 +21,40 @@ export default function ValidationsPage() {
     queryFn: () => api<DailyActivity[]>('/activities/pending'),
   });
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  function showError(e: unknown) {
+    const apiErr = e as ApiError;
+    const msg =
+      (apiErr?.body as { message?: string | string[] } | null)?.message ??
+      (e instanceof Error ? e.message : 'Error inesperado');
+    setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
+  }
+
   const validateMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/activities/${id}/validate`, { method: 'POST' }),
+    // `note` solo se envía cuando la actividad no cumple la regla de FC (override explícito)
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      api(`/activities/${id}/validate`, {
+        method: 'POST',
+        body: note ? { override: true, note } : undefined,
+      }),
     onSuccess: () => {
+      setActionError(null);
       qc.invalidateQueries({ queryKey: ['activities'] });
       qc.invalidateQueries({ queryKey: ['results'] });
     },
+    onError: showError,
   });
 
   const rejectMut = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api(`/activities/${id}/reject`, { method: 'POST', body: { reason } }),
     onSuccess: () => {
+      setActionError(null);
       qc.invalidateQueries({ queryKey: ['activities'] });
       qc.invalidateQueries({ queryKey: ['results'] });
     },
+    onError: showError,
   });
 
   return (
@@ -52,6 +70,15 @@ export default function ValidationsPage() {
         </p>
       </div>
 
+      {actionError && (
+        <div
+          role="alert"
+          className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5"
+        >
+          {actionError}
+        </div>
+      )}
+
       {isLoading && <p className="text-ink-dim">Cargando…</p>}
 
       {pending && pending.length === 0 && (
@@ -65,9 +92,9 @@ export default function ValidationsPage() {
           <ActivityCard
             key={act.id}
             activity={act}
-            onValidate={() => validateMut.mutate(act.id)}
+            onValidate={(note) => validateMut.mutate({ id: act.id, note })}
             onReject={(reason) => rejectMut.mutate({ id: act.id, reason })}
-            isValidating={validateMut.isPending && validateMut.variables === act.id}
+            isValidating={validateMut.isPending && validateMut.variables?.id === act.id}
             isRejecting={
               rejectMut.isPending && rejectMut.variables?.id === act.id
             }
@@ -86,13 +113,15 @@ function ActivityCard({
   isRejecting,
 }: {
   activity: DailyActivity;
-  onValidate: () => void;
+  onValidate: (note?: string) => void;
   onReject: (reason: string) => void;
   isValidating: boolean;
   isRejecting: boolean;
 }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  const [overriding, setOverriding] = useState(false);
+  const [note, setNote] = useState('');
 
   return (
     <div className="card p-5">
@@ -100,7 +129,6 @@ function ActivityCard({
         {/* Fotos */}
         <div className="flex gap-2 md:w-1/3">
           {activity.photos.map((p) => (
-            // eslint-disable-next-line @next/next/no-img-element
             <a
               key={p.id}
               href={p.url}
@@ -108,6 +136,7 @@ function ActivityCard({
               rel="noopener noreferrer"
               className="block flex-1 group"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p.url}
                 alt={p.type}
@@ -127,7 +156,14 @@ function ActivityCard({
               <p className="display text-2xl">{activity.user?.name}</p>
               <p className="text-xs text-ink-mute">{activity.user?.email}</p>
             </div>
-            <span className="badge-pending">Pendiente</span>
+            <div className="flex gap-2">
+              {activity.heartRateCompliant ? (
+                <span className="badge bg-ok/15 text-ok">Cumple FC</span>
+              ) : (
+                <span className="badge bg-warn/15 text-warn">No cumple FC</span>
+              )}
+              <span className="badge-pending">Pendiente</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -147,6 +183,11 @@ function ActivityCard({
               value={activity.hasHeartRateProof ? 'Sí ✓' : 'No'}
               warn={!activity.hasHeartRateProof}
             />
+            <Field
+              label="FC registrada"
+              value={activity.heartRateMinutes ? `${activity.heartRateMinutes} min` : '—'}
+              warn={!activity.heartRateCompliant}
+            />
           </div>
 
           {activity.notes && (
@@ -155,10 +196,50 @@ function ActivityCard({
             </p>
           )}
 
-          {!rejecting ? (
+          {overriding ? (
+            <div className="space-y-2 pt-2">
+              <p className="text-sm text-warn">
+                Esta actividad no cumple la regla de FC del reto. Para validarla de todas formas,
+                deja una nota (queda registrada).
+              </p>
+              <input
+                type="text"
+                placeholder="Motivo del override (mín. 5 caracteres)"
+                className="input"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                minLength={5}
+                maxLength={300}
+                aria-label="Nota de override"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (note.trim().length >= 5) {
+                      onValidate(note.trim());
+                      setOverriding(false);
+                    }
+                  }}
+                  disabled={note.trim().length < 5 || isValidating}
+                  className="btn bg-ok/15 hover:bg-ok/25 text-ok border border-ok/30"
+                >
+                  Validar con nota
+                </button>
+                <button
+                  onClick={() => {
+                    setOverriding(false);
+                    setNote('');
+                  }}
+                  className="btn-ghost"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : !rejecting ? (
             <div className="flex gap-2 pt-2">
               <button
-                onClick={onValidate}
+                onClick={() => (activity.heartRateCompliant ? onValidate() : setOverriding(true))}
                 disabled={isValidating}
                 className="btn bg-ok/15 hover:bg-ok/25 text-ok border border-ok/30"
               >

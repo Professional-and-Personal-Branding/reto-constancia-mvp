@@ -25,14 +25,33 @@ export default function ChallengesPage() {
     queryFn: () => api('/challenges'),
   });
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  function showError(e: unknown) {
+    const apiErr = e as ApiError;
+    const msg =
+      (apiErr?.body as { message?: string | string[] } | null)?.message ??
+      (e instanceof Error ? e.message : 'Error inesperado');
+    setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
+  }
+
   const closeMut = useMutation({
     mutationFn: (id: string) => api(`/challenges/${id}/close`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['challenges'] }),
+    onSuccess: () => {
+      setActionError(null);
+      qc.invalidateQueries({ queryKey: ['challenges'] });
+      qc.invalidateQueries({ queryKey: ['challenge'] });
+    },
+    onError: showError,
   });
 
   const activateMut = useMutation({
     mutationFn: (id: string) => api(`/challenges/${id}/activate`, { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => {
+      setActionError(null);
+      qc.invalidateQueries();
+    },
+    onError: showError,
   });
 
   return (
@@ -44,7 +63,8 @@ export default function ChallengesPage() {
           </p>
           <h1 className="display text-5xl leading-none">Retos</h1>
           <p className="text-ink-dim mt-3">
-            Cada mes es un reto independiente con sus propias reglas.
+            Cada reto tiene sus propias reglas. Puede haber varios retos activos a la vez;
+            los participantes eligen en cuál trabajan desde el selector del encabezado.
           </p>
         </div>
         <button
@@ -56,6 +76,15 @@ export default function ChallengesPage() {
       </div>
 
       {showForm && <NewChallengeForm onDone={() => setShowForm(false)} />}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5"
+        >
+          {actionError}
+        </div>
+      )}
 
       <div className="space-y-3">
         {challenges?.map((c) => (
@@ -220,10 +249,10 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
           />
         </div>
         <div>
-          <label className="label">Min FC (minutos)</label>
+          <label className="label">Min FC (minutos, 0 = sin regla)</label>
           <input
             type="number"
-            min={1}
+            min={0}
             className="input"
             value={minHr}
             onChange={(e) => setMinHr(parseInt(e.target.value, 10))}

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ActivityStatus, ChallengeStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ChallengePayout, computePayout } from './finance.service';
 
 export interface ParticipantRanking {
   userId: string;
@@ -34,6 +35,8 @@ export interface ChallengeResults {
   awards: ChallengeAwardResult[];
   drawNeeded: boolean;
   notes: string[];
+  /** Reparto del presupuesto entre ganadores (informativo, no altera el ranking) */
+  payout: ChallengePayout;
 }
 
 @Injectable()
@@ -143,6 +146,10 @@ export class ResultsService {
         awards.length > 0
           ? ['Premiación registrada por el administrador.']
           : computed.notes,
+      payout: computePayout(
+        challenge.budgetTotal,
+        awards.length > 0 ? awards.length : winners.length,
+      ),
     };
   }
 

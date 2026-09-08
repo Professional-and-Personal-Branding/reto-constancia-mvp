@@ -17,6 +17,7 @@ import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
 import { RejectActivityDto } from './dto/reject-activity.dto';
+import { ValidateActivityDto } from './dto/validate-activity.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -67,9 +68,16 @@ export class ActivitiesController {
 
   @Post(':id/validate')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Validar actividad (admin)' })
-  validate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.activities.validate(id, user.sub);
+  @ApiOperation({
+    summary:
+      'Validar actividad (admin). Si no cumple la regla de FC del reto requiere { override: true, note }',
+  })
+  validate(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ValidateActivityDto,
+  ) {
+    return this.activities.validate(id, user.sub, dto ?? {});
   }
 
   @Post(':id/reject')

@@ -4,16 +4,14 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import type { Challenge, ChallengeResults, ParticipantRanking } from '@/lib/types';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import type { ChallengeResults, ParticipantRanking } from '@/lib/types';
 
 export default function ResultsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const { data: results, isLoading } = useQuery<ChallengeResults>({
     queryKey: ['results', challenge?.id],
@@ -58,6 +56,18 @@ export default function ResultsPage() {
             {results.topScore} día{results.topScore === 1 ? '' : 's'}
           </span>
         </p>
+        {results.payout && (
+          <p className="text-sm text-ink-dim mt-2" aria-label="Premio por ganador">
+            {!results.payout.monetary
+              ? 'Premio no monetario (presupuesto 0).'
+              : results.payout.winnersCount === 0
+                ? `Pote ${results.payout.pot} ${challenge.currency} · aún sin ganador.`
+                : `Premio: ${results.payout.perWinner} ${challenge.currency} por ganador` +
+                  (results.payout.winnersCount > 1 ? ` (${results.payout.winnersCount})` : '') +
+                  ` · pote ${results.payout.pot} ${challenge.currency}` +
+                  (results.status === 'COMPLETED' ? '' : ' · proyectado')}
+          </p>
+        )}
       </div>
 
       {/* Ganadores (si el reto está cerrado) */}

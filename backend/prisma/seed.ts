@@ -247,6 +247,7 @@ async function main() {
           distanceKm: seededActivity.distanceKm,
           avgHeartRate: 142,
           hasHeartRateProof: true,
+          heartRateMinutes: 30,
           notes: `Dato seed para pruebas locales (${seededActivity.status.toLowerCase()}).`,
           status: seededActivity.status,
           rejectionReason:
@@ -272,6 +273,7 @@ async function main() {
           distanceKm: seededActivity.distanceKm,
           avgHeartRate: 142,
           hasHeartRateProof: true,
+          heartRateMinutes: 30,
           notes: `Dato seed para pruebas locales (${seededActivity.status.toLowerCase()}).`,
           status: seededActivity.status,
           rejectionReason:

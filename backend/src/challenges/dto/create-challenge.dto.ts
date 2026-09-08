@@ -52,8 +52,8 @@ export class CreateChallengeDto {
   @ApiPropertyOptional({ example: 20 })
   @IsOptional()
   @IsInt()
-  @Min(1)
-  minHeartRateMinutes?: number;
+  @Min(0)
+  minHeartRateMinutes?: number; // 0 = sin regla de FC para este reto
 
   @ApiPropertyOptional({ example: 120 })
   @IsOptional()

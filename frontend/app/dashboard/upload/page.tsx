@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import type { Challenge, ExerciseType, PhotoType } from '@/lib/types';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import type { ExerciseType, PhotoType } from '@/lib/types';
 
 interface PhotoSlot {
   file: File | null;
@@ -31,16 +32,14 @@ export default function UploadPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const [date, setDate] = useState(isoToday());
   const [exerciseType, setExerciseType] = useState<ExerciseType>('RUNNING');
   const [durationMinutes, setDurationMinutes] = useState<number>(30);
   const [distanceKm, setDistanceKm] = useState<string>('');
   const [avgHeartRate, setAvgHeartRate] = useState<string>('');
+  const [heartRateMinutes, setHeartRateMinutes] = useState<string>('');
   const [hasHeartRateProof, setHasHeartRateProof] = useState(true);
   const [notes, setNotes] = useState('');
 
@@ -93,6 +92,7 @@ export default function UploadPage() {
           durationMinutes,
           distanceKm: distanceKm ? parseFloat(distanceKm) : undefined,
           avgHeartRate: avgHeartRate ? parseInt(avgHeartRate, 10) : undefined,
+          heartRateMinutes: heartRateMinutes ? parseInt(heartRateMinutes, 10) : undefined,
           hasHeartRateProof: hasHeartRateProof && !!heartRatePhoto.file,
           notes: notes || undefined,
           photos,
@@ -136,6 +136,20 @@ export default function UploadPage() {
     );
   }
 
+  // Regla de FC del reto seleccionado (misma definición que la API; la API la vuelve a verificar)
+  const minHr = challenge.minHeartRateMinutes;
+  const hrMinutes = heartRateMinutes ? parseInt(heartRateMinutes, 10) : null;
+  const hrIssues: string[] = [];
+  if (minHr > 0) {
+    if (hrMinutes === null) hrIssues.push(`indica los minutos con FC (mínimo ${minHr})`);
+    else if (hrMinutes < minHr) hrIssues.push(`este reto exige al menos ${minHr} min de registro de FC`);
+    if (!heartRatePhoto.file) hrIssues.push('adjunta la captura de frecuencia cardíaca');
+  }
+  if (hrMinutes !== null && hrMinutes > durationMinutes) {
+    hrIssues.push('los minutos con FC no pueden superar la duración');
+  }
+  const heartRateOk = hrIssues.length === 0;
+
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
@@ -144,7 +158,9 @@ export default function UploadPage() {
         </p>
         <h1 className="display text-5xl leading-none">Subir actividad</h1>
         <p className="text-ink-dim mt-3">
-          Foto del entreno + captura de FC con al menos {challenge.minHeartRateMinutes} min.
+          {minHr > 0
+            ? `Foto del entreno + captura de FC con al menos ${minHr} min de registro.`
+            : 'Foto del entreno. Este reto no exige un mínimo de FC.'}
         </p>
       </div>
 
@@ -216,6 +232,22 @@ export default function UploadPage() {
               onChange={(e) => setAvgHeartRate(e.target.value)}
             />
           </div>
+          <div>
+            <label className="label">
+              Minutos con FC (según la captura)
+              {minHr > 0 && <span className="text-accent"> *</span>}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={durationMinutes || undefined}
+              className="input"
+              value={heartRateMinutes}
+              onChange={(e) => setHeartRateMinutes(e.target.value)}
+              placeholder={minHr > 0 ? `mínimo ${minHr}` : 'opcional'}
+              aria-label="Minutos con FC"
+            />
+          </div>
           <label className="flex items-center gap-3 self-end pb-3 cursor-pointer">
             <input
               type="checkbox"
@@ -255,6 +287,15 @@ export default function UploadPage() {
           onClear={() => setHeartRatePhoto({ file: null, preview: null, type: 'HEART_RATE' })}
         />
 
+        {!heartRateOk && (
+          <div
+            role="status"
+            className="text-warn text-sm bg-warn/10 border border-warn/30 rounded-md px-4 py-2.5"
+          >
+            Para registrar esta actividad: {hrIssues.join('; ')}.
+          </div>
+        )}
+
         {err && (
           <div className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5">
             {err}
@@ -270,7 +311,7 @@ export default function UploadPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            disabled={submitMutation.isPending}
+            disabled={submitMutation.isPending || !heartRateOk}
             className="btn-primary flex-1"
           >
             {submitMutation.isPending ? 'Enviando…' : 'Registrar actividad'}

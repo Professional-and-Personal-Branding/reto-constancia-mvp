@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Post,
@@ -22,6 +23,7 @@ import { UserRole } from '@prisma/client';
 
 import { ImportService } from './import.service';
 import { ImportOptionsDto } from './dto/import-options.dto';
+import { SheetImportDto } from './dto/sheet-import.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -48,6 +50,42 @@ export class ImportController {
       'Content-Disposition': `attachment; filename="${filename}"`,
     });
     res.send(buffer);
+  }
+
+  // ---------- Google Sheets (spec google-sheets-import) ----------
+
+  @Get('sheet/status')
+  @ApiOperation({
+    summary:
+      'Estado de la integración con Google Sheets (admin): configured y, con spreadsheetId, si la hoja es legible',
+  })
+  @ApiQuery({ name: 'spreadsheetId', required: false })
+  @ApiQuery({ name: 'range', required: false })
+  sheetStatus(
+    @Query('spreadsheetId') spreadsheetId?: string,
+    @Query('range') range?: string,
+  ) {
+    return this.importService.getSheetStatus(spreadsheetId || undefined, range || undefined);
+  }
+
+  @Post('sheet/preview')
+  @ApiOperation({
+    summary: 'Previsualizar importación desde una Google Sheet (dry-run, admin). 503 si no está configurada',
+  })
+  sheetPreview(@Body() dto: SheetImportDto) {
+    return this.importService.previewSheet(dto);
+  }
+
+  @Post('sheet/commit')
+  @ApiOperation({
+    summary: 'Importar actividades desde una Google Sheet con las mismas opciones que el archivo (admin)',
+  })
+  sheetCommit(
+    @Body() dto: SheetImportDto,
+    @Query() options: ImportOptionsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.importService.commitSheet(dto, options, user.sub);
   }
 
   @Post('activities/preview')
