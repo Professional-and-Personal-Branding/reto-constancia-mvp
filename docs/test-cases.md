@@ -401,6 +401,11 @@ Convención de cada caso: **ID · Objetivo · Precondición · Pasos · Resultad
 - **Pasos:** login participante; intentar ver `/dashboard/admin/*`.
 - **Esperado:** no se muestran/permiten acciones de admin (validaciones, retos, participantes, import).
 
+### TC-UI-04 · Fechas sin desfase de zona horaria
+- **Precondición:** navegador en una zona al oeste de UTC (p. ej. America/La_Paz, UTC-4).
+- **Pasos:** abrir "Mi reto" con el reto de mayo (inicia 2026-05-01) y mirar el período y la lista de actividades; abrir Validaciones con una actividad pendiente.
+- **Esperado:** el período muestra `01-may -> 31-may` (no `30-abr`), cada actividad muestra el día que registró el participante, y la fecha por defecto del formulario de subida es hoy según el calendario local (no la fecha UTC).
+
 ### TC-UI-03 · Contador de fin de reto
 - **Pasos:** participante en dashboard con reto activo.
 - **Esperado:** muestra "Finaliza en Xd Yh Zm"; "Finalizado" cuando `endDate` ya pasó.
