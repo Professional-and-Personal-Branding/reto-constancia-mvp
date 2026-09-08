@@ -176,7 +176,9 @@ Pasos:
    - Env vars: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`,
      `JWT_ACCESS_EXPIRES_IN=15m`, `JWT_REFRESH_EXPIRES_IN=7d`,
      `CORS_ORIGIN`(=URL del frontend), `API_PREFIX=api`, `CLOUDINARY_*`,
-     `SEED_ADMIN_*`. Genera los JWT secrets con `openssl rand -base64 64`.
+     `SEED_ADMIN_*`; opcionales `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` y
+     `GOOGLE_SHEETS_DEFAULT_RANGE` para importar directo desde Google Sheets (ver
+     `docs/import-template.md`). Genera los JWT secrets con `openssl rand -base64 64`.
    - Primera vez / staging: ejecutar `npx prisma db seed` (evita passwords de demo en prod).
 5. **Seenode → Web Service (Frontend)**, root `frontend`:
    - Build: `npm install && npm run build`

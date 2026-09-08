@@ -327,6 +327,25 @@ Convención de cada caso: **ID · Objetivo · Precondición · Pasos · Resultad
 
 ---
 
+### TC-IMP-05 · Google Sheets: integración no configurada
+- **Pasos:** sin `GOOGLE_*` en el backend: `GET /import/sheet/status`; `POST /import/sheet/preview`.
+- **Esperado:** status `{ configured: false, reason: "not_configured" }`; preview y commit `503`; la UI muestra la sección deshabilitada con explicación y la carga por archivo sigue funcionando.
+
+### TC-IMP-06 · Google Sheets: estado de la hoja
+- **Pasos:** con la integración configurada, `GET /import/sheet/status?spreadsheetId=<id>` para una hoja compartida y para una no compartida; como participante.
+- **Esperado:** compartida → `readable: true` con título, hojas, rango resuelto y filas de datos; no compartida → `readable: false, reason: "not_shared"`; participante → 403.
+- *(Automatizado con cliente falso en `backend/test/import-sheet.e2e-spec.ts`.)*
+
+### TC-IMP-07 · Google Sheets: preview y commit idempotente
+- **Pasos:** hoja con una fila válida conforme, una válida sin FC y una inválida: preview; commit; commit con `skip`; commit con `update`; preview con `range` de otra hoja; preview con cabecera sin `date`.
+- **Esperado:** preview `{ total: 3, valid: 2, invalid: 1, warnings: 1 }`; commit crea 2; luego omite 2; luego actualiza 2; el rango selecciona solo esa hoja; cabecera incompleta → 400 nombrando `date`.
+
+### TC-IMP-08 · Google Sheets: fallo de lectura sin import parcial
+- **Pasos:** commit sobre una hoja no compartida.
+- **Esperado:** 400 mencionando el acceso y ninguna actividad creada.
+
+---
+
 ## 8. Salud y monitoreo
 
 ### TC-HEALTH-01 · Liveness
