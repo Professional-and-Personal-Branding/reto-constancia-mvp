@@ -1,0 +1,19 @@
+{
+  "name": "reto-constancia-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pruebas end-to-end de la plataforma (UI + API) con Playwright",
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

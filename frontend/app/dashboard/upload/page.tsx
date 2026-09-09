@@ -169,8 +169,9 @@ export default function UploadPage() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">Fecha</label>
+            <label className="label" htmlFor="activity-date">Fecha</label>
             <input
+              id="activity-date"
               type="date"
               required
               className="input"
@@ -180,8 +181,9 @@ export default function UploadPage() {
             />
           </div>
           <div>
-            <label className="label">Tipo de ejercicio</label>
+            <label className="label" htmlFor="activity-type">Tipo de ejercicio</label>
             <select
+              id="activity-type"
               required
               className="input"
               value={exerciseType}
@@ -195,8 +197,9 @@ export default function UploadPage() {
             </select>
           </div>
           <div>
-            <label className="label">Duración (min)</label>
+            <label className="label" htmlFor="activity-duration">Duración (min)</label>
             <input
+              id="activity-duration"
               type="number"
               required
               min={1}
@@ -206,8 +209,9 @@ export default function UploadPage() {
             />
           </div>
           <div>
-            <label className="label">Distancia (km, opcional)</label>
+            <label className="label" htmlFor="activity-distance">Distancia (km, opcional)</label>
             <input
+              id="activity-distance"
               type="number"
               step="0.01"
               min={0}
@@ -217,8 +221,9 @@ export default function UploadPage() {
             />
           </div>
           <div>
-            <label className="label">FC promedio (bpm, opcional)</label>
+            <label className="label" htmlFor="activity-avg-hr">FC promedio (bpm, opcional)</label>
             <input
+              id="activity-avg-hr"
               type="number"
               min={30}
               max={250}
@@ -255,8 +260,9 @@ export default function UploadPage() {
         </div>
 
         <div>
-          <label className="label">Notas (opcional)</label>
+          <label className="label" htmlFor="activity-notes">Notas (opcional)</label>
           <textarea
+            id="activity-notes"
             rows={2}
             className="input resize-none"
             value={notes}
@@ -376,6 +382,7 @@ function PhotoField({
         accept="image/*"
         capture="environment"
         className="hidden"
+        aria-label={label}
         onChange={onChange}
       />
     </div>

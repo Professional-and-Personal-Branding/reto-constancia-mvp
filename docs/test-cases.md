@@ -5,8 +5,10 @@ automatizada, los recorridos manuales paso a paso, y el catálogo completo de ca
 
 - **Parte 0 — Preparar el entorno**: de repositorio clonado a app funcionando.
 - **Parte 1 — Batería automatizada**: qué corre solo y con qué comando.
-- **Parte 2 — Recorridos guiados**: nueve recorridos manuales numerados, pensados para
-  ejecutarse antes de un despliegue o al validar un cambio grande.
+- **Parte 2 — Recorridos guiados**: nueve recorridos numerados, pensados para ejecutarse
+  antes de un despliegue o al validar un cambio grande. Seis de ellos están automatizados
+  con Playwright (`cd e2e && npm test`, ver [`e2e-playwright.md`](./e2e-playwright.md));
+  la versión manual sigue sirviendo para revisar la app desplegada.
 - **Parte 3 — Catálogo de casos**: los 76 casos funcionales por área, con precondición,
   pasos y resultado esperado.
 
@@ -95,9 +97,10 @@ Un solo comando desde la raíz, con la API y Postgres arriba:
 node scripts/run-tests.mjs
 ```
 
-Corre lint, unitarias, build, migraciones, e2e, tipos del frontend, lint, build y el
-recorrido de sesiones paralelas. Los pasos que necesitan Postgres o la API se saltan con
-aviso si no están disponibles. Variantes y detalle de cada suite: [`testing.md`](./testing.md).
+Corre lint, unitarias, build, migraciones, e2e de API, tipos del frontend, lint, build, el
+recorrido de sesiones paralelas y los recorridos de UI con Playwright. Solo necesita la base
+de datos: si la API no está arriba, el corredor la levanta. Variantes y detalle de cada
+suite: [`testing.md`](./testing.md) y [`e2e-playwright.md`](./e2e-playwright.md).
 
 **Qué familia de casos está automatizada:**
 
@@ -119,14 +122,27 @@ aviso si no están disponibles. Variantes y detalle de cada suite: [`testing.md`
 | Importación masiva | TC-IMP-01..08 | `import.service.spec.ts`, `import-sheet.e2e-spec.ts` |
 | Salud | TC-HEALTH-01..02 | `app.e2e-spec.ts` |
 | Sesiones paralelas | TC-PAR-01 | `scripts/parallel-session-test.mjs` |
-| Navegación y UI | TC-UI-01..04 | Manual (recorridos 1, 3 y 8) |
+| Navegación y UI | TC-UI-01..04 | `e2e/tests/01-auth-navigation.spec.ts`, `02-activity-upload.spec.ts` |
 
 ---
 
 ## Parte 2 · Recorridos guiados paso a paso
 
-Nueve recorridos manuales que, juntos, tocan toda la plataforma. Cada uno arranca desde el
-estado del seed (Parte 0). Tiempo total aproximado: 35 minutos.
+Nueve recorridos que, juntos, tocan toda la plataforma. Cada uno arranca desde el estado
+del seed (Parte 0). A mano toman unos 35 minutos; automatizados con Playwright, unos 20
+segundos.
+
+| Recorrido | Automatizado en |
+|---|---|
+| 1 · Alta, sesión y rutas protegidas | `e2e/tests/01-auth-navigation.spec.ts` |
+| 2 · Inscribir al participante nuevo | Manual (usa un usuario recién registrado) |
+| 3 · Registrar actividad con regla de FC | `e2e/tests/02-activity-upload.spec.ts` |
+| 4 · Validar y rechazar como admin | `e2e/tests/03-admin-validation.spec.ts` |
+| 5 · Pagos y resumen financiero | `e2e/tests/04-finance.spec.ts` |
+| 6 · Varios retos activos a la vez | `e2e/tests/05-challenges-scoring.spec.ts` |
+| 7 · Reglas de puntaje configurables | `e2e/tests/05-challenges-scoring.spec.ts` |
+| 8 · Importación masiva desde archivo | `e2e/tests/06-import.spec.ts` |
+| 9 · Importación desde Google Sheets | `e2e/tests/06-import.spec.ts` (estado sin configurar) |
 
 ### Recorrido 1 · Alta, sesión y rutas protegidas
 
