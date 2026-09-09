@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { corsWarning, resolveCorsOrigin } from './common/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -23,10 +24,16 @@ async function bootstrap() {
 
   // Archivos subidos en modo local (simulador de Cloudinary). En producción se usa Cloudinary.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
-  app.enableCors({
-    origin: config.get<string>('CORS_ORIGIN')?.split(',') ?? '*',
-    credentials: true,
-  });
+  const corsEnv = {
+    CORS_ORIGIN: config.get<string>('CORS_ORIGIN'),
+    NODE_ENV: config.get<string>('NODE_ENV'),
+  };
+  const corsOrigin = resolveCorsOrigin(corsEnv);
+  const corsIssue = corsWarning(corsOrigin, corsEnv);
+  if (corsIssue) {
+    new Logger('Bootstrap')[corsEnv.NODE_ENV === 'production' ? 'error' : 'warn'](corsIssue);
+  }
+  app.enableCors({ origin: corsOrigin, credentials: true });
 
   const apiPrefix = config.get<string>('API_PREFIX', 'api');
   app.setGlobalPrefix(apiPrefix);

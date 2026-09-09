@@ -36,11 +36,13 @@ export class UploadController {
   }
 
   @Post('local')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
-      'Simulador local de Cloudinary (solo dev): guarda el archivo y devuelve secure_url/public_id',
+      'Simulador local de Cloudinary (solo dev, requiere sesión): guarda el archivo y devuelve secure_url/public_id',
   })
   async local(
     @UploadedFile() file?: Express.Multer.File,

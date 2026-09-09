@@ -46,6 +46,16 @@ export class UploadService implements OnModuleInit {
       this.config.get<string>('PUBLIC_URL') ?? `http://localhost:${port}`;
 
     if (!cloud || !apiKey || !apiSecret) {
+      // En producción el simulador local queda deshabilitado: dejaría /upload/local
+      // aceptando archivos en un servidor público y los archivos no sobrevivirían al redeploy.
+      if (this.config.get<string>('NODE_ENV') === 'production') {
+        this.localMode = false;
+        this.logger.error(
+          'Cloudinary NO está configurado en producción: la subida de archivos queda deshabilitada. ' +
+            'Define CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.',
+        );
+        return;
+      }
       this.localMode = true;
       this.logger.warn(
         'Cloudinary no está configurado: usando almacenamiento LOCAL en /uploads (modo dev).',

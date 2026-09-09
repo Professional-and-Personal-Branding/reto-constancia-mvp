@@ -52,6 +52,8 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
+      # Falla solo ante alertas críticas; las altas/moderadas se revisan en docs/security-owasp.md
+      - run: npm audit --omit=dev --audit-level=critical
       - run: npm run test:e2e
 
   frontend:
@@ -72,5 +74,6 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - run: npm audit --omit=dev --audit-level=critical
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
