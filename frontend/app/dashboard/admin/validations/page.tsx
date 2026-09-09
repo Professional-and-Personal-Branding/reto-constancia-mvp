@@ -4,13 +4,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import type { DailyActivity } from '@/lib/types';
+import { formatDay } from '@/lib/dates';
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-BO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDay(iso, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function ValidationsPage() {

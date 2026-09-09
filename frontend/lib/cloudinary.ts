@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, getTokens } from './api';
 import type { CloudinarySignature } from './types';
 
 export interface UploadedAsset {
@@ -27,7 +27,17 @@ export async function uploadToCloudinary(
   form.append('signature', sig.signature);
   form.append('folder', sig.folder);
 
-  const res = await fetch(sig.uploadUrl, { method: 'POST', body: form });
+  // El simulador local vive en nuestra propia API y exige sesión; a Cloudinary jamás
+  // se le envía el token del usuario.
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '';
+  const isLocalSimulator = !!apiBase && sig.uploadUrl.startsWith(apiBase);
+  const token = isLocalSimulator ? getTokens()?.accessToken : undefined;
+
+  const res = await fetch(sig.uploadUrl, {
+    method: 'POST',
+    body: form,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Cloudinary upload failed: ${txt}`);

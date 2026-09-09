@@ -55,7 +55,14 @@ Notas de plataforma (importantes):
    - `CORS_ORIGIN` = (URL pública del frontend; se completa tras el paso 3)
    - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
    - `CLOUDINARY_FOLDER` = `reto-constancia`
+   - `NODE_ENV` = `production` (**obligatorio**: activa las protecciones de producción)
    - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME` (para el primer seed)
+   - Opcionales para importar desde Google Sheets: `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
+     `GOOGLE_PRIVATE_KEY`, `GOOGLE_SHEETS_DEFAULT_RANGE` (ver `docs/import-template.md`)
+
+   > **Sin `CLOUDINARY_*` la subida de archivos queda deshabilitada** en producción: el
+   > simulador local no se activa (guardaría archivos en un disco efímero y expondría un
+   > endpoint de subida). Sin `CORS_ORIGIN`, la API no acepta llamadas desde el navegador.
 7. Crea el servicio. Anota su URL pública (p. ej. `https://reto-api.seenode.app`).
 8. Verifica salud: abre `https://<api>/api/health` (debe responder `{"status":"ok"}`)
    y `https://<api>/api/health/db` (debe responder `db: "up"`).
@@ -85,7 +92,28 @@ Notas de plataforma (importantes):
    ```
    npx prisma db seed
    ```
-   (Crea el admin a partir de `SEED_ADMIN_*`. En prod, cambia el password tras el primer login.)
+   Con `NODE_ENV=production` el seed **solo crea el admin** de `SEED_ADMIN_*` y falla si
+   `SEED_ADMIN_PASSWORD` no está definido. Los datos de demo (participantes con contraseña
+   conocida, reto y actividades de mayo) no se siembran salvo que pongas `SEED_DEMO=true`,
+   cosa que no deberías hacer en producción. Cambia el password del admin tras el primer login.
+
+## 4.bis Checklist previo a producción
+
+Antes de anunciar el despliegue, confirma cada punto:
+
+| # | Verificación | Cómo |
+|---|---|---|
+| 1 | `NODE_ENV=production` en la API | Variables del servicio |
+| 2 | `JWT_SECRET` y `JWT_REFRESH_SECRET` distintos y generados al azar | Ver "Generar secretos" |
+| 3 | `CORS_ORIGIN` = URL exacta del frontend, sin slash final | Abrir la app y comprobar que no hay errores de CORS en la consola |
+| 4 | `CLOUDINARY_*` configurado | Subir una foto desde la app; si falta, la subida queda deshabilitada |
+| 5 | `SEED_ADMIN_PASSWORD` fuerte y cambiado tras el primer login | Login del admin |
+| 6 | Sin usuarios de demo en la base | `SELECT email FROM "User"` no debe traer `ana@reto.local` y compañía |
+| 7 | Salud y base | `GET /api/health` y `GET /api/health/db` responden `ok` |
+| 8 | Migraciones aplicadas | Los logs del arranque muestran `migrate deploy` sin pendientes |
+| 9 | Batería automatizada en verde en el commit desplegado | `node scripts/run-tests.mjs` (ver `docs/testing.md`) |
+| 10 | Recorridos manuales de la Parte 2 de `docs/test-cases.md` | Al menos los recorridos 1, 3, 4 y 5 contra el entorno desplegado |
+| 11 | Estado de dependencias revisado | `npm audit --omit=dev` en ambos proyectos (ver `docs/security-owasp.md`) |
 
 ## 5. Verificación end-to-end
 

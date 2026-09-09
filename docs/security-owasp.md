@@ -50,6 +50,37 @@ Resumen de los controles implementados, mapeados a principios de OWASP
 - [ ] Variables de entorno gestionadas como secretos en el panel del hosting (no en el repo).
 - [ ] Revisar logs para no exponer datos sensibles.
 
+## Estado de dependencias (revisión 2026-09-08)
+
+Comando: `npm audit --omit=dev` en `backend/` y `frontend/`.
+
+| Proyecto | Estado | Detalle |
+|---|---|---|
+| Frontend | **Sin vulnerabilidades** | Next.js actualizado a 15.5.x (la línea 14 ya no recibe los parches de las alertas críticas) y `postcss` forzado a 8.5.x con `overrides` |
+| Backend | **12 alertas abiertas** (5 altas) | 11 son transitivas de NestJS 10: se resuelven subiendo a NestJS 12, que es un cambio mayor y merece su propia iteración. La restante es `xlsx`, que no tiene versión corregida publicada en npm |
+
+Notas de riesgo del backend:
+
+- Las alertas de NestJS (`multer`, `lodash`, `js-yaml`, `body-parser`, `qs`) son de
+  denegación de servicio o de utilidades internas. La superficie expuesta es pequeña: la
+  única subida de archivos vía multer es la importación, restringida a administradores.
+- `xlsx` (SheetJS) tiene alertas de *prototype pollution* y ReDoS sin corrección en npm; el
+  proyecto publica versiones corregidas en su propio CDN. Solo procesa archivos que sube un
+  administrador. Opciones a decidir: fijar la versión del CDN oficial o migrar a otra
+  librería.
+- Recomendación: planificar la subida a NestJS 12 y la decisión sobre `xlsx` como una
+  iteración posterior al despliegue, y volver a correr `npm audit` en cada release.
+
+## Protecciones específicas de producción
+
+- **Subida de archivos**: el simulador local solo funciona fuera de producción. Con
+  `NODE_ENV=production` y sin credenciales de Cloudinary, la subida queda deshabilitada en
+  vez de exponer un endpoint de escritura en disco. Además `POST /upload/local` exige sesión.
+- **CORS**: sin `CORS_ORIGIN` la API no habilita orígenes cruzados en producción (en
+  desarrollo refleja el origen del navegador). Nunca se usa el comodín junto con credenciales.
+- **Seed**: en producción solo crea el administrador, exige `SEED_ADMIN_PASSWORD` y omite
+  los datos de demo salvo que se pida explícitamente con `SEED_DEMO=true`.
+
 ## Mejoras futuras (no bloqueantes)
 
 - Rotación/invalidación de refresh tokens (lista de revocación o `jti` persistido).

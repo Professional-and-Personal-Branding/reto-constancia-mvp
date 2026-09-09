@@ -2,6 +2,9 @@
   "name": "reto-constancia-backend",
   "version": "0.1.0",
   "description": "API NestJS para el reto mensual de constancia",
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "build": "nest build",
     "start": "nest start",
