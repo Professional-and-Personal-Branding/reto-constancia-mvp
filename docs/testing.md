@@ -10,24 +10,30 @@ node scripts/run-tests.mjs
 ```
 
 Corre, en orden: lint del backend, pruebas unitarias, build, migraciones, pruebas e2e,
-tipos del frontend, lint, build y la prueba de sesiones paralelas contra la API. Imprime un
-resumen y devuelve código distinto de cero si algo falla.
+tipos del frontend, lint, build, la prueba de sesiones paralelas y los recorridos de UI con
+Playwright. Imprime un resumen y devuelve código distinto de cero si algo falla.
+
+Si la API no está levantada, el corredor la arranca él mismo (usa el backend compilado) y la
+apaga al terminar, así que **no hace falta preparar nada más que la base de datos**.
 
 | Variante | Para qué |
 |---|---|
 | `node scripts/run-tests.mjs --quick` | Solo lo que no necesita Postgres (lint, unit, build, tipos). Ideal antes de cada commit |
 | `node scripts/run-tests.mjs --skip-e2e` | Todo menos las pruebas contra base de datos |
 | `node scripts/run-tests.mjs --skip-build` | Iteración rápida sin compilar |
+| `node scripts/run-tests.mjs --skip-ui` | Sin los recorridos de navegador (Playwright) |
 | `node scripts/run-tests.mjs --list` | Lista los pasos y sale |
 
-Los pasos que necesitan Postgres o una API corriendo **se saltan con aviso** si no están
-disponibles, así el comando sirve igual en una máquina recién clonada. Para que corran todos:
+Los pasos que necesitan Postgres **se saltan con aviso** si no está disponible, así el
+comando sirve igual en una máquina recién clonada. Para que corran todos basta con la base:
 
 ```bash
 docker compose up -d postgres                 # Postgres en el puerto 5433 del host
-cd backend && npm run start:dev               # API en :3002 (deja esta terminal abierta)
-node scripts/run-tests.mjs                    # en otra terminal, desde la raíz
+node scripts/run-tests.mjs                    # desde la raíz del repositorio
 ```
+
+La primera vez, instala también el navegador de Playwright:
+`cd e2e && npm install && npx playwright install chromium`.
 
 ## 2. Qué hay en cada suite
 
@@ -38,6 +44,7 @@ node scripts/run-tests.mjs                    # en otra terminal, desde la raíz
 | Tipos y lint | `npx tsc --noEmit -p .` / `npm run lint` | Tipos del frontend, reglas de estilo de ambos proyectos | — |
 | Builds | `npm run build` (en cada proyecto) | Que compile lo que se despliega | — |
 | Sesiones paralelas | `node scripts/parallel-session-test.mjs` | Recorrido funcional de punta a punta con dos sesiones simultáneas (admin y participante) sobre datos del seed | API + seed |
+| Recorridos de UI | `cd e2e && npm test` | Navegador real sobre la app: sesión y rutas protegidas, subida de archivos con la regla de FC, validación con override, resumen financiero, selector de retos, reglas de puntaje e importación. Ver [`e2e-playwright.md`](./e2e-playwright.md) | API + frontend + seed |
 
 ### Suites unitarias del backend (`backend/src/**/*.spec.ts`)
 
@@ -76,6 +83,8 @@ terminar, así que se pueden correr muchas veces sobre la misma base sin ensucia
 - **Backend**: `npm ci`, `prisma generate`, `prisma migrate deploy` sobre un Postgres de
   servicio, `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e`.
 - **Frontend**: `npm ci`, `npm run lint`, `npm run build`.
+- **E2E de UI**: Postgres de servicio, migraciones, seed, build de backend y frontend,
+  Chromium y los recorridos de Playwright. Si falla, sube el informe HTML como artefacto.
 
 Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede mergear.
 
@@ -87,7 +96,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | E2E fallan con datos raros | Base con datos de una corrida interrumpida | `cd backend && npx prisma migrate reset` y luego `npm run prisma:seed` |
 | `429 Too Many Requests` en scripts | Límite de 5 logins por minuto por IP | Espera un minuto; reutiliza el token en vez de re-loguear |
 | El frontend sirve 404 de sus propios chunks | Se corrió `npm run build` con `next dev` abierto | Detén el dev server, borra `.next` y vuelve a arrancar |
-| Sesiones paralelas se salta | La API no responde en `:3002` | `cd backend && npm run start:dev` (o `API_URL=... node scripts/run-tests.mjs`) |
+| Sesiones paralelas se salta | No hay base de datos, así que el corredor no pudo levantar la API | `docker compose up -d postgres` |
+| `webServer was not able to start` en Playwright | Falta compilar backend o frontend | `npm run build` en cada proyecto |
 
 ## 5. Cobertura actual y huecos conocidos
 
@@ -96,9 +106,10 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Componentes del frontend | **Sin pruebas automatizadas**: hoy se cubren con tipos, lint, build y verificación manual guiada (ver `test-cases.md`) |
-| Subida real a Cloudinary | **Sin cobertura automatizada**: requiere credenciales; se verifica manualmente |
+| Interfaz web | Cubierta por los recorridos de Playwright (`e2e/`): 19 pruebas sobre navegador real |
+| Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
+| Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
 
-Si en el futuro se agregan pruebas de componentes en el frontend, el lugar natural es
-Vitest más Testing Library, y el corredor ya tiene dónde enchufarlas.
+Si en el futuro se agregan pruebas de componentes aislados, el lugar natural es Vitest más
+Testing Library, y el corredor ya tiene dónde enchufarlas.

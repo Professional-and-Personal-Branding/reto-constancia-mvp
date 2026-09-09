@@ -206,6 +206,7 @@ Pasos:
 - Seguridad / OWASP: ver `docs/security-owasp.md`.
 - Casos de prueba (paso a paso, recorridos guiados y catálogo): ver `docs/test-cases.md`.
 - Batería automatizada y cómo correrla (`node scripts/run-tests.mjs`): ver `docs/testing.md`.
+- Pruebas de UI con Playwright (configuración y ejecución): ver `docs/e2e-playwright.md`.
 - Sesiones paralelas (admin+participante): `node scripts/parallel-session-test.mjs`.
 - Documentación técnica + diagramas: ver `docs/architecture.md`.
 - Reglas configurables y variabilidad mes a mes: ver `docs/challenge-rules.md`.
