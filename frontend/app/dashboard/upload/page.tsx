@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
+import { isoToday } from '@/lib/dates';
 import type { ExerciseType, PhotoType } from '@/lib/types';
 
 interface PhotoSlot {
@@ -21,12 +22,6 @@ const EXERCISE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'TREADMILL', label: 'Caminadora' },
   { value: 'OTHER', label: 'Otro' },
 ];
-
-function isoToday(): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
-}
 
 export default function UploadPage() {
   const router = useRouter();
