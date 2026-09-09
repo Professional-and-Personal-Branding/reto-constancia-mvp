@@ -1,6 +1,6 @@
 {
   "name": "reto-constancia-e2e",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Pruebas end-to-end de la plataforma (UI + API) con Playwright",
   "engines": {
