@@ -1,4 +1,12 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*.spec.ts"]
+  "compilerOptions": {
+    // rootDir deja la salida en dist/main.js (sin esto, incluir prisma/seed.ts la movía a
+    // dist/src/main.js y el comando de arranque documentado fallaba).
+    "rootDir": "./src",
+    // El buildinfo va dentro de dist para que deleteOutDir lo borre: si queda fuera, una
+    // compilación incremental cree que todo está al día y no emite nada.
+    "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
+  },
+  "exclude": ["node_modules", "test", "dist", "prisma", "**/*.spec.ts"]
 }
