@@ -22,6 +22,10 @@ yarn-error.log*
 # Test coverage
 coverage/
 
+# Local uploads (simulador de Cloudinary en dev)
+backend/uploads/
+uploads/
+
 # Caches
 .turbo/
 .eslintcache
@@ -33,3 +37,12 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Claude Code: overrides locales por usuario (los comandos/skills de OpenSpec en .claude/ sí se versionan)
+.claude/settings.local.json
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+e2e/.auth/
+e2e/blob-report/

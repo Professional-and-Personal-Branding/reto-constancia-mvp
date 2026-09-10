@@ -2,6 +2,8 @@ export type UserRole = 'PARTICIPANT' | 'ADMIN';
 
 export type ChallengeStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
 
+export type TiebreakRule = 'DRAW' | 'TOTAL_KM' | 'SHARE_ALL';
+
 export type ExerciseType =
   | 'RUNNING'
   | 'ELLIPTICAL'
@@ -47,6 +49,12 @@ export interface Challenge {
   currency: string;
   prizeDescription: string | null;
   status: ChallengeStatus;
+  /** Reglas de puntaje (spec challenge-scoring). Defaults: 1 / 0 / 0 / 2 / DRAW */
+  pointsPerValidatedDay: number;
+  pointsPerKm: string;
+  minValidatedDaysToQualify: number;
+  maxWinners: number;
+  tiebreakRule: TiebreakRule;
   participants?: ChallengeParticipant[];
 }
 
@@ -82,9 +90,15 @@ export interface DailyActivity {
   distanceKm: string | null;
   avgHeartRate: number | null;
   hasHeartRateProof: boolean;
+  /** Minutos de registro de FC según la captura (regla minHeartRateMinutes) */
+  heartRateMinutes: number | null;
   notes: string | null;
   status: ActivityStatus;
   rejectionReason: string | null;
+  /** Nota del admin cuando validó con override una actividad que no cumple la regla de FC */
+  validationNote: string | null;
+  /** Derivado por la API: cumple la regla de FC del reto */
+  heartRateCompliant: boolean;
   validatedAt: string | null;
   createdAt: string;
   photos: ActivityPhoto[];
@@ -95,6 +109,9 @@ export interface ParticipantRanking {
   userId: string;
   name: string;
   email: string;
+  /** Puntaje según las reglas del reto y si califica para ganar */
+  score: number;
+  qualified: boolean;
   validatedDays: number;
   pendingDays: number;
   rejectedDays: number;
@@ -122,6 +139,42 @@ export interface ChallengeResults {
   awards: ChallengeAward[];
   drawNeeded: boolean;
   notes: string[];
+  /** Reparto del presupuesto entre ganadores (informativo) */
+  payout: ChallengePayout;
+}
+
+export interface ChallengePayout {
+  pot: number;
+  winnersCount: number;
+  perWinner: number;
+  monetary: boolean;
+}
+
+export type PaymentState = 'paid' | 'partial' | 'unpaid';
+
+export interface ParticipantFinance {
+  userId: string;
+  name: string;
+  email: string;
+  state: PaymentState;
+  amountPaid: number;
+  paidAt: string | null;
+}
+
+export interface ChallengeFinance {
+  challengeId: string;
+  challengeName: string;
+  currency: string;
+  feePerParticipant: number;
+  budgetTotal: number;
+  participantsTotal: number;
+  counts: { paid: number; partial: number; unpaid: number };
+  expectedTotal: number;
+  collectedTotal: number;
+  pendingTotal: number;
+  budgetCovered: boolean;
+  budgetDelta: number;
+  participants: ParticipantFinance[];
 }
 
 export interface CloudinarySignature {
@@ -137,11 +190,12 @@ export interface ImportPreviewRow {
   row: number;
   data: Record<string, unknown>;
   errors: string[];
+  warnings: string[];
   valid: boolean;
 }
 
 export interface ImportPreviewResult {
-  summary: { total: number; valid: number; invalid: number };
+  summary: { total: number; valid: number; invalid: number; warnings: number };
   rows: ImportPreviewRow[];
 }
 
@@ -153,4 +207,16 @@ export interface ImportCommitResult {
   usersCreated: number;
   participantsCreated: number;
   errors: { row: number; message: string }[];
+}
+
+/** GET /import/sheet/status (spec google-sheets-import) */
+export interface SheetStatus {
+  configured: boolean;
+  readable: boolean;
+  reason?: 'not_configured' | 'not_shared' | 'not_found' | 'invalid_range' | 'api_error';
+  message?: string;
+  title?: string;
+  sheets?: string[];
+  range?: string;
+  rowCount?: number;
 }

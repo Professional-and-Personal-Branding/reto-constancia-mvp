@@ -105,7 +105,7 @@ cp .env.example .env
 # Edita .env: DATABASE_URL, JWT_SECRET (openssl rand -base64 64),
 #             CLOUDINARY_*, SEED_ADMIN_*
 
-# Si usas Postgres local:
+# Si usas Postgres local (expuesto en el puerto 5433 del host para no chocar con otros Postgres):
 cd .. && docker compose up -d && cd backend
 
 npm install
@@ -131,11 +131,11 @@ npm install
 npm run dev
 ```
 
-App en `http://localhost:3001`.
+App en `http://localhost:3005` (el frontend usa :3005 y la API :3002 para no chocar con otros proyectos locales en :3000/:3001; Postgres local en :5433).
 
 ### Probando el flujo
 
-1. Entra a `http://localhost:3001/login` con las credenciales del admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`).
+1. Entra a `http://localhost:3005/login` con las credenciales del admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`).
 2. Registra a tus 4 amigos en `/register` (o que se registren ellos).
 3. Como admin, ve a "Participantes" y agrégalos al reto.
 4. Cada participante entra y sube actividades en "Subir actividad".
@@ -146,6 +146,8 @@ App en `http://localhost:3001`.
 ## Deployment
 
 ### Opción principal: Seenode + Cloudinary
+
+> Guía paso a paso (root directory, build/start, puertos, env y post-deploy): [`docs/deploy-seenode.md`](docs/deploy-seenode.md).
 
 Seenode despliega desde GitHub autodetectando el runtime; se configuran los
 comandos de build/start y las variables de entorno desde el panel. La app debe
@@ -176,7 +178,9 @@ Pasos:
    - Env vars: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`,
      `JWT_ACCESS_EXPIRES_IN=15m`, `JWT_REFRESH_EXPIRES_IN=7d`,
      `CORS_ORIGIN`(=URL del frontend), `API_PREFIX=api`, `CLOUDINARY_*`,
-     `SEED_ADMIN_*`. Genera los JWT secrets con `openssl rand -base64 64`.
+     `SEED_ADMIN_*`; opcionales `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` y
+     `GOOGLE_SHEETS_DEFAULT_RANGE` para importar directo desde Google Sheets (ver
+     `docs/import-template.md`). Genera los JWT secrets con `openssl rand -base64 64`.
    - Primera vez / staging: ejecutar `npx prisma db seed` (evita passwords de demo en prod).
 5. **Seenode → Web Service (Frontend)**, root `frontend`:
    - Build: `npm install && npm run build`
@@ -200,6 +204,15 @@ Pasos:
   - Frontend: `npm ci` → `lint` → `build`.
 - Gitflow y convención de commits: ver `docs/gitflow.md`.
 - Seguridad / OWASP: ver `docs/security-owasp.md`.
+- Casos de prueba (paso a paso, recorridos guiados y catálogo): ver `docs/test-cases.md`.
+- Batería automatizada y cómo correrla (`node scripts/run-tests.mjs`): ver `docs/testing.md`.
+- Pruebas de UI con Playwright (configuración y ejecución): ver `docs/e2e-playwright.md`.
+- Historial de versiones: ver `CHANGELOG.md`.
+- Sesiones paralelas (admin+participante): `node scripts/parallel-session-test.mjs`.
+- Documentación técnica + diagramas: ver `docs/architecture.md`.
+- Reglas configurables y variabilidad mes a mes: ver `docs/challenge-rules.md`.
+- Metodología Spec-Driven Development (OpenSpec): specs en `openspec/`, comandos `/opsx:*` en `.claude/commands/opsx/`.
+- Optimización de tokens en Claude Code (`rtk` + `headroom`): ver `docs/token-optimization.md`.
 
 ## Reglas del reto (configurables por `Challenge`)
 
@@ -235,7 +248,8 @@ No se toca código, no se migra nada. Los datos históricos quedan accesibles.
 - `GET /api/auth/me` — perfil actual
 
 ### Challenges
-- `GET /api/challenges/active` — reto vigente
+- `GET /api/challenges/active` — reto activo por defecto del usuario (el más reciente donde participa; si no, el activo más reciente)
+- `GET /api/challenges/active/list` — todos los retos activos (más reciente primero) con `isParticipant`
 - `GET /api/challenges/:id/results` — ranking + ganadores + notas
 - `POST /api/challenges` (admin) — crear
 - `POST /api/challenges/:id/close` (admin) — cerrar

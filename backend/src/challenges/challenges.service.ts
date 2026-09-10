@@ -43,6 +43,12 @@ export class ChallengesService {
         budgetTotal: dto.budgetTotal ?? 0,
         currency: dto.currency ?? 'BOB',
         prizeDescription: dto.prizeDescription,
+        // Reglas de puntaje: undefined deja el default del modelo (spec challenge-scoring)
+        pointsPerValidatedDay: dto.pointsPerValidatedDay,
+        pointsPerKm: dto.pointsPerKm,
+        minValidatedDaysToQualify: dto.minValidatedDaysToQualify,
+        maxWinners: dto.maxWinners,
+        tiebreakRule: dto.tiebreakRule,
       },
     });
   }
@@ -54,10 +60,54 @@ export class ChallengesService {
     });
   }
 
-  findActive() {
-    return this.prisma.challenge.findFirst({
+  /**
+   * Todos los retos ACTIVE (puede haber varios a la vez), del más reciente al más antiguo,
+   * con `isParticipant` calculado para el usuario que consulta.
+   */
+  async findActiveList(userId?: string) {
+    const list = await this.prisma.challenge.findMany({
       where: { status: ChallengeStatus.ACTIVE },
-      include: { participants: { include: { user: { select: { id: true, name: true, email: true } } } } },
+      orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+      },
+    });
+    return list.map((challenge) => ({
+      ...challenge,
+      isParticipant:
+        !!userId && challenge.participants.some((p) => p.userId === userId),
+    }));
+  }
+
+  /**
+   * Reto activo "por defecto" para el usuario: el más reciente en el que participa;
+   * si no participa en ninguno, el activo más reciente; si no hay activos, null.
+   */
+  async findActive(userId?: string) {
+    const list = await this.findActiveList(userId);
+    if (list.length === 0) return null;
+    const chosen = list.find((c) => c.isParticipant) ?? list[0];
+    const { isParticipant, ...challenge } = chosen;
+    void isParticipant;
+    return challenge;
+  }
+
+  /**
+   * Transición de ciclo de vida DRAFT -> ACTIVE. Idempotente si ya está activo.
+   * Un reto COMPLETED no puede reactivarse. Varios retos pueden estar activos a la vez.
+   */
+  async activate(id: string): Promise<Challenge> {
+    const challenge = await this.prisma.challenge.findUnique({ where: { id } });
+    if (!challenge) throw new NotFoundException('Reto no encontrado');
+    if (challenge.status === ChallengeStatus.ACTIVE) return challenge;
+    if (challenge.status === ChallengeStatus.COMPLETED) {
+      throw new BadRequestException('Un reto cerrado no puede reactivarse');
+    }
+    return this.prisma.challenge.update({
+      where: { id },
+      data: { status: ChallengeStatus.ACTIVE },
     });
   }
 
@@ -75,7 +125,11 @@ export class ChallengesService {
   }
 
   async update(id: string, dto: UpdateChallengeDto): Promise<Challenge> {
-    await this.findOne(id);
+    let current: Challenge = await this.findOne(id);
+    // Activar vía PATCH pasa por las mismas reglas de ciclo de vida que POST :id/activate
+    if (dto.status === ChallengeStatus.ACTIVE) {
+      current = await this.activate(id);
+    }
     const data: Prisma.ChallengeUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.startDate !== undefined) data.startDate = new Date(dto.startDate);
@@ -89,8 +143,18 @@ export class ChallengesService {
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.prizeDescription !== undefined)
       data.prizeDescription = dto.prizeDescription;
-    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.pointsPerValidatedDay !== undefined)
+      data.pointsPerValidatedDay = dto.pointsPerValidatedDay;
+    if (dto.pointsPerKm !== undefined) data.pointsPerKm = dto.pointsPerKm;
+    if (dto.minValidatedDaysToQualify !== undefined)
+      data.minValidatedDaysToQualify = dto.minValidatedDaysToQualify;
+    if (dto.maxWinners !== undefined) data.maxWinners = dto.maxWinners;
+    if (dto.tiebreakRule !== undefined) data.tiebreakRule = dto.tiebreakRule;
+    if (dto.status !== undefined && dto.status !== ChallengeStatus.ACTIVE) {
+      data.status = dto.status;
+    }
 
+    if (Object.keys(data).length === 0) return current;
     return this.prisma.challenge.update({ where: { id }, data });
   }
 
@@ -141,12 +205,25 @@ export class ChallengesService {
     userId: string,
     dto: MarkPaymentDto,
   ) {
+    // Pagado sin monto explícito: se registra la cuota del reto (spec challenge-finance)
+    let amountPaid: number | null = null;
+    if (dto.paid) {
+      if (dto.amountPaid !== undefined) {
+        amountPaid = dto.amountPaid;
+      } else {
+        const challenge = await this.prisma.challenge.findUnique({
+          where: { id: challengeId },
+          select: { feePerParticipant: true },
+        });
+        amountPaid = challenge ? Number(challenge.feePerParticipant) : 0;
+      }
+    }
     return this.prisma.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId } },
       data: {
         paid: dto.paid,
         paidAt: dto.paid ? new Date() : null,
-        amountPaid: dto.paid ? (dto.amountPaid ?? null) : null,
+        amountPaid,
         paymentProofUrl: dto.paymentProofUrl,
         paymentProofCloudinaryId: dto.paymentProofCloudinaryId,
         paymentProofUploadedAt: dto.paymentProofUrl ? new Date() : undefined,

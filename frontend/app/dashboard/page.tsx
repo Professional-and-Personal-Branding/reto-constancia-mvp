@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import { formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import type {
-  Challenge,
   ChallengeParticipant,
   DailyActivity,
   ChallengeResults,
@@ -16,16 +17,7 @@ import type {
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-BO', {
-    day: '2-digit',
-    month: 'short',
-  });
-}
-
-function isoToday(): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
+  return formatDay(iso, { day: '2-digit', month: 'short' });
 }
 
 function useCountdown(endDate?: string): string {
@@ -55,10 +47,7 @@ export default function DashboardPage() {
   const paymentInputRef = useRef<HTMLInputElement>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const { data: activities } = useQuery<DailyActivity[]>({
     queryKey: ['activities', 'me', challenge?.id],
@@ -117,7 +106,7 @@ export default function DashboardPage() {
   }
 
   const today = isoToday();
-  const todayActivity = activities?.find((a) => a.date.slice(0, 10) === today);
+  const todayActivity = activities?.find((a) => toDayKey(a.date) === today);
   const validatedCount = activities?.filter((a) => a.status === 'VALIDATED').length ?? 0;
   const pendingCount = activities?.filter((a) => a.status === 'PENDING').length ?? 0;
   const myRank = results?.ranking.find((r) => r.userId === user?.id);

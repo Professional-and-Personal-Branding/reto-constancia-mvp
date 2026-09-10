@@ -4,16 +4,14 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import type { Challenge, ChallengeResults, ParticipantRanking } from '@/lib/types';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
+import type { ChallengeResults, ParticipantRanking } from '@/lib/types';
 
 export default function ResultsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const { data: challenge } = useQuery<Challenge | null>({
-    queryKey: ['challenge', 'active'],
-    queryFn: () => api<Challenge | null>('/challenges/active'),
-  });
+  const { challenge } = useActiveChallenge();
 
   const { data: results, isLoading } = useQuery<ChallengeResults>({
     queryKey: ['results', challenge?.id],
@@ -41,6 +39,11 @@ export default function ResultsPage() {
     );
   }
 
+  // Solo se muestran los puntos cuando el puntaje no es simplemente los días validados
+  const showPoints =
+    !!challenge &&
+    (challenge.pointsPerValidatedDay !== 1 || parseFloat(challenge.pointsPerKm) > 0);
+
   if (isLoading || !results) {
     return <p className="text-ink-dim">Cargando ranking…</p>;
   }
@@ -58,6 +61,32 @@ export default function ResultsPage() {
             {results.topScore} día{results.topScore === 1 ? '' : 's'}
           </span>
         </p>
+        {(challenge.pointsPerValidatedDay !== 1 ||
+          parseFloat(challenge.pointsPerKm) > 0 ||
+          challenge.minValidatedDaysToQualify > 0) && (
+          <p className="text-sm text-ink-dim mt-2" aria-label="Regla de puntaje">
+            Puntaje: {challenge.pointsPerValidatedDay} por día validado
+            {parseFloat(challenge.pointsPerKm) > 0
+              ? ` + ${parseFloat(challenge.pointsPerKm)} por km`
+              : ''}
+            {challenge.minValidatedDaysToQualify > 0
+              ? ` · mínimo ${challenge.minValidatedDaysToQualify} días para calificar`
+              : ''}
+            .
+          </p>
+        )}
+        {results.payout && (
+          <p className="text-sm text-ink-dim mt-2" aria-label="Premio por ganador">
+            {!results.payout.monetary
+              ? 'Premio no monetario (presupuesto 0).'
+              : results.payout.winnersCount === 0
+                ? `Pote ${results.payout.pot} ${challenge.currency} · aún sin ganador.`
+                : `Premio: ${results.payout.perWinner} ${challenge.currency} por ganador` +
+                  (results.payout.winnersCount > 1 ? ` (${results.payout.winnersCount})` : '') +
+                  ` · pote ${results.payout.pot} ${challenge.currency}` +
+                  (results.status === 'COMPLETED' ? '' : ' · proyectado')}
+          </p>
+        )}
       </div>
 
       {/* Ganadores (si el reto está cerrado) */}
@@ -105,6 +134,7 @@ export default function ResultsPage() {
             <tr className="border-b border-line text-xs uppercase tracking-wider text-ink-dim">
               <th className="px-4 py-3 text-left w-12">#</th>
               <th className="px-4 py-3 text-left">Participante</th>
+              {showPoints && <th className="px-4 py-3 text-right">Puntos</th>}
               <th className="px-4 py-3 text-right">Validados</th>
               <th className="px-4 py-3 text-right hidden sm:table-cell">Pend.</th>
               <th className="px-4 py-3 text-right hidden sm:table-cell">Rech.</th>
@@ -115,7 +145,7 @@ export default function ResultsPage() {
             {results.ranking.map((r, idx) => {
               const isMe = r.userId === user?.id;
               const isTop =
-                r.validatedDays === results.topScore && results.topScore > 0;
+                r.qualified && r.score === results.topScore && results.topScore > 0;
               return (
                 <tr
                   key={r.userId}
@@ -139,8 +169,18 @@ export default function ResultsPage() {
                         <span className="text-accent text-xs ml-2">(tú)</span>
                       )}
                     </p>
-                    <p className="text-xs text-ink-mute">{r.email}</p>
+                    <p className="text-xs text-ink-mute">
+                      {r.email}
+                      {!r.qualified && challenge.minValidatedDaysToQualify > 0 && (
+                        <span className="text-warn ml-2">no califica</span>
+                      )}
+                    </p>
                   </td>
+                  {showPoints && (
+                    <td className="px-4 py-3 text-right">
+                      <span className="display text-2xl text-accent">{r.score}</span>
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right">
                     <span className="display text-2xl text-ok">
                       {r.validatedDays}

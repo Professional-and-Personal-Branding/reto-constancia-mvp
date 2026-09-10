@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import {
   ActivityStatus,
   Challenge,
@@ -11,6 +15,9 @@ import * as XLSX from 'xlsx';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ImportOptionsDto, DuplicateStrategy } from './dto/import-options.dto';
+import { assessHeartRate } from '../activities/heart-rate-rule';
+import { SheetsClient, SheetsReadError } from './sheets.client';
+import { SheetImportDto } from './dto/sheet-import.dto';
 
 export const TEMPLATE_HEADERS = [
   'email',
@@ -22,6 +29,7 @@ export const TEMPLATE_HEADERS = [
   'durationMinutes',
   'distanceKm',
   'avgHeartRate',
+  'heartRateMinutes',
   'hasHeartRateProof',
   'status',
   'notes',
@@ -29,7 +37,29 @@ export const TEMPLATE_HEADERS = [
 ] as const;
 
 type Header = (typeof TEMPLATE_HEADERS)[number];
-type RawRow = Record<string, unknown>;
+export type RawRow = Record<string, unknown>;
+
+/** Columnas sin las cuales una fila no puede validarse (las demás son opcionales). */
+export const REQUIRED_HEADERS: readonly Header[] = [
+  'email',
+  'name',
+  'challengeMonth',
+  'challengeYear',
+  'date',
+  'exerciseType',
+  'durationMinutes',
+];
+
+export interface SheetStatus {
+  configured: boolean;
+  readable: boolean;
+  reason?: 'not_configured' | 'not_shared' | 'not_found' | 'invalid_range' | 'api_error';
+  message?: string;
+  title?: string;
+  sheets?: string[];
+  range?: string;
+  rowCount?: number;
+}
 
 export interface NormalizedRow {
   email: string;
@@ -41,6 +71,7 @@ export interface NormalizedRow {
   durationMinutes: number;
   distanceKm?: number;
   avgHeartRate?: number;
+  heartRateMinutes?: number;
   hasHeartRateProof: boolean;
   status?: ActivityStatus;
   notes?: string;
@@ -51,11 +82,13 @@ export interface PreviewRow {
   row: number;
   data: RawRow;
   errors: string[];
+  /** Filas válidas que no cumplen la regla de FC del reto (se importan igual) */
+  warnings: string[];
   valid: boolean;
 }
 
 export interface PreviewResult {
-  summary: { total: number; valid: number; invalid: number };
+  summary: { total: number; valid: number; invalid: number; warnings: number };
   rows: PreviewRow[];
 }
 
@@ -78,14 +111,19 @@ interface CommitContext {
 
 @Injectable()
 export class ImportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sheets?: SheetsClient,
+  ) {}
 
   // ---------- Parsing ----------
 
   parse(buffer: Buffer): RawRow[] {
     let wb: XLSX.WorkBook;
     try {
-      wb = XLSX.read(buffer, { type: 'buffer' });
+      // raw: true evita que el parser de CSV convierta fechas a serial con desfase de zona horaria
+      // ('2026-12-26' llegaba como '12/25/26'). Las celdas de XLSX conservan su tipo.
+      wb = XLSX.read(buffer, { type: 'buffer', raw: true });
     } catch {
       throw new BadRequestException(
         'No se pudo leer el archivo. Usa un CSV o XLSX válido.',
@@ -157,6 +195,17 @@ export class ImportService {
       }
     }
 
+    const hrMinRaw = get('heartRateMinutes');
+    let heartRateMinutes: number | undefined;
+    if (hrMinRaw) {
+      heartRateMinutes = Number(hrMinRaw);
+      if (!Number.isInteger(heartRateMinutes) || heartRateMinutes < 1) {
+        errors.push('heartRateMinutes debe ser un entero >= 1');
+      } else if (Number.isInteger(durationMinutes) && heartRateMinutes > durationMinutes) {
+        errors.push('heartRateMinutes no puede superar durationMinutes');
+      }
+    }
+
     const hasHeartRateProof = this.parseBool(get('hasHeartRateProof'));
 
     const statusRaw = get('status').toUpperCase();
@@ -185,6 +234,7 @@ export class ImportService {
         durationMinutes,
         distanceKm,
         avgHeartRate,
+        heartRateMinutes,
         hasHeartRateProof,
         status,
         notes,
@@ -197,20 +247,26 @@ export class ImportService {
   // ---------- Preview (dry-run) ----------
 
   async preview(buffer: Buffer): Promise<PreviewResult> {
-    const rows = this.parse(buffer);
-    const challengeExists = new Map<string, boolean>();
+    return this.previewRows(this.parse(buffer));
+  }
+
+  /** Preview sobre filas ya parseadas (archivo o Google Sheet). */
+  async previewRows(rows: RawRow[]): Promise<PreviewResult> {
+    const challengeCache = new Map<string, Challenge | null>();
     const previews: PreviewRow[] = [];
     let valid = 0;
+    let warnings = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const { normalized, errors } = this.validateRow(rows[i]);
       const rowErrors = [...errors];
+      const rowWarnings: string[] = [];
 
       if (normalized) {
         const key = `${normalized.challengeMonth}-${normalized.challengeYear}`;
-        let exists = challengeExists.get(key);
-        if (exists === undefined) {
-          const ch = await this.prisma.challenge.findUnique({
+        let challenge = challengeCache.get(key);
+        if (challenge === undefined) {
+          challenge = await this.prisma.challenge.findUnique({
             where: {
               month_year: {
                 month: normalized.challengeMonth,
@@ -218,23 +274,40 @@ export class ImportService {
               },
             },
           });
-          exists = !!ch;
-          challengeExists.set(key, exists);
+          challengeCache.set(key, challenge);
         }
-        if (!exists) {
+        if (!challenge) {
           rowErrors.push(
             `No existe un reto para ${normalized.challengeMonth}/${normalized.challengeYear}`,
           );
+        } else {
+          // Regla de FC: se informa como advertencia, la fila se importa igual (registros históricos)
+          const assessment = assessHeartRate(challenge, {
+            heartRateMinutes: normalized.heartRateMinutes ?? null,
+            hasHeartRateProof: normalized.hasHeartRateProof,
+          });
+          if (!assessment.compliant) {
+            rowWarnings.push(
+              `No cumple la regla de FC del reto: ${assessment.reasons.join('. ')}`,
+            );
+          }
         }
       }
 
       const isValid = rowErrors.length === 0;
       if (isValid) valid++;
-      previews.push({ row: i + 2, data: rows[i], errors: rowErrors, valid: isValid });
+      if (isValid && rowWarnings.length > 0) warnings++;
+      previews.push({
+        row: i + 2,
+        data: rows[i],
+        errors: rowErrors,
+        warnings: isValid ? rowWarnings : [],
+        valid: isValid,
+      });
     }
 
     return {
-      summary: { total: rows.length, valid, invalid: rows.length - valid },
+      summary: { total: rows.length, valid, invalid: rows.length - valid, warnings },
       rows: previews,
     };
   }
@@ -246,7 +319,15 @@ export class ImportService {
     options: ImportOptionsDto,
     adminId: string,
   ): Promise<CommitResult> {
-    const rows = this.parse(buffer);
+    return this.commitRows(this.parse(buffer), options, adminId);
+  }
+
+  /** Commit sobre filas ya parseadas (archivo o Google Sheet). */
+  async commitRows(
+    rows: RawRow[],
+    options: ImportOptionsDto,
+    adminId: string,
+  ): Promise<CommitResult> {
     const tempPassword = options.defaultPassword ?? this.randomPassword();
     const ctx: CommitContext = {
       defaultStatus: options.defaultStatus ?? ActivityStatus.VALIDATED,
@@ -359,6 +440,7 @@ export class ImportService {
           durationMinutes: n.durationMinutes,
           distanceKm: n.distanceKm ?? null,
           avgHeartRate: n.avgHeartRate ?? null,
+          heartRateMinutes: n.heartRateMinutes ?? null,
           hasHeartRateProof: n.hasHeartRateProof,
           notes: n.notes ?? null,
           status,
@@ -379,6 +461,7 @@ export class ImportService {
         durationMinutes: n.durationMinutes,
         distanceKm: n.distanceKm ?? null,
         avgHeartRate: n.avgHeartRate ?? null,
+        heartRateMinutes: n.heartRateMinutes ?? null,
         hasHeartRateProof: n.hasHeartRateProof,
         notes: n.notes ?? null,
         status,
@@ -399,6 +482,131 @@ export class ImportService {
     result.created++;
   }
 
+  // ---------- Google Sheets (spec google-sheets-import) ----------
+
+  /**
+   * Convierte la matriz de valores de una hoja en filas con las claves de la plantilla.
+   * La primera fila no vacía es la cabecera (sin distinguir mayúsculas ni espacios);
+   * las filas vacías se ignoran y cada celda se conserva como texto (igual que un CSV).
+   */
+  rowsFromSheet(values: string[][]): RawRow[] {
+    const isBlank = (row: unknown[] | undefined) =>
+      !row || row.every((c) => String(c ?? '').trim() === '');
+    const headerIndex = values.findIndex((row) => !isBlank(row));
+    if (headerIndex === -1) {
+      throw new BadRequestException('La hoja está vacía: falta la fila de cabecera');
+    }
+    const canonical = new Map(TEMPLATE_HEADERS.map((h) => [h.toLowerCase(), h]));
+    const headers = values[headerIndex].map((cell) => {
+      const key = String(cell ?? '').trim();
+      return canonical.get(key.toLowerCase()) ?? key;
+    });
+    const missing = REQUIRED_HEADERS.filter((h) => !headers.includes(h));
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Faltan columnas requeridas en la hoja: ${missing.join(', ')}`,
+      );
+    }
+    const rows: RawRow[] = [];
+    for (const row of values.slice(headerIndex + 1)) {
+      if (isBlank(row)) continue;
+      const record: RawRow = {};
+      headers.forEach((h, i) => {
+        if (h) record[h] = String(row[i] ?? '').trim();
+      });
+      rows.push(record);
+    }
+    return rows;
+  }
+
+  private requireSheets(): SheetsClient {
+    if (!this.sheets || !this.sheets.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Integración con Google Sheets no configurada: define GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_PRIVATE_KEY',
+      );
+    }
+    return this.sheets;
+  }
+
+  private async readSheet(
+    dto: SheetImportDto,
+  ): Promise<{ values: string[][]; range: string; title: string; sheets: string[] }> {
+    const client = this.requireSheets();
+    try {
+      const info = await client.getSpreadsheet(dto.spreadsheetId);
+      const range = dto.range?.trim() || client.defaultRange() || info.sheets[0] || 'A:Z';
+      const values = await client.getValues(dto.spreadsheetId, range);
+      return { values, range, title: info.title, sheets: info.sheets };
+    } catch (e) {
+      if (e instanceof SheetsReadError) throw new BadRequestException(e.message);
+      throw e;
+    }
+  }
+
+  async getSheetStatus(spreadsheetId?: string, range?: string): Promise<SheetStatus> {
+    if (!this.sheets || !this.sheets.isConfigured()) {
+      return {
+        configured: false,
+        readable: false,
+        reason: 'not_configured',
+        message:
+          'Integración con Google Sheets no configurada (GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY)',
+      };
+    }
+    if (!spreadsheetId) return { configured: true, readable: false };
+    try {
+      const { values, range: resolved, title, sheets } = await this.readSheet({
+        spreadsheetId,
+        range,
+      });
+      const dataRows = this.rowsFromSheetSafe(values);
+      return {
+        configured: true,
+        readable: true,
+        title,
+        sheets,
+        range: resolved,
+        rowCount: dataRows,
+      };
+    } catch (e) {
+      if (e instanceof BadRequestException) {
+        const reason = this.reasonFromMessage(e.message);
+        return { configured: true, readable: false, reason, message: e.message };
+      }
+      throw e;
+    }
+  }
+
+  private rowsFromSheetSafe(values: string[][]): number {
+    try {
+      return this.rowsFromSheet(values).length;
+    } catch {
+      return 0;
+    }
+  }
+
+  private reasonFromMessage(message: string): SheetStatus['reason'] {
+    if (/acceso|compártela/i.test(message)) return 'not_shared';
+    if (/no existe/i.test(message)) return 'not_found';
+    if (/rango|inválid/i.test(message)) return 'invalid_range';
+    return 'api_error';
+  }
+
+  async previewSheet(dto: SheetImportDto): Promise<PreviewResult> {
+    const { values } = await this.readSheet(dto);
+    return this.previewRows(this.rowsFromSheet(values));
+  }
+
+  async commitSheet(
+    dto: SheetImportDto,
+    options: ImportOptionsDto,
+    adminId: string,
+  ): Promise<CommitResult> {
+    // Se lee toda la hoja antes de escribir: un fallo de lectura nunca deja un import parcial
+    const { values } = await this.readSheet(dto);
+    return this.commitRows(this.rowsFromSheet(values), options, adminId);
+  }
+
   // ---------- Template ----------
 
   buildTemplate(format: 'csv' | 'xlsx'): {
@@ -417,6 +625,7 @@ export class ImportService {
         durationMinutes: 35,
         distanceKm: 5.2,
         avgHeartRate: 148,
+        heartRateMinutes: 30,
         hasHeartRateProof: 'true',
         status: 'VALIDATED',
         notes: 'Trote matutino',
@@ -432,6 +641,7 @@ export class ImportService {
         durationMinutes: 40,
         distanceKm: 12,
         avgHeartRate: 135,
+        heartRateMinutes: '',
         hasHeartRateProof: 'false',
         status: 'VALIDATED',
         notes: '',

@@ -32,7 +32,7 @@ jobs:
       JWT_REFRESH_SECRET: ci_only_refresh_secret_change_in_real_envs
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
-      CORS_ORIGIN: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3005
       API_PREFIX: api
 
     defaults:
@@ -49,8 +49,11 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      - run: npm run lint
       - run: npm run build
       - run: npm test
+      # Falla solo ante alertas críticas; las altas/moderadas se revisan en docs/security-owasp.md
+      - run: npm audit --omit=dev --audit-level=critical
       - run: npm run test:e2e
 
   frontend:
@@ -73,3 +76,61 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      - run: npm audit --omit=dev --audit-level=critical
+
+  e2e-ui:
+    name: E2E de UI (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: reto_constancia_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/reto_constancia_test?schema=public
+      JWT_SECRET: e2e-ui-secret
+      JWT_REFRESH_SECRET: e2e-ui-refresh-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      API_PREFIX: api
+      PORT: 3002
+      CORS_ORIGIN: http://localhost:3005
+      NEXT_PUBLIC_API_URL: http://localhost:3002/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Backend (deps, migraciones, seed y build)
+        working-directory: backend
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run prisma:seed
+          npm run build
+      - name: Frontend (deps y build)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Playwright (deps y navegador)
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Recorridos de UI
+        working-directory: e2e
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7

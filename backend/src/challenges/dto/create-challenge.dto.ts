@@ -2,8 +2,10 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsEnum,
   IsInt,
   IsISO8601,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -11,6 +13,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TiebreakRule } from '@prisma/client';
 
 export class CreateChallengeDto {
   @ApiProperty({ example: 'Reto Mayo 2026' })
@@ -52,8 +55,8 @@ export class CreateChallengeDto {
   @ApiPropertyOptional({ example: 20 })
   @IsOptional()
   @IsInt()
-  @Min(1)
-  minHeartRateMinutes?: number;
+  @Min(0)
+  minHeartRateMinutes?: number; // 0 = sin regla de FC para este reto
 
   @ApiPropertyOptional({ example: 120 })
   @IsOptional()
@@ -74,4 +77,57 @@ export class CreateChallengeDto {
   @IsOptional()
   @IsString()
   prizeDescription?: string;
+
+  // ----- Reglas de puntaje (spec challenge-scoring). Defaults = comportamiento histórico -----
+
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 0,
+    description: 'Puntos por día validado (default 1).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsPerValidatedDay?: number;
+
+  @ApiPropertyOptional({
+    example: 0,
+    minimum: 0,
+    description: 'Puntos por kilómetro acumulado (default 0 = no suma).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  pointsPerKm?: number;
+
+  @ApiPropertyOptional({
+    example: 0,
+    minimum: 0,
+    description: 'Días validados mínimos para poder ganar (default 0).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  minValidatedDaysToQualify?: number;
+
+  @ApiPropertyOptional({
+    example: 2,
+    minimum: 1,
+    description: 'Cantidad máxima de ganadores (default 2).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxWinners?: number;
+
+  @ApiPropertyOptional({
+    enum: TiebreakRule,
+    default: TiebreakRule.DRAW,
+    description:
+      'Qué hacer si empatan más personas que cupos: sorteo, más kilómetros, o que ganen todas.',
+  })
+  @IsOptional()
+  @IsEnum(TiebreakRule)
+  tiebreakRule?: TiebreakRule;
 }

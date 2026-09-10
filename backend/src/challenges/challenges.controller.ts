@@ -10,11 +10,17 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ChallengeStatus, UserRole } from '@prisma/client';
 
 import { ChallengesService } from './challenges.service';
 import { ResultsService } from './results.service';
+import { FinanceService } from './finance.service';
 import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
@@ -35,6 +41,7 @@ export class ChallengesController {
   constructor(
     private readonly challenges: ChallengesService,
     private readonly results: ResultsService,
+    private readonly finance: FinanceService,
   ) {}
 
   @Post()
@@ -50,10 +57,22 @@ export class ChallengesController {
     return this.challenges.findAll();
   }
 
+  @Get('active/list')
+  @ApiOperation({
+    summary:
+      'Todos los retos activos (más reciente primero) con isParticipant para el usuario actual',
+  })
+  findActiveList(@CurrentUser() user: JwtPayload) {
+    return this.challenges.findActiveList(user.sub);
+  }
+
   @Get('active')
-  @ApiOperation({ summary: 'Reto activo actual' })
-  findActive() {
-    return this.challenges.findActive();
+  @ApiOperation({
+    summary:
+      'Reto activo por defecto: el más reciente en el que participa el usuario, si no el activo más reciente',
+  })
+  findActive(@CurrentUser() user: JwtPayload) {
+    return this.challenges.findActive(user.sub);
   }
 
   @Get(':id')
@@ -78,9 +97,24 @@ export class ChallengesController {
 
   @Post(':id/activate')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Activar reto (admin)' })
+  @ApiOperation({
+    summary:
+      'Activar reto (admin). Solo DRAFT -> ACTIVE; idempotente si ya está activo; pueden coexistir varios activos',
+  })
+  @ApiResponse({ status: 400, description: 'Un reto cerrado no puede reactivarse' })
+  @ApiResponse({ status: 403, description: 'Solo administradores' })
   activate(@Param('id') id: string) {
-    return this.challenges.update(id, { status: ChallengeStatus.ACTIVE });
+    return this.challenges.activate(id);
+  }
+
+  @Get(':id/finance')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Resumen financiero del reto (admin): esperado, recaudado, pendiente, cobertura del presupuesto y estado de pago por participante',
+  })
+  getFinance(@Param('id') id: string) {
+    return this.finance.getFinance(id);
   }
 
   @Get(':id/results')

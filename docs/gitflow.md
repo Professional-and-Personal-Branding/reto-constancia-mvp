@@ -1,50 +1,50 @@
-# Gitflow del proyecto
+# Project Gitflow
 
-Modelo de ramas para mantener `main` siempre desplegable.
+Branching model to keep `main` always deployable.
 
-## Ramas principales
+## Main branches
 
-| Rama | Propósito | Despliega a |
+| Branch | Purpose | Deploys to |
 |---|---|---|
-| `main` | Código estable y liberable. Solo recibe merges desde `release/*` o `hotfix/*`. | Producción |
-| `develop` | Integración continua de features terminadas. | Staging |
+| `main` | Stable, releasable code. Only receives merges from `release/*` or `hotfix/*`. | Production |
+| `develop` | Continuous integration of finished features. | Staging |
 
-## Ramas de apoyo
+## Supporting branches
 
-| Prefijo | Nace de | Mergea a | Uso |
+| Prefix | Branches from | Merges into | Use |
 |---|---|---|---|
-| `feature/*` | `develop` | `develop` | Nuevas funcionalidades (ej. `feature/bulk-import`) |
-| `fix/*` | `develop` | `develop` | Correcciones no urgentes |
-| `release/*` | `develop` | `main` + `develop` | Preparar una versión (bump, changelog, QA) |
-| `hotfix/*` | `main` | `main` + `develop` | Arreglo urgente en producción |
+| `feature/*` | `develop` | `develop` | New features (e.g. `feature/bulk-import`) |
+| `fix/*` | `develop` | `develop` | Non-urgent fixes |
+| `release/*` | `develop` | `main` + `develop` | Prepare a release (bump, changelog, QA) |
+| `hotfix/*` | `main` | `main` + `develop` | Urgent production fix |
 
-## Flujo típico de una feature
+## Typical feature flow
 
 ```bash
 git checkout develop
 git pull
-git checkout -b feature/mi-funcionalidad
-# ...trabajo + commits...
-git push -u origin feature/mi-funcionalidad
-# Abrir PR hacia develop. Requiere: CI verde (lint + build + test) y 1 review.
+git checkout -b feature/my-feature
+# ...work + commits...
+git push -u origin feature/my-feature
+# Open a PR into develop. Requires: green CI (lint + build + test) and 1 review.
 ```
 
-## Convención de commits
+## Commit convention
 
-Se usa Conventional Commits:
+We use Conventional Commits:
 
-- `feat:` nueva funcionalidad
-- `fix:` corrección de bug
-- `chore:` mantenimiento (deps, config)
-- `docs:` documentación
-- `test:` pruebas
-- `refactor:` refactor sin cambio funcional
+- `feat:` new feature
+- `fix:` bug fix
+- `chore:` maintenance (deps, config)
+- `docs:` documentation
+- `test:` tests
+- `refactor:` refactor with no functional change
 - `ci:` pipeline
 
-Ejemplo: `feat(import): carga masiva de participantes desde CSV/XLSX`
+Example: `feat(import): bulk import of participants from CSV/XLSX`
 
-## Reglas
+## Rules
 
-- Nunca commits directos a `main`.
-- `develop` y `main` protegidas: merge solo vía PR con CI verde.
-- Una feature = una rama = un PR pequeño y revisable.
+- Never commit directly to `main`.
+- `develop` and `main` are protected: merge only via PR with green CI.
+- One feature = one branch = one small, reviewable PR.
