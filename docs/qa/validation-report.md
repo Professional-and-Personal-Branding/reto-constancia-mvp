@@ -1,7 +1,7 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-01 22:15 (UTC)
-- **Código:** rama `docs/qa-catalog-and-screenshots`, commit `f148221` (con cambios sin commit)
+- **Fecha:** 2026-10-01 22:23 (UTC)
+- **Código:** rama `docs/qa-catalog-and-screenshots`, commit `3943101`
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs --reuse`
 
@@ -15,11 +15,11 @@ Se ejecutaron **303 pruebas** automatizadas: 303 pasaron y 0 fallaron.
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 12.3 s | 2026-10-01 22:13 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 9.7 s | 2026-10-01 22:13 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 23 | 23 | 0 | 25.0 s | 2026-10-01 22:14 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 14 | 14 | 0 | 19.3 s | 2026-10-01 22:14 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 940 ms | 2026-10-01 22:14 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 8.1 s | 2026-10-01 22:22 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 11.8 s | 2026-10-01 22:22 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 23 | 23 | 0 | 27.4 s | 2026-10-01 22:22 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 14 | 14 | 0 | 20.3 s | 2026-10-01 22:23 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 1.0 s | 2026-10-01 22:23 |
 
 ## Casos por prioridad
 
