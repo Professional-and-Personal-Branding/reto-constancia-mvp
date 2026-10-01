@@ -123,7 +123,11 @@ export class ImportService {
     try {
       // raw: true evita que el parser de CSV convierta fechas a serial con desfase de zona horaria
       // ('2026-12-26' llegaba como '12/25/26'). Las celdas de XLSX conservan su tipo.
-      wb = XLSX.read(buffer, { type: 'buffer', raw: true });
+      wb = this.isSpreadsheetBinary(buffer)
+        ? XLSX.read(buffer, { type: 'buffer', raw: true })
+        : // Un CSV leído como buffer se interpreta en Latin-1 y rompe los acentos
+          // ('Pérez' llegaba como 'PÃ©rez'): se decodifica como UTF-8 y se quita el BOM.
+          XLSX.read(buffer.toString('utf8').replace(/^\uFEFF/, ''), { type: 'string', raw: true });
     } catch {
       throw new BadRequestException(
         'No se pudo leer el archivo. Usa un CSV o XLSX válido.',
@@ -133,6 +137,14 @@ export class ImportService {
     if (!sheetName) throw new BadRequestException('El archivo no tiene hojas.');
     const sheet = wb.Sheets[sheetName];
     return XLSX.utils.sheet_to_json<RawRow>(sheet, { defval: '', raw: false });
+  }
+
+  /** XLSX (zip, PK\x03\x04) y XLS (OLE, D0 CF 11 E0) son binarios; el resto se trata como texto. */
+  private isSpreadsheetBinary(buffer: Buffer): boolean {
+    if (buffer.length < 4) return false;
+    const zip = buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+    const ole = buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0;
+    return zip || ole;
   }
 
   // ---------- Validation ----------
