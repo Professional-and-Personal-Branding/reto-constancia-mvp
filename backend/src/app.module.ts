@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { resolveThrottle } from './common/http';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -15,7 +16,8 @@ import { HealthModule } from './health/health.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // Límite global por cliente (configurable con THROTTLE_LIMIT y THROTTLE_TTL_MS)
+    ThrottlerModule.forRoot([resolveThrottle(process.env)]),
     PrismaModule,
     AuthModule,
     UsersModule,
