@@ -113,3 +113,38 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 
 Si en el futuro se agregan pruebas de componentes aislados, el lugar natural es Vitest más
 Testing Library, y el corredor ya tiene dónde enchufarlas.
+
+## 6. Registro de ejecuciones
+
+Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
+aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-01 · v1.0.0 (commit `ac4c6c0`, contenido idéntico en `develop`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `prisma migrate deploy` y `npm run prisma:seed` antes de correr.
+
+Comando: `node scripts/run-tests.mjs`. Resultado: **10 de 10 pasos en verde, 0 fallidos, 0
+sin ejecutar.**
+
+| Suite | Resultado |
+|---|---|
+| Lint del backend (ESLint) | OK |
+| Pruebas unitarias del backend (Jest) | 114 de 114 |
+| Build del backend (`nest build`) | OK, salida en `dist/main.js` |
+| Migraciones (`prisma migrate deploy`) | Sin pendientes |
+| E2E de API (Jest, supertest, Postgres) | 51 de 51 |
+| Tipos del frontend (`tsc --noEmit`) | OK |
+| Lint del frontend (`next lint`) | OK, 1 aviso preexistente (`react-hooks/exhaustive-deps` en el ranking) |
+| Build del frontend (`next build`) | OK, 13 rutas estáticas |
+| Sesiones paralelas (`parallel-session-test.mjs`) | 64 de 64 verificaciones |
+| Recorridos de UI (Playwright) | 19 de 19 |
+
+Sin cobertura automatizada en esta corrida, por requerir credenciales reales: la subida a
+Cloudinary y la lectura de una hoja real de Google Sheets.
+
+### 2026-09-08 · rama `release/1.0.0` (antes del merge a `main`)
+
+Mismo comando y mismo resultado: 10 de 10 pasos en verde. Los tres trabajos de CI del PR #17
+también pasaron.
+
