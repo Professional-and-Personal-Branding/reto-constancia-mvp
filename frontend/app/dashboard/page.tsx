@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
-import { formatDay, isoToday, toDayKey } from '@/lib/dates';
+import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import type {
   ChallengeParticipant,
@@ -30,7 +30,8 @@ function useCountdown(endDate?: string): string {
 
   if (!endDate) return '—';
 
-  const remainingMs = new Date(endDate).getTime() - now;
+  // endDate es el último día válido (inclusivo): el reto termina al acabar ese día
+  const remainingMs = dayEndMs(endDate) - now;
   if (remainingMs <= 0) return 'Finalizado';
 
   const totalMinutes = Math.floor(remainingMs / 60_000);
