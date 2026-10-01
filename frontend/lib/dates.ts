@@ -23,6 +23,16 @@ export function isoToday(): string {
   return local.toISOString().slice(0, 10);
 }
 
+/**
+ * Instante (ms) en que termina un día calendario según la hora **local**: la medianoche
+ * del día siguiente. Para cuentas regresivas hasta `endDate`, que es inclusivo; usar
+ * `new Date(endDate)` daría la medianoche UTC del inicio de ese día.
+ */
+export function dayEndMs(iso: string): number {
+  const [year, month, day] = toDayKey(iso).split('-').map(Number);
+  return new Date(year, month - 1, day + 1).getTime();
+}
+
 const DEFAULT_OPTIONS: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
 
 /** Formatea un día calendario en es-BO sin que la zona horaria cambie el día mostrado. */

@@ -39,6 +39,7 @@ const STEPS = [
   { id: 'backend:migrate', label: 'Backend · migraciones (prisma migrate deploy)', cwd: BACKEND, cmd: 'npx prisma migrate deploy', needs: 'db', skip: SKIP_E2E },
   { id: 'backend:e2e', label: 'Backend · pruebas e2e (Jest + supertest + Postgres)', cwd: BACKEND, cmd: 'npm run test:e2e', needs: 'db', skip: SKIP_E2E },
   { id: 'frontend:types', label: 'Frontend · tipos (tsc --noEmit)', cwd: FRONTEND, cmd: 'npx tsc --noEmit -p .' },
+  { id: 'frontend:unit', label: 'Frontend · pruebas unitarias (node:test)', cwd: FRONTEND, cmd: 'npm test' },
   { id: 'frontend:lint', label: 'Frontend · lint (next lint)', cwd: FRONTEND, cmd: 'npm run lint' },
   { id: 'frontend:build', label: 'Frontend · build (next build)', cwd: FRONTEND, cmd: 'npm run build', skip: SKIP_BUILD },
   { id: 'e2e:sessions', label: 'Plataforma · sesiones paralelas contra la API', cwd: ROOT, cmd: 'node scripts/parallel-session-test.mjs', needs: 'api' },
