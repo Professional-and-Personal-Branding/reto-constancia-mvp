@@ -43,6 +43,8 @@ export default function ResultsPage() {
   const showPoints =
     !!challenge &&
     (challenge.pointsPerValidatedDay !== 1 || parseFloat(challenge.pointsPerKm) > 0);
+  // Con la regla por defecto el puntaje son días validados; con reglas propias son puntos
+  const scoreUnit = (n: number) => (showPoints ? (n === 1 ? 'punto' : 'puntos') : n === 1 ? 'día' : 'días');
 
   if (isLoading || !results) {
     return <p className="text-ink-dim">Cargando ranking…</p>;
@@ -58,7 +60,7 @@ export default function ResultsPage() {
         <p className="text-ink-dim mt-3">
           {results.totalValidDays} días válidos en el período · top actual:{' '}
           <span className="text-accent font-semibold">
-            {results.topScore} día{results.topScore === 1 ? '' : 's'}
+            {results.topScore} {scoreUnit(results.topScore)}
           </span>
         </p>
         {(challenge.pointsPerValidatedDay !== 1 ||
@@ -210,11 +212,11 @@ export default function ResultsPage() {
           </p>
           <p className="text-sm">
             Si el reto cerrara hoy, hay {results.tiedAtTop.length} personas en el
-            tope con {results.topScore} días.
-            {results.tiedAtTop.length > 2 &&
-              ' Se haría sorteo aleatorio entre ellas y se elegirían 2 ganadores.'}
-            {results.tiedAtTop.length === 2 &&
-              ' Ambas ganarían y el premio se dividiría.'}
+            tope con {results.topScore} {scoreUnit(results.topScore)}.{' '}
+            {/* La regla de desempate es la del reto: el servidor la describe en las notas */}
+            {results.notes
+              .filter((n) => !n.startsWith('Puntaje:') && !n.startsWith('Mínimo'))
+              .join(' ')}
           </p>
         </div>
       )}
@@ -231,12 +233,12 @@ function AwardPanel({
   isPending: boolean;
   onAward: (userIds: string[], notes?: string) => void;
 }) {
+  // Sugiere la premiación registrada o, si no hay, los ganadores que calcula el servidor con
+  // las reglas del reto (número de ganadores y desempate configurados).
   const suggestedIds =
     results.awards.length > 0
       ? results.awards.map((award) => award.userId)
-      : results.tiedAtTop.length <= 2
-        ? results.tiedAtTop.map((p) => p.userId)
-        : results.tiedAtTop.slice(0, 2).map((p) => p.userId);
+      : results.winners.map((w) => w.userId);
 
   const [selectedIds, setSelectedIds] = useState<string[]>(suggestedIds);
   const [notes, setNotes] = useState('');
@@ -281,7 +283,7 @@ function AwardPanel({
             checked={selectedIds.includes(participant.userId)}
             onToggle={() => toggle(participant.userId)}
             isTop={
-              participant.validatedDays === results.topScore && results.topScore > 0
+              participant.qualified && participant.score === results.topScore && results.topScore > 0
             }
           />
         ))}
@@ -305,8 +307,8 @@ function AwardPanel({
           {isPending ? 'Guardando…' : 'Guardar premiación'}
         </button>
         <p className="text-xs text-ink-mute">
-          Seleccionados: {selectedIds.length}. Para empate de más de 2, selecciona
-          los 2 elegidos por sorteo.
+          Seleccionados: {selectedIds.length}. Vienen marcados los ganadores que dan las
+          reglas del reto; ajusta la selección si el desempate se resolvió en persona.
         </p>
       </div>
     </div>

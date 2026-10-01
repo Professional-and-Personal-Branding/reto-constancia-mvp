@@ -165,7 +165,11 @@ export default function DashboardPage() {
         <Stat
           label="Top del reto"
           value={results?.topScore ?? 0}
-          suffix=" días"
+          suffix={
+            challenge.pointsPerValidatedDay !== 1 || parseFloat(challenge.pointsPerKm) > 0
+              ? ' pts'
+              : ' días'
+          }
         />
       </div>
 
