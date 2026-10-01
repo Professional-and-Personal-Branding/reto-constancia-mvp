@@ -1,7 +1,9 @@
 # Pruebas automatizadas — Reto de Constancia
 
-Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba
-funcionales (manuales y automatizados) están en [`test-cases.md`](./test-cases.md).
+Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (95 casos, cada uno con las
+pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
+[`test-cases.md`](./test-cases.md).
 
 ## 1. Un solo comando
 
@@ -44,7 +46,9 @@ La primera vez, instala también el navegador de Playwright:
 | Tipos y lint | `npx tsc --noEmit -p .` / `npm run lint` | Tipos del frontend, reglas de estilo de ambos proyectos | — |
 | Builds | `npm run build` (en cada proyecto) | Que compile lo que se despliega | — |
 | Sesiones paralelas | `node scripts/parallel-session-test.mjs` | Recorrido funcional de punta a punta con dos sesiones simultáneas (admin y participante) sobre datos del seed | API + seed |
-| Recorridos de UI | `cd e2e && npm test` | Navegador real sobre la app: sesión y rutas protegidas, subida de archivos con la regla de FC, validación con override, resumen financiero, selector de retos, reglas de puntaje e importación. Ver [`e2e-playwright.md`](./e2e-playwright.md) | API + frontend + seed |
+| Recorridos de UI | `cd e2e && npm test` | Navegador real sobre la app: sesión, renovación de tokens y rutas protegidas, subida de archivos con la regla de FC, validación con override, resumen financiero, selector de retos, reglas de puntaje e importación. Ver [`e2e-playwright.md`](./e2e-playwright.md) | API + frontend + seed |
+| Capturas de la guía | `cd e2e && npx playwright test -c playwright.guide.config.ts` | Arma un reto de demostración, verifica cada pantalla y regenera `docs/guia-capturas/` | API + frontend + seed |
+| Catálogo de casos | `node scripts/validate-test-cases.mjs` | Corre unitarias, e2e de API, UI, capturas y sesiones; cruza cada caso de `docs/qa/catalog.mjs` con sus pruebas y regenera el catálogo, el CSV y el reporte | Postgres + seed |
 
 ### Suites unitarias del backend (`backend/src/**/*.spec.ts`)
 
@@ -106,7 +110,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por los recorridos de Playwright (`e2e/`): 19 pruebas sobre navegador real |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 22 recorridos y 13 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 95 casos de `docs/qa/` están enlazados a 303 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -118,6 +123,36 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-01 · rama `docs/qa-catalog-and-screenshots` (catálogo de casos y capturas)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de validar.
+
+**Batería** (`node scripts/run-tests.mjs`): **10 de 10 pasos en verde.**
+
+| Suite | Resultado |
+|---|---|
+| Lint del backend (ESLint) | OK |
+| Pruebas unitarias del backend (Jest) | 121 de 121 |
+| Build del backend (`nest build`) | OK |
+| Migraciones (`prisma migrate deploy`) | Sin pendientes |
+| E2E de API (Jest, supertest, Postgres) | 81 de 81 |
+| Tipos del frontend (`tsc --noEmit`) | OK |
+| Lint del frontend (`next lint`) | OK, 1 aviso preexistente (`react-hooks/exhaustive-deps` en el ranking) |
+| Build del frontend (`next build`) | OK |
+| Sesiones paralelas (`parallel-session-test.mjs`) | 64 de 64 verificaciones |
+| Recorridos de UI (Playwright) | 22 de 22 (más la preparación de sesiones) |
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **94 de 95 casos aprobados** con 303
+pruebas ejecutadas y 0 fallidas (incluye las 13 pruebas de la suite de capturas). El caso
+restante es la limitación conocida OBS-01. Detalle en
+[`qa/validation-report.md`](./qa/validation-report.md).
+
+Defectos encontrados y corregidos en esta rama: acentos en la importación CSV (DEF-01),
+cierre de sesión ante un 429 y cupo compartido detrás del proxy (DEF-02), unidad del tope
+en el ranking (DEF-03), sugerencia del panel de premiación (DEF-04) y cierre de sesión al
+cambiar de página durante la renovación del token (DEF-05).
 
 ### 2026-10-01 · v1.0.0 (commit `ac4c6c0`, contenido idéntico en `develop`)
 

@@ -46,6 +46,93 @@ test.describe('Sesión y rutas protegidas', () => {
 test.describe('Sesión de administración', () => {
   test.use({ storageState: STATE.admin });
 
+  test('un 429 transitorio al cargar el perfil no cierra la sesión', async ({ page }) => {
+    // Las dos primeras consultas del perfil responden 429, como en un pico de tráfico
+    let blocked = 0;
+    await page.route('**/api/auth/me', async (route) => {
+      if (blocked < 2) {
+        blocked++;
+        await route.fulfill({ status: 429, contentType: 'application/json', body: '{"statusCode":429,"message":"ThrottlerException: Too Many Requests"}' });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible({ timeout: 15_000 });
+    expect(page.url()).toContain('/dashboard');
+    expect(blocked).toBe(2);
+    const stored = await page.evaluate(() => window.localStorage.getItem('reto.tokens'));
+    expect(stored).toBeTruthy();
+  });
+
+  test('un access token vencido se renueva solo con el refresh token', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible();
+    // Se escucha antes de invalidar: una consulta en segundo plano puede disparar la renovación
+    // apenas cambia el token, antes incluso de recargar.
+    const refreshed = page.waitForResponse((r) => r.url().includes('/api/auth/refresh') && r.ok());
+    // Una firma alterada hace que la API rechace el token igual que si hubiera vencido
+    const broken = await page.evaluate(() => {
+      const tokens = JSON.parse(window.localStorage.getItem('reto.tokens') ?? '{}');
+      tokens.accessToken = tokens.accessToken.slice(0, -6) + 'vencid';
+      window.localStorage.setItem('reto.tokens', JSON.stringify(tokens));
+      return tokens.accessToken as string;
+    });
+
+    await page.reload();
+    await refreshed;
+    await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible();
+    expect(page.url()).toContain('/dashboard');
+    const current = await page.evaluate(() => JSON.parse(window.localStorage.getItem('reto.tokens') ?? '{}').accessToken);
+    expect(current).toBeTruthy();
+    expect(current).not.toBe(broken);
+  });
+
+  test('un corte de red al renovar el token no cierra la sesión', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible();
+    // La primera renovación se corta (red caída o navegación); las siguientes llegan al servidor
+    let aborted = 0;
+    await page.route('**/api/auth/refresh', async (route) => {
+      if (aborted === 0) {
+        aborted++;
+        await route.abort('failed');
+        return;
+      }
+      await route.continue();
+    });
+    const broken = await page.evaluate(() => {
+      const tokens = JSON.parse(window.localStorage.getItem('reto.tokens') ?? '{}');
+      tokens.accessToken = tokens.accessToken.slice(0, -6) + 'vencid';
+      window.localStorage.setItem('reto.tokens', JSON.stringify(tokens));
+      return tokens.accessToken as string;
+    });
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible({ timeout: 15_000 });
+    expect(page.url()).toContain('/dashboard');
+    expect(aborted).toBe(1);
+    const current = await page.evaluate(() => JSON.parse(window.localStorage.getItem('reto.tokens') ?? '{}').accessToken);
+    expect(current).toBeTruthy();
+    expect(current).not.toBe(broken);
+  });
+
+  test('si el refresh token también es inválido, vuelve al login y borra la sesión', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible();
+    await page.evaluate(() => {
+      const tokens = JSON.parse(window.localStorage.getItem('reto.tokens') ?? '{}');
+      tokens.accessToken = tokens.accessToken.slice(0, -6) + 'vencid';
+      tokens.refreshToken = tokens.refreshToken.slice(0, -6) + 'vencid';
+      window.localStorage.setItem('reto.tokens', JSON.stringify(tokens));
+    });
+
+    await page.reload();
+    await page.waitForURL('**/login');
+    expect(await page.evaluate(() => window.localStorage.getItem('reto.tokens'))).toBeNull();
+  });
+
   test('el admin ve las cuatro secciones de administración', async ({ page }) => {
     await page.goto('/dashboard');
     for (const label of ['Validar', 'Participantes', 'Importar', 'Retos']) {

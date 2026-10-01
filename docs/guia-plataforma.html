@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Manual del Reto de Constancia</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -159,7 +160,8 @@
   }
   .step + .step { margin-top: 12px; }
   .step.is-done { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
-  .step-top { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; }
+  .step-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+  .step > *, .step-top > * { min-width: 0; }
   .step-id { font-family: "Anton", Impact, sans-serif; font-size: 22px; line-height: 1.1; color: var(--mute); font-variant-numeric: tabular-nums; min-width: 2.4em; }
   .step.is-done .step-id { color: var(--ok); }
   .step h3 { font-family: "Manrope", system-ui, sans-serif; font-weight: 700; font-size: 17px; margin: 0; line-height: 1.3; letter-spacing: 0; }
@@ -168,7 +170,7 @@
   .role.admin { background: var(--role-admin-soft); color: var(--role-admin); }
   .role.participante { background: var(--role-part-soft); color: var(--role-part); }
   .role.tecnico { background: var(--role-tech-soft); color: var(--role-tech); }
-  .route { background: var(--code-bg); color: var(--ink); border-radius: 4px; padding: 1px 6px; }
+  .route { overflow-wrap: anywhere; background: var(--code-bg); color: var(--ink); border-radius: 4px; padding: 1px 6px; }
   .via { font-size: 11px; font-weight: 700; color: var(--warn); background: var(--warn-soft); border-radius: 4px; padding: 2px 6px; text-transform: uppercase; letter-spacing: .05em; }
 
   .check { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--dim); cursor: pointer; white-space: nowrap; user-select: none; }
@@ -183,6 +185,19 @@
   .note { font-size: 13.5px; color: var(--dim); border-left: 2px solid var(--line); padding-left: 10px; margin: 0; max-width: 70ch; }
   .refs { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11.5px; color: var(--mute); }
   .refs span { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .shots figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+  .shots button { padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--raise); cursor: zoom-in; display: block; width: 100%; }
+  .shots img { display: block; width: 100%; max-width: 100%; height: 190px; object-fit: cover; object-position: top left; }
+  .shots.single { grid-template-columns: 1fr; }
+  .shots.single img { height: auto; max-height: 420px; object-fit: contain; object-position: top center; }
+  .shots figcaption { font-size: 12.5px; color: var(--mute); }
+  dialog.viewer { border: 0; padding: 0; background: transparent; max-width: min(1280px, 96vw); max-height: 94vh; }
+  dialog.viewer::backdrop { background: rgba(10, 12, 16, .82); }
+  dialog.viewer figure { margin: 0; display: grid; gap: 8px; }
+  dialog.viewer img { max-width: 100%; max-height: 82vh; width: auto; height: auto; object-fit: contain; border-radius: 8px; display: block; margin: 0 auto; }
+  dialog.viewer figcaption { background: rgba(10, 12, 16, .9); border-radius: 8px; padding: 8px 12px; color: #e9ecf1; font-size: 14px; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  dialog.viewer .close { border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 700; padding: 4px 10px; cursor: pointer; }
   pre.cmd { margin: 0; background: var(--code-bg); border-radius: 7px; padding: 10px 12px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
 
   .creds { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
@@ -207,12 +222,13 @@
   .manual { color: var(--warn); font-weight: 600; }
 
   @media (max-width: 860px) {
-    .layout { grid-template-columns: 1fr; gap: 0; }
+    .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
     nav.index { display: none; }
   }
   @media (max-width: 520px) {
+    .controls { position: static; }
     .step { padding: 14px; }
-    .step-top { grid-template-columns: auto 1fr; }
+    .step-top { grid-template-columns: auto minmax(0, 1fr); }
     .step-top .check { grid-column: 1 / -1; }
     .phase-num { font-size: 48px; }
   }
@@ -228,6 +244,7 @@
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
       <span class="verified">Batería local verificada el 1 oct 2026: 10 de 10 pasos</span>
+      <span><b>Capturas</b> generadas por Playwright sobre la web real con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
   </header>
@@ -257,6 +274,10 @@
   </div>
 </div>
 
+<dialog class="viewer" id="viewer" aria-label="Captura ampliada">
+  <figure><img id="viewer-img" alt=""><figcaption><span id="viewer-cap"></span><button class="close" type="button" id="viewer-close">Cerrar</button></figcaption></figure>
+</dialog>
+
 <script>
 (() => {
   const API = 'http://localhost:3002/api';
@@ -275,7 +296,7 @@
           cmd: 'docker compose up -d postgres\ncd backend && npm install && npx prisma migrate deploy\nnpm run start:dev            # API en :3002\ncd ../frontend && npm install && npm run dev   # web en :3005',
           actions: ['Copia <code>backend/.env.example</code> a <code>backend/.env</code> la primera vez y genera los secretos JWT.', 'Deja vacías las variables de Cloudinary: en desarrollo se usa el simulador local de subidas.'],
           expect: 'Postgres responde en el puerto 5433, la API en 3002 y la web en 3005.',
-          refs: ['test-cases · Parte 0']
+          refs: ['test-cases · Parte 0', 'TC-UP-02']
         },
         {
           id: '0.2', role: 'tecnico', title: 'Cargar los datos de demostración',
@@ -292,7 +313,7 @@
           route: API + '/docs',
           actions: ['Abre Swagger en <code>' + API + '/docs</code>.', 'Pulsa <span class="ui">Authorize</span> y pega el token que devuelve <code>POST /auth/login</code>.'],
           expect: 'Ves los grupos auth, challenges, activities, upload, import y health, con sus contratos.',
-          refs: ['architecture.md · Endpoints']
+          refs: ['architecture.md · Endpoints', 'TC-UI-05']
         }
       ]
     },
@@ -313,14 +334,14 @@
           why: 'La sesión dura 15 minutos y se renueva sola en segundo plano hasta 7 días.',
           actions: ['Entra con email y contraseña y pulsa <span class="ui">Entrar</span>.', 'Pulsa <span class="ui">Salir</span> en el encabezado para cerrar.'],
           expect: 'Llegas a "Mi reto". Al salir vuelves al login y las páginas privadas quedan bloqueadas.',
-          refs: ['TC-AUTH-04', 'TC-AUTH-05', 'TC-AUTH-08', 'TC-AUTH-10']
+          refs: ['TC-AUTH-04', 'TC-AUTH-05', 'TC-AUTH-08', 'TC-AUTH-09', 'TC-AUTH-10', 'TC-AUTH-13', 'TC-AUTH-14', 'TC-AUTH-06', 'TC-AUTH-11', 'TC-AUTH-12']
         },
         {
           id: '1.3', role: 'admin', title: 'Reconocer las secciones de cada rol', route: '/dashboard',
           why: 'Las secciones de administración solo aparecen para el rol administrador, y la API las protege igual.',
           actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.'],
           expect: 'Un participante que intenta una acción de administración por la API recibe 403.',
-          refs: ['TC-UI-01', 'TC-UI-02', 'TC-AUTH-07']
+          refs: ['TC-UI-01', 'TC-UI-02', 'TC-AUTH-07', 'TC-SEC-01']
         }
       ]
     },
@@ -342,7 +363,7 @@
           ],
           expect: 'El reto aparece en la lista como Borrador.',
           note: 'Solo puede haber un reto por mes y año. Los valores por defecto del puntaje (1 punto por día, 0 por km, sin mínimo, 2 ganadores, sorteo) reproducen la regla clásica.',
-          refs: ['TC-CHAL-01', 'TC-CHAL-02', 'TC-CHAL-03', 'TC-SCORE-04']
+          refs: ['TC-CHAL-01', 'TC-CHAL-02', 'TC-CHAL-03', 'TC-SCORE-04', 'TC-CHAL-07', 'TC-ACT-17']
         },
         {
           id: '2.2', role: 'admin', title: 'Activar el reto', route: '/dashboard/admin/challenges',
@@ -366,7 +387,7 @@
           actions: ['Con dos o más retos activos aparece el selector <span class="ui">Reto</span> en el encabezado.', 'Elige un reto: Mi reto, Subir actividad y Ranking pasan a mostrar sus datos.'],
           expect: 'La elección se recuerda en ese navegador. Por defecto se muestra el reto más reciente en el que participas.',
           note: 'Los retos en los que no estás inscrito se marcan "(no inscrito)".',
-          refs: ['TC-CHAL-06', 'TC-CHAL-08', 'TC-CHAL-10']
+          refs: ['TC-CHAL-06', 'TC-CHAL-08', 'TC-CHAL-10', 'TC-CHAL-09']
         }
       ]
     },
@@ -435,7 +456,7 @@
           ],
           expect: 'La actividad queda Pendiente con la fecha exacta que elegiste.',
           note: 'Mientras no cumplas la regla de frecuencia cardíaca, el botón queda bloqueado y un aviso dice qué falta. El servidor además exige reto activo, inscripción, fecha dentro del período, día válido y una sola actividad por día en cada reto.',
-          refs: ['TC-ACT-01', 'TC-ACT-02', 'TC-ACT-03', 'TC-ACT-04', 'TC-ACT-05', 'TC-ACT-06', 'TC-ACT-07', 'TC-ACT-13', 'TC-ACT-14', 'TC-ACT-18']
+          refs: ['TC-ACT-01', 'TC-ACT-02', 'TC-ACT-03', 'TC-ACT-04', 'TC-ACT-05', 'TC-ACT-06', 'TC-ACT-07', 'TC-ACT-13', 'TC-ACT-14', 'TC-ACT-18', 'TC-UP-01']
         },
         {
           id: '4.4', role: 'participante', title: 'Seguir el estado de tus actividades', route: '/dashboard',
@@ -478,7 +499,7 @@
           why: 'Cuando la evidencia no alcanza.',
           actions: ['Pulsa <span class="ui">✗ Rechazar</span>, escribe el motivo (al menos 3 caracteres) y pulsa <span class="ui">Confirmar rechazo</span>.'],
           expect: 'La actividad pasa a Rechazado y el participante ve el motivo.',
-          refs: ['TC-ACT-09']
+          refs: ['TC-ACT-09', 'TC-ACT-19']
         }
       ]
     },
@@ -489,31 +510,32 @@
         {
           id: '6.1', role: 'participante', title: 'Leer el ranking', route: '/dashboard/results',
           why: 'Es el marcador del reto, visible para todos.',
-          actions: ['Revisa los días válidos del período y el puntaje del tope actual.', 'Si el reto tiene reglas propias, una línea explica el puntaje y aparece la columna <span class="ui">Puntos</span>.', 'Quien no llega al mínimo de días aparece marcado "no califica".'],
+          actions: ['Revisa los días válidos del período y el tope actual, en días o en puntos según las reglas del reto.', 'Si el reto tiene reglas propias, una línea explica el puntaje y aparece la columna <span class="ui">Puntos</span>.', 'Quien no llega al mínimo de días aparece marcado "no califica".'],
           expect: 'Se ordena por puntaje y, a igual puntaje, por kilómetros. Debajo del título se ve el premio por ganador, marcado "proyectado" mientras el reto sigue activo.',
-          refs: ['TC-RES-01', 'TC-SCORE-01', 'TC-SCORE-02', 'TC-SCORE-05', 'TC-FIN-04']
+          refs: ['TC-RES-01', 'TC-SCORE-01', 'TC-SCORE-02', 'TC-SCORE-05', 'TC-SCORE-07', 'TC-FIN-04', 'TC-SCORE-06']
         },
         {
           id: '6.2', role: 'participante', title: 'Entender los empates', route: '/dashboard/results',
           why: 'La regla de desempate se fija al crear el reto.',
           actions: ['Si empatan en el tope tantas personas como cupos de ganador o menos, ganan todas.', 'Si empatan más: <span class="ui">Sorteo</span> elige al azar, <span class="ui">Más km</span> desempata por distancia, <span class="ui">Ganan todos</span> reparte entre los empatados.'],
-          expect: 'Las notas del ranking dicen qué regla se aplicó y si hubo sorteo.',
+          expect: 'El aviso de empate y las notas del ranking dicen qué regla se aplicaría y si hubo sorteo.',
           refs: ['TC-RES-02', 'TC-RES-03', 'TC-SCORE-03']
         },
         {
           id: '6.3', role: 'admin', title: 'Cerrar el reto', route: '/dashboard/admin/challenges',
           why: 'Al cerrar, el ranking pasa a ser definitivo.',
           actions: ['Pulsa <span class="ui">Cerrar reto</span> y confirma.'],
-          expect: 'El reto pasa a Cerrado, deja de admitir actividades y el Ranking muestra a los ganadores. No se puede volver a activar.',
-          refs: ['TC-CHAL-04']
+          expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores. No se puede volver a activar.',
+          note: 'Limitación conocida (OBS-01): la web solo lista retos activos, así que el ranking de un reto cerrado se consulta por API en <code>GET /api/challenges/:id/results</code>.',
+          refs: ['TC-CHAL-11', 'TC-CHAL-12', 'TC-PART-06']
         },
         {
           id: '6.4', role: 'admin', title: 'Registrar la premiación', route: '/dashboard/results',
           why: 'Para dejar constancia de quién recibió el premio, por ejemplo tras un sorteo presencial.',
-          actions: ['En el panel de premiación, marca a las personas premiadas. Vienen sugeridas las empatadas en el tope.', 'Agrega notas (compra del suplemento, sorteo realizado) y pulsa <span class="ui">Guardar premiación</span>.'],
+          actions: ['En el panel de premiación, marca a las personas premiadas. Vienen marcados los ganadores que dan las reglas del reto (número de ganadores y desempate).', 'Agrega notas (compra del suplemento, sorteo realizado) y pulsa <span class="ui">Guardar premiación</span>.'],
           expect: 'La premiación prevalece sobre el cálculo automático, el premio se reparte entre los premiados y el reto queda cerrado.',
           note: 'Solo se puede premiar a participantes del reto.',
-          refs: ['TC-RES-04', 'TC-RES-05']
+          refs: ['TC-RES-04', 'TC-RES-05', 'TC-RES-06']
         }
       ]
     },
@@ -533,7 +555,7 @@
           why: 'Ver qué entraría antes de tocar la base.',
           actions: ['Sube el archivo en <span class="ui">2. Subir archivo</span>.', 'Elige el <span class="ui">Estado por defecto</span>, qué hacer <span class="ui">Si ya existe el día</span> (Omitir o Actualizar) y, si quieres, un <span class="ui">Password temporal</span> para los usuarios nuevos.', 'Pulsa <span class="ui">Previsualizar</span>.'],
           expect: 'Ves cuántas filas son válidas, cuáles tienen error y por qué, y cuáles no cumplen la regla de FC (se importan igual).',
-          refs: ['TC-IMP-02', 'TC-ACT-16']
+          refs: ['TC-IMP-02', 'TC-ACT-16', 'TC-IMP-09', 'TC-IMP-10']
         },
         {
           id: '7.3', role: 'admin', title: 'Importar', route: '/dashboard/admin/import',
@@ -548,7 +570,7 @@
           why: 'Evita exportar archivo cada vez que se actualiza la planilla del grupo.',
           actions: ['Requiere una cuenta de servicio configurada en el servidor y la hoja compartida con ella (ver docs/import-template.md).', 'En <span class="ui">3. Desde Google Sheets</span>, pega el ID de la hoja y, si hace falta, la hoja o el rango.', 'Pulsa <span class="ui">Comprobar</span>, luego <span class="ui">Previsualizar</span> e <span class="ui">Importar</span>.'],
           expect: 'Mismo resultado que la carga por archivo. Sin configuración, la sección aparece deshabilitada con la explicación.',
-          refs: ['TC-IMP-05', 'TC-IMP-06', 'TC-IMP-07', 'TC-IMP-08']
+          refs: ['TC-IMP-05', 'TC-IMP-06', 'TC-IMP-07', 'TC-IMP-08', 'TC-IMP-11']
         }
       ]
     },
@@ -567,24 +589,24 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs           # 10 pasos\nnode scripts/run-tests.mjs --quick   # sin base de datos',
-          expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, build de la web, sesiones paralelas y recorridos de UI en verde. Solo necesita Postgres.',
-          refs: ['testing.md']
+          cmd: 'node scripts/run-tests.mjs              # 10 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 95 casos del catálogo',
+          expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
+          refs: ['testing.md', 'qa/validation-report.md']
         },
         {
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
-          cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso',
-          expect: '19 pruebas en verde.',
+          cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
+          expect: '20 pruebas en verde. La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
           id: '8.4', role: 'tecnico', title: 'Preparar el despliegue a producción',
           why: 'Hay variables sin las cuales la plataforma no funciona o queda expuesta.',
-          actions: ['Define <code>NODE_ENV=production</code>, secretos JWT distintos, <code>CORS_ORIGIN</code> con la URL de la web y las tres variables de Cloudinary.', 'Corre el seed una vez con <code>SEED_ADMIN_PASSWORD</code> y cambia esa contraseña tras el primer ingreso.', 'Repasa el checklist de once puntos de <code>docs/deploy-seenode.md</code>.'],
+          actions: ['Define <code>NODE_ENV=production</code>, secretos JWT distintos, <code>CORS_ORIGIN</code> con la URL de la web y las tres variables de Cloudinary.', 'Corre el seed una vez con <code>SEED_ADMIN_PASSWORD</code> y cambia esa contraseña tras el primer ingreso.', 'Detrás del proxy del hosting, deja <code>TRUST_PROXY=1</code> (valor por defecto en producción) para que el límite de 100 peticiones por minuto se aplique por usuario y no a todos juntos.', 'Repasa el checklist de once puntos de <code>docs/deploy-seenode.md</code>.'],
           expect: 'La API arranca con <code>npm run start:prod</code> y aplica las migraciones sola.',
           note: 'Sin Cloudinary, en producción la subida de archivos queda deshabilitada a propósito.',
-          refs: ['deploy-seenode.md', 'security-owasp.md']
+          refs: ['TC-SEC-02', 'TC-SEC-03', 'TC-SEC-04', 'TC-UP-03', 'deploy-seenode.md', 'security-owasp.md']
         }
       ]
     }
@@ -603,8 +625,8 @@
     ['Inscribir y quitar participantes', '3.1', 'auto'],
     ['Marcar pago, impago y pago parcial', '3.3', 'auto'],
     ['Resumen financiero y cobertura del presupuesto', '3.4', 'auto'],
-    ['Panel personal con cuenta regresiva y posición', '4.1', 'manual'],
-    ['Comprobante de pago del participante', '4.2', 'manual'],
+    ['Panel personal con cuenta regresiva y posición', '4.1', 'auto'],
+    ['Comprobante de pago del participante', '4.2', 'auto'],
     ['Registro de actividad con fotos', '4.3', 'auto'],
     ['Regla de frecuencia cardíaca (minutos y captura)', '4.3', 'auto'],
     ['Una actividad por día por reto', '4.3', 'auto'],
@@ -627,6 +649,39 @@
     ['Salud del servicio y de la base', '8.1', 'auto'],
     ['Protecciones de producción (subidas, CORS, seed)', '8.4', 'auto']
   ];
+
+  /* Capturas de la web real (e2e/guide/capture.spec.ts las regenera). */
+  const SHOT_DIR = 'guia-capturas/';
+  // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
+  // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 68], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
+  const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
+  const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
+  const SHOTS = {
+    '0.3': [['22-swagger.jpg', 'Swagger en /api/docs con los endpoints agrupados por módulo.']],
+    '1.1': [['02-registro-error.jpg', 'La política de contraseña se explica en el mismo formulario.']],
+    '1.2': [['01-login.jpg', 'Pantalla de inicio de sesión.']],
+    '1.3': [['04-menu-admin.jpg', 'El administrador ve además Retos, Participantes, Validaciones e Importar.']],
+    '2.1': [['06-reto-formulario.jpg', 'Formulario de nuevo reto con período, días válidos, cuota, premio y reglas de puntaje.']],
+    '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],
+    '2.4': [['07-selector-reto.jpg', 'Con varios retos activos, el selector de la cabecera elige con cuál trabajar.']],
+    '3.4': [['08-participantes-finanzas.jpg', 'Inscritos, estado de pago y resumen financiero: recaudado, pendiente y cobertura del presupuesto.']],
+    '4.1': [['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.']],
+    '4.2': [['09-comprobante.jpg', 'El comprobante subido queda visible para el participante y el administrador.']],
+    '4.3': [
+      ['10-subir-bloqueado.jpg', 'Con menos minutos de FC que el mínimo y sin captura, el envío queda bloqueado y se explica por qué.'],
+      ['11-subir-listo.jpg', 'Con fotos y la regla de FC cumplida, el formulario queda listo para enviar.']
+    ],
+    '4.4': [['12-mis-actividades.jpg', 'Cada actividad con su estado; la rechazada muestra el motivo.']],
+    '5.1': [['13-validar-pendientes.jpg', 'Pendientes con fotos y el chip de cumplimiento de FC.']],
+    '5.2': [['14-validar-override.jpg', 'Validar una actividad que no cumple la FC exige una nota de excepción.']],
+    '5.3': [['15-rechazar.jpg', 'Rechazo con motivo obligatorio, que verá el participante.']],
+    '6.1': [['16-ranking.jpg', 'Ranking con columna de puntos, el tope en puntos, quién no califica y el premio proyectado.']],
+    '6.4': [['18-premiacion.jpg', 'Panel de premiación con los ganadores sugeridos por las reglas del reto.']],
+    '7.2': [['19-importar-preview.jpg', 'Vista previa: filas válidas, errores por fila y advertencias, sin guardar nada.']],
+    '7.3': [['20-importar-resultado.jpg', 'Resultado de la importación: creadas, omitidas, usuarios e inscripciones nuevas.']],
+    '7.4': [['21-importar-sheets.jpg', 'Importación directa pegando el enlace de una hoja de Google Sheets.']]
+  };
 
   const ROLE_LABEL = { admin: 'Administrador', participante: 'Participante', tecnico: 'Técnico' };
   const KEY = 'manual-reto-constancia:v1';
@@ -658,6 +713,14 @@
       '</span></div>').join('') + '</div>';
   }
 
+  function shotsHtml(id) {
+    const list = SHOTS[id];
+    if (!list) return '';
+    return '<div class="shots' + (list.length === 1 ? ' single' : '') + '">' + list.map(([file, cap]) =>
+      '<figure><button type="button" class="shot" data-src="' + shotSrc(file) + '" data-cap="' + esc(cap) + '" aria-label="Ampliar captura: ' + esc(cap) + '">' +
+      '<img src="' + shotSrc(file) + '" width="' + shotSize(file)[0] + '" height="' + shotSize(file)[1] + '" alt="' + esc(cap) + '"></button><figcaption>' + esc(cap) + '</figcaption></figure>').join('') + '</div>';
+  }
+
   function stepHtml(s) {
     const isDone = !!done[s.id];
     const route = s.route ? '<code class="route">' + esc(s.route) + '</code>' : '';
@@ -674,6 +737,7 @@
       (s.creds ? credsHtml() : '') +
       (s.expect ? '<div class="expect"><b>Resultado</b><span>' + s.expect + '</span></div>' : '') +
       (s.note ? '<p class="note">' + s.note + '</p>' : '') +
+      shotsHtml(s.id) +
       (s.refs ? '<div class="refs">' + s.refs.map((r) => '<span>' + esc(r) + '</span>').join('') + '</div>' : '') +
     '</article>';
   }
@@ -705,7 +769,7 @@
   function matrixHtml() {
     const autoCount = FEATURES.filter((f) => f[2] === 'auto').length;
     return '<section class="matrix" id="cobertura"><h2>Cobertura de funciones</h2>' +
-      '<p>Las ' + FEATURES.length + ' funciones de la versión 1.0.0 y el paso del manual que las recorre. ' + autoCount + ' tienen pruebas automatizadas; las demás se verifican siguiendo el paso.</p>' +
+      '<p>Las ' + FEATURES.length + ' funciones de la versión 1.0.0 y el paso del manual que las recorre. ' + autoCount + (autoCount === FEATURES.length ? ' tienen pruebas automatizadas, enlazadas a los casos de docs/qa/.</p>' : ' tienen pruebas automatizadas; las demás se verifican siguiendo el paso.</p>') +
       '<div class="tbl"><table><thead><tr><th>Función</th><th>Paso</th><th>Verificación</th></tr></thead><tbody>' +
       FEATURES.map(([f, step, kind]) => '<tr><td>' + esc(f) + '</td><td><a href="#paso-' + step.replace('.', '-') + '">' + step + '</a></td><td class="' + kind + '">' +
         (kind === 'auto' ? 'Automatizada' : 'Manual') + '</td></tr>').join('') +
@@ -743,6 +807,20 @@
       role = chip.dataset.role;
       document.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
       render();
+      return;
+    }
+    const shot = e.target.closest('.shot');
+    if (shot) {
+      const viewer = document.getElementById('viewer');
+      document.getElementById('viewer-img').src = shot.dataset.src;
+      document.getElementById('viewer-img').alt = shot.dataset.cap;
+      document.getElementById('viewer-cap').textContent = shot.dataset.cap;
+      if (viewer.showModal) viewer.showModal(); else viewer.setAttribute('open', '');
+      return;
+    }
+    if (e.target.id === 'viewer-close' || e.target.id === 'viewer') {
+      const viewer = document.getElementById('viewer');
+      if (viewer.close) viewer.close(); else viewer.removeAttribute('open');
       return;
     }
     const copy = e.target.closest('.copy');

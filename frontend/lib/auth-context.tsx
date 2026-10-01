@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { api, getTokens, setTokens } from './api';
+import { api, ApiError, getTokens, setTokens } from './api';
 import type { AuthResponse, SafeUser } from './types';
 
 interface AuthState {
@@ -36,15 +36,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    try {
-      const me = await api<SafeUser>('/auth/me');
-      setUser(me);
-    } catch {
-      setUser(null);
-      setTokens(null);
-    } finally {
-      setLoading(false);
+    // Solo un 401 (sesión inválida tras intentar renovarla) cierra la sesión. Un 429, un 5xx o
+    // un corte de red son transitorios: se reintenta con espera creciente y se conservan los
+    // tokens, para no echar al usuario por un pico de tráfico.
+    const delays = [500, 1500, 3000];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const me = await api<SafeUser>('/auth/me');
+        setUser(me);
+        break;
+      } catch (e) {
+        const status = e instanceof ApiError ? e.status : 0;
+        if (status === 401 || attempt >= delays.length) {
+          setUser(null);
+          if (status === 401) setTokens(null);
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+      }
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {

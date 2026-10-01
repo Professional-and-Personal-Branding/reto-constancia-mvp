@@ -82,7 +82,9 @@ async function startApi() {
     cwd: BACKEND,
     shell: true,
     stdio: 'ignore',
-    env: { ...process.env, PORT: process.env.PORT ?? '3002' },
+    // Playwright reutiliza esta API: todas las pruebas salen de la misma IP, así que se sube el
+    // límite global como en e2e/playwright.config.ts (el de producción es por usuario).
+    env: { ...process.env, PORT: process.env.PORT ?? '3002', THROTTLE_LIMIT: process.env.THROTTLE_LIMIT ?? '2000' },
   });
 
   for (let i = 0; i < 30; i++) {
