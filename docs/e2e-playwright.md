@@ -54,17 +54,47 @@ Variables opcionales:
 | `E2E_BASE_URL` | `http://localhost:3005` | Apuntar a otro frontend (por ejemplo, el desplegado) |
 | `E2E_API_URL` | `http://localhost:3002/api` | Apuntar a otra API |
 | `CI` | — | Activa reintentos, informe de GitHub y fuerza arrancar servidores nuevos |
+| `GUIDE_SHOTS_DIR` | `docs/guia-capturas` | Carpeta donde la suite de capturas guarda las imágenes |
+
+La API que arranca Playwright sube su límite global a 2000 peticiones por minuto
+(`THROTTLE_LIMIT`): todas las pruebas salen de la misma IP y el límite real, de 100 por
+minuto, está pensado para un usuario, no para una suite entera.
+
+### Suite de capturas de la guía
+
+`e2e/guide/capture.spec.ts` arma un reto de demostración ("Reto Octubre 2026", con historial
+validado, pendientes, un rechazo, pagos parciales y un comprobante) y fotografía cada
+pantalla de la web real. Las imágenes alimentan [`guia-plataforma.html`](./guia-plataforma.html)
+y, como cada prueba también hace aserciones, sirven de evidencia de los casos de UI.
+
+```bash
+cd e2e
+npx playwright test -c playwright.guide.config.ts      # regenera docs/guia-capturas/
+node ../scripts/build-guide-artifact.mjs               # guía autocontenida con las capturas embebidas
+```
+
+Corre aparte de `npm test` (su propia configuración, viewport de 1280 × 800). El validador
+de casos (`node scripts/validate-test-cases.mjs`) la ejecuta con `GUIDE_SHOTS_DIR` apuntando
+a `.qa-results/shots`, para no reescribir las capturas versionadas.
 
 ## 3. Qué cubre cada archivo
 
 | Archivo | Recorrido de `test-cases.md` | Casos |
 |---|---|---|
-| `tests/01-auth-navigation.spec.ts` | 1 · Alta, sesión y rutas protegidas | TC-AUTH-02, TC-AUTH-04, TC-UI-01, TC-UI-02 |
+| `tests/01-auth-navigation.spec.ts` | 1 · Alta, sesión y rutas protegidas | TC-AUTH-02, TC-AUTH-10, TC-AUTH-13, TC-AUTH-14, TC-UI-01, TC-UI-02 |
 | `tests/02-activity-upload.spec.ts` | 3 · Registrar actividad con regla de FC | TC-ACT-01, 02, 05, 13, 14, 18, TC-UP-02, TC-UI-04 |
 | `tests/03-admin-validation.spec.ts` | 4 · Validar y rechazar como admin | TC-ACT-08, TC-ACT-15 |
 | `tests/04-finance.spec.ts` | 5 · Pagos y resumen financiero | TC-PART-04, TC-FIN-01, 02, 04, 05 |
 | `tests/05-challenges-scoring.spec.ts` | 6 y 7 · Varios retos activos y reglas de puntaje | TC-CHAL-08, TC-CHAL-10, TC-SCORE-05 |
 | `tests/06-import.spec.ts` | 8 y 9 · Importación por archivo y Google Sheets | TC-IMP-01, 02, 03, 05, TC-ACT-16 |
+| `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 11 |
+
+La relación exacta caso → prueba está en [`qa/test-cases.md`](./qa/test-cases.md).
+
+`tests/01` simula también los fallos de sesión que no se pueden provocar a mano con
+facilidad: un 429 del limitador al cargar el perfil, un access token vencido (firma
+alterada en `localStorage`), un refresh token inválido y un corte de red durante la
+renovación (`page.route` con `abort`).
 
 `tests/02` es el único lugar donde se prueba la subida de archivos de punta a punta:
 formulario → `POST /upload/sign` → simulador local → registro de la actividad.

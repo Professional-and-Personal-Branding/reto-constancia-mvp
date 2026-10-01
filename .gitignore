@@ -43,6 +43,9 @@ Thumbs.db
 
 # Playwright
 e2e/test-results/
+e2e/test-results-guide/
+docs/guia-plataforma.standalone.html
+.qa-results/
 e2e/playwright-report/
 e2e/.auth/
 e2e/blob-report/
