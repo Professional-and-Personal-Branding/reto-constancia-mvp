@@ -184,7 +184,12 @@
   .expect b { color: var(--ok); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding-top: 2px; }
   .note { font-size: 13.5px; color: var(--dim); border-left: 2px solid var(--line); padding-left: 10px; margin: 0; max-width: 70ch; }
   .refs { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11.5px; color: var(--mute); }
-  .refs span { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .refs span, .refs a { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .refs a { color: var(--mute); text-decoration: none; font-variant-numeric: tabular-nums; }
+  .refs a:hover { color: var(--accent); border-color: var(--accent); }
+  .news { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 12px 16px; max-width: 78ch; }
+  .news summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--ink); }
+  .news ul { margin: 10px 0 2px; padding-left: 1.2em; display: grid; gap: 5px; font-size: 13.5px; color: var(--dim); }
   .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
   .shots figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
   .shots button { padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--raise); cursor: zoom-in; display: block; width: 100%; }
@@ -238,15 +243,27 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.0.0</div>
+    <div class="eyebrow">Manual de uso · versión 1.0.0 · actualizado el 1 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Batería local verificada el 1 oct 2026: 10 de 10 pasos</span>
+      <span class="verified">Verificado el 1 oct 2026: batería 10 de 10 · 94 de 95 casos aprobados con 303 pruebas</span>
       <span><b>Capturas</b> generadas por Playwright sobre la web real con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
+    <details class="news">
+      <summary>Qué cambió en esta actualización</summary>
+      <ul>
+        <li>Capturas de la web real en 20 pasos; pulsa una para ampliarla.</li>
+        <li>Cada referencia <b>TC-…</b> abre su caso en el catálogo validado (<code>docs/qa/test-cases.md</code>).</li>
+        <li>La sesión ya no se cierra por un pico de tráfico, un corte de red o un cambio de página mientras se renueva (paso 1.2).</li>
+        <li>La cuenta regresiva llega a cero al terminar el último día del reto, en tu hora local (paso 4.1).</li>
+        <li>El ranking muestra el tope en puntos o en días según las reglas del reto, y la premiación sugiere los ganadores que dan esas reglas (pasos 6.1 y 6.4).</li>
+        <li>La importación conserva acentos y eñes de los CSV en UTF-8 (paso 7.2).</li>
+        <li>Pasos nuevos para operar: validar el catálogo de casos (8.5) y regenerar capturas y publicar el manual (8.6).</li>
+      </ul>
+    </details>
   </header>
 
   <div class="controls" role="region" aria-label="Filtros y avance">
@@ -296,7 +313,7 @@
           cmd: 'docker compose up -d postgres\ncd backend && npm install && npx prisma migrate deploy\nnpm run start:dev            # API en :3002\ncd ../frontend && npm install && npm run dev   # web en :3005',
           actions: ['Copia <code>backend/.env.example</code> a <code>backend/.env</code> la primera vez y genera los secretos JWT.', 'Deja vacías las variables de Cloudinary: en desarrollo se usa el simulador local de subidas.'],
           expect: 'Postgres responde en el puerto 5433, la API en 3002 y la web en 3005.',
-          refs: ['test-cases · Parte 0', 'TC-UP-02']
+          refs: ['test-cases.md · Parte 0', 'TC-UP-02']
         },
         {
           id: '0.2', role: 'tecnico', title: 'Cargar los datos de demostración',
@@ -334,6 +351,7 @@
           why: 'La sesión dura 15 minutos y se renueva sola en segundo plano hasta 7 días.',
           actions: ['Entra con email y contraseña y pulsa <span class="ui">Entrar</span>.', 'Pulsa <span class="ui">Salir</span> en el encabezado para cerrar.'],
           expect: 'Llegas a "Mi reto". Al salir vuelves al login y las páginas privadas quedan bloqueadas.',
+          note: 'Un pico de tráfico, un corte de red o cambiar de página mientras la sesión se renueva no te saca: la web reintenta sola. Solo vuelves al login si la sesión venció del todo o la cerraste.',
           refs: ['TC-AUTH-04', 'TC-AUTH-05', 'TC-AUTH-08', 'TC-AUTH-09', 'TC-AUTH-10', 'TC-AUTH-13', 'TC-AUTH-14', 'TC-AUTH-06', 'TC-AUTH-11', 'TC-AUTH-12']
         },
         {
@@ -435,6 +453,7 @@
           why: 'Es el resumen personal del reto en curso.',
           actions: ['Revisa el período, los días válidos y la cuenta regresiva <span class="ui">Finaliza en</span>.', 'Mira tus <span class="ui">Validados</span>, <span class="ui">Pendientes</span>, tu <span class="ui">Posición</span> y el <span class="ui">Top del reto</span>.'],
           expect: 'Si ya registraste hoy, el botón principal dice "Hoy ya está"; si no, "Subir actividad de hoy".',
+          note: 'El último día del reto cuenta completo: <span class="ui">Finaliza en</span> llega a cero a la medianoche de tu hora local, igual que el plazo para registrar actividades.',
           refs: ['TC-UI-03', 'TC-UI-04']
         },
         {
@@ -597,7 +616,7 @@
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '20 pruebas en verde. La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '22 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
@@ -607,6 +626,22 @@
           expect: 'La API arranca con <code>npm run start:prod</code> y aplica las migraciones sola.',
           note: 'Sin Cloudinary, en producción la subida de archivos queda deshabilitada a propósito.',
           refs: ['TC-SEC-02', 'TC-SEC-03', 'TC-SEC-04', 'TC-UP-03', 'deploy-seenode.md', 'security-owasp.md']
+        },
+        {
+          id: '8.5', role: 'tecnico', title: 'Validar el catálogo de casos de prueba',
+          why: 'Cada caso del catálogo está enlazado a las pruebas que lo demuestran; el validador dice cuáles pasan hoy.',
+          cmd: 'cd backend && npx prisma migrate reset --force   # datos limpios del seed\ncd .. && node scripts/validate-test-cases.mjs\nnode scripts/validate-test-cases.mjs --only=ui        # una sola suite\nnode scripts/validate-test-cases.mjs --reuse          # regenera los documentos sin volver a correr',
+          expect: '94 de 95 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
+          note: 'El caso restante, TC-CHAL-12, es una limitación conocida: el ranking de un reto cerrado solo se consulta por API.',
+          refs: ['qa/validation-report.md', 'qa/catalog.mjs']
+        },
+        {
+          id: '8.6', role: 'tecnico', title: 'Regenerar las capturas y publicar el manual',
+          why: 'Cuando cambia una pantalla, las capturas de este manual se rehacen solas sobre la web real.',
+          cmd: 'cd e2e && npx playwright test -c playwright.guide.config.ts\ncd .. && node scripts/build-guide-artifact.mjs',
+          expect: 'Las 21 capturas se rehacen en <code>docs/guia-capturas/</code> y <code>docs/guia-plataforma.standalone.html</code> queda listo para publicar como un solo archivo.',
+          note: 'La suite de capturas arma su propio reto de demostración (octubre de 2026) y también comprueba lo que muestra cada pantalla.',
+          refs: ['e2e-playwright.md']
         }
       ]
     }
@@ -616,6 +651,7 @@
   const FEATURES = [
     ['Registro con política de contraseña', '1.1', 'auto'],
     ['Inicio de sesión, renovación automática y límite de intentos', '1.2', 'auto'],
+    ['Sesión que resiste picos de tráfico y cortes de red', '1.2', 'auto'],
     ['Control de acceso por rol', '1.3', 'auto'],
     ['Crear reto con período, días válidos, cuota, presupuesto y premio', '2.1', 'auto'],
     ['Reglas de puntaje configurables', '2.1', 'auto'],
@@ -637,17 +673,23 @@
     ['Validar con nota de excepción', '5.2', 'auto'],
     ['Rechazar con motivo', '5.3', 'auto'],
     ['Ranking por puntaje, calificación y columna de puntos', '6.1', 'auto'],
+    ['Tope del ranking en la unidad del reto (puntos o días)', '6.1', 'auto'],
     ['Premio por ganador proyectado y final', '6.1', 'auto'],
     ['Empates y reglas de desempate', '6.2', 'auto'],
     ['Cerrar reto', '6.3', 'auto'],
     ['Premiación manual que prevalece', '6.4', 'auto'],
+    ['Premiación con ganadores sugeridos por las reglas', '6.4', 'auto'],
     ['Plantilla de importación CSV y XLSX', '7.1', 'auto'],
     ['Previsualización con errores y advertencias', '7.2', 'auto'],
+    ['Importación con acentos y eñes (CSV en UTF-8)', '7.2', 'auto'],
     ['Importación idempotente con usuarios e inscripciones', '7.3', 'auto'],
     ['Importación desde Google Sheets', '7.4', 'auto'],
     ['Simulador local de subidas en desarrollo', '0.1', 'auto'],
     ['Salud del servicio y de la base', '8.1', 'auto'],
-    ['Protecciones de producción (subidas, CORS, seed)', '8.4', 'auto']
+    ['Protecciones de producción (subidas, CORS, seed)', '8.4', 'auto'],
+    ['Límite de peticiones por usuario detrás del proxy', '8.4', 'auto'],
+    ['Catálogo de casos validado automáticamente', '8.5', 'auto'],
+    ['Capturas del manual generadas sobre la web real', '8.6', 'auto']
   ];
 
   /* Capturas de la web real (e2e/guide/capture.spec.ts las regenera). */
@@ -721,6 +763,16 @@
       '<img src="' + shotSrc(file) + '" width="' + shotSize(file)[0] + '" height="' + shotSize(file)[1] + '" alt="' + esc(cap) + '"></button><figcaption>' + esc(cap) + '</figcaption></figure>').join('') + '</div>';
   }
 
+  /* Las referencias abren el caso o el documento en el repositorio (rama develop). */
+  const REPO_DOCS = 'https://github.com/Professional-and-Personal-Branding/reto-constancia-mvp/blob/develop/docs/';
+  function refHtml(r) {
+    const tc = /^TC-[A-Z]+-\d+$/.test(r);
+    const file = r.split(' ')[0];
+    const href = tc ? REPO_DOCS + 'qa/test-cases.md#' + r.toLowerCase() : /\.(md|mjs)$/.test(file) ? REPO_DOCS + file : '';
+    if (!href) return '<span>' + esc(r) + '</span>';
+    return '<a href="' + href + '" target="_blank" rel="noopener" title="' + (tc ? 'Ver el caso en el catálogo' : 'Abrir el documento') + '">' + esc(r) + '</a>';
+  }
+
   function stepHtml(s) {
     const isDone = !!done[s.id];
     const route = s.route ? '<code class="route">' + esc(s.route) + '</code>' : '';
@@ -738,7 +790,7 @@
       (s.expect ? '<div class="expect"><b>Resultado</b><span>' + s.expect + '</span></div>' : '') +
       (s.note ? '<p class="note">' + s.note + '</p>' : '') +
       shotsHtml(s.id) +
-      (s.refs ? '<div class="refs">' + s.refs.map((r) => '<span>' + esc(r) + '</span>').join('') + '</div>' : '') +
+      (s.refs ? '<div class="refs">' + s.refs.map(refHtml).join('') + '</div>' : '') +
     '</article>';
   }
 
@@ -769,7 +821,7 @@
   function matrixHtml() {
     const autoCount = FEATURES.filter((f) => f[2] === 'auto').length;
     return '<section class="matrix" id="cobertura"><h2>Cobertura de funciones</h2>' +
-      '<p>Las ' + FEATURES.length + ' funciones de la versión 1.0.0 y el paso del manual que las recorre. ' + autoCount + (autoCount === FEATURES.length ? ' tienen pruebas automatizadas, enlazadas a los casos de docs/qa/.</p>' : ' tienen pruebas automatizadas; las demás se verifican siguiendo el paso.</p>') +
+      '<p>Las ' + FEATURES.length + ' funciones de la plataforma y el paso del manual que las recorre. ' + (autoCount === FEATURES.length ? 'Todas tienen pruebas automatizadas, enlazadas a los casos de docs/qa/.</p>' : autoCount + ' tienen pruebas automatizadas; las demás se verifican siguiendo el paso.</p>') +
       '<div class="tbl"><table><thead><tr><th>Función</th><th>Paso</th><th>Verificación</th></tr></thead><tbody>' +
       FEATURES.map(([f, step, kind]) => '<tr><td>' + esc(f) + '</td><td><a href="#paso-' + step.replace('.', '-') + '">' + step + '</a></td><td class="' + kind + '">' +
         (kind === 'auto' ? 'Automatizada' : 'Manual') + '</td></tr>').join('') +
