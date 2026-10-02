@@ -89,6 +89,8 @@ test('el ranking describe la regla, muestra puntos y marca a quien no califica',
 
   await expect(page.getByLabel('Regla de puntaje')).toContainText('10 por día validado');
   await expect(page.getByLabel('Regla de puntaje')).toContainText('mínimo 5 días');
+  // Con reglas propias el tope se expresa en puntos, no en días
+  await expect(page.locator('main')).toContainText(/top actual: \d+ puntos/);
 
   const table = page.locator('table');
   await expect(table.locator('thead')).toContainText('PUNTOS', { ignoreCase: true });

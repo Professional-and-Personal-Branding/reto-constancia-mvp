@@ -3,6 +3,54 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.1.0] — 2026-10-02
+
+Modo claro, sesiones estables ante picos de tráfico y un catálogo de casos de prueba validado
+contra las suites reales. Sin cambios de base de datos ni de API: actualizar es desplegar.
+
+### Añadido
+
+- **Modo claro** (spec `web-theme`). La web tiene tema claro y oscuro en todas las pantallas.
+  Por defecto sigue el tema del dispositivo; un interruptor en el encabezado lo cambia y
+  cada navegador recuerda la elección, aplicada antes de pintar para que no haya parpadeos.
+  El contraste de ambas paletas se mide en `npm test` (frontend).
+- **Catálogo de casos de prueba validado** (`docs/qa/`): 99 casos con precondiciones, datos,
+  pasos, resultado esperado y las pruebas exactas que validan cada uno.
+  `node scripts/validate-test-cases.mjs` corre las suites, cruza cada caso con sus pruebas y
+  regenera el catálogo (Markdown y CSV) y el reporte de validación; falla si un caso falla o
+  si un enlace no encuentra su prueba.
+- **Capturas en la guía interactiva**: 22 pantallas de la web real en modo claro, generadas por
+  `e2e/guide/capture.spec.ts` sobre un reto de demostración, dentro de un marco de ventana de
+  navegador y con visor ampliado.
+  `scripts/build-guide-artifact.mjs` arma una versión autocontenida para publicar.
+- **Pruebas nuevas**: `backend/test/platform-rules.e2e-spec.ts` (30 reglas de la API que solo
+  estaban descritas a mano) y recorridos de Playwright para la renovación de tokens, un 429
+  transitorio y un corte de red durante la renovación.
+- Variables `TRUST_PROXY`, `THROTTLE_LIMIT` y `THROTTLE_TTL_MS` para el limitador de peticiones.
+
+### Cambiado
+
+- **En producción la API confía por defecto en un proxy delante** (`TRUST_PROXY=1`), que es lo
+  que ocurre en Seenode y Render. Si el servicio recibe tráfico directo, sin proxy, define
+  `TRUST_PROXY=false`.
+- La documentación de Swagger (`/api/docs`) informa la versión real de la API.
+
+### Corregido
+
+- La importación CSV dañaba acentos y eñes ("OlvidÃ© el reloj"): los CSV se leen como UTF-8,
+  con o sin BOM.
+- Un 429 del limitador o un corte de red cerraban la sesión del usuario. Ahora solo un 401 (o
+  un refresh token rechazado) la cierra, y la web reintenta los errores transitorios.
+- Cambiar de página mientras se renovaba el token enviaba al login.
+- Detrás de un proxy, todos los usuarios compartían el cupo de 100 peticiones por minuto: en
+  producción la API confía en un proxy por defecto y limita por IP real.
+- El ranking mostraba el tope en días aunque el reto puntuara en puntos.
+- El panel de premiación sugería a los empatados por días validados en vez de los ganadores
+  que dan las reglas del reto.
+- La cuenta regresiva de "Mi reto" marcaba "Finalizado" la noche anterior al último día en
+  zonas al oeste de UTC; ahora llega a cero al terminar ese día, que sigue admitiendo
+  actividades.
+
 ## [1.0.0] — 2026-09-09
 
 Primera versión estable. El MVP queda completo: las cuatro brechas del mapa de reglas están

@@ -59,7 +59,9 @@ export default defineConfig({
       timeout: 120_000,
       stdout: 'ignore',
       stderr: 'pipe',
-      env: { CORS_ORIGIN: BASE_URL, NODE_ENV: process.env.NODE_ENV ?? 'test' },
+      // Todas las pruebas salen de 127.0.0.1: se sube el límite global para que la suite
+      // no se tope con el cupo de 100 peticiones por minuto pensado para un usuario real.
+      env: { CORS_ORIGIN: BASE_URL, NODE_ENV: process.env.NODE_ENV ?? 'test', THROTTLE_LIMIT: '2000' },
     },
     {
       command: 'npm run start',

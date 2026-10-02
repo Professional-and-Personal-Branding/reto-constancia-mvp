@@ -1,3 +1,5 @@
+import { ThemeSwitch } from '@/components/theme-switch';
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
@@ -7,6 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             R
           </div>
           <h1 className="display text-2xl tracking-wider">Reto de Constancia</h1>
+          <ThemeSwitch className="ml-auto" />
         </div>
       </header>
       <main className="flex-1 flex items-center justify-center px-6 py-12">

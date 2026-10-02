@@ -1,0 +1,1201 @@
+/**
+ * Catálogo de casos de prueba de Reto de Constancia (fuente única).
+ *
+ * Cada caso describe qué se prueba y enlaza las pruebas automatizadas que lo validan.
+ * `scripts/validate-test-cases.mjs` corre las suites, cruza los resultados con estos
+ * enlaces y genera docs/qa/test-cases.md, test-cases.csv y validation-report.md.
+ *
+ * Enlaces (`auto`):
+ *   U(archivo, título)  prueba unitaria de Jest (backend/src)
+ *   F(archivo, título)  prueba unitaria de la web con node:test (frontend/lib)
+ *   A(archivo, título)  prueba e2e de API con Jest + supertest (backend/test)
+ *   W(archivo, título)  recorrido de UI con Playwright (e2e/tests)
+ *   G(título)           suite de capturas de la guía (e2e/guide/capture.spec.ts)
+ *   S(prefijo)          chequeo de scripts/parallel-session-test.mjs ('*' = todos)
+ * El título debe coincidir exactamente con el de la prueba; el de S es un prefijo.
+ *
+ * Casos sin automatización llevan `manual` con la última ejecución registrada.
+ */
+
+const U = (file, title) => ({ kind: 'unit', file, title });
+const F = (file, title) => ({ kind: 'web', file, title });
+const A = (file, title) => ({ kind: 'api', file, title });
+const W = (file, title) => ({ kind: 'ui', file, title });
+const G = (title) => ({ kind: 'guide', file: 'capture.spec.ts', title });
+const S = (title) => ({ kind: 'sessions', file: 'parallel-session-test.mjs', title });
+
+/** Datos compartidos por los casos (seed de desarrollo, ver backend/prisma/seed.ts). */
+export const SEED = {
+  admin: 'admin@reto.local',
+  participants: ['ana@reto.local', 'bruno@reto.local', 'carla@reto.local', 'diego@reto.local', 'elena@reto.local'],
+  password: 'ChangeMe123!',
+  challenge: 'Reto Mayo 2026: 2026-05-01 a 2026-05-31, lunes a sábado, cuota 120 BOB, presupuesto 600 BOB, mínimo de FC 20 min',
+  api: 'http://localhost:3002/api',
+  web: 'http://localhost:3005',
+};
+
+export const MODULES = [
+  ['AUTH', 'Autenticación y sesión'],
+  ['SEC', 'Seguridad y configuración'],
+  ['CHAL', 'Gestión de retos'],
+  ['PART', 'Participantes y pagos'],
+  ['ACT', 'Actividades y validación'],
+  ['RES', 'Resultados y premiación'],
+  ['SCORE', 'Reglas de puntaje'],
+  ['FIN', 'Finanzas'],
+  ['UP', 'Carga de archivos'],
+  ['IMP', 'Importación masiva'],
+  ['UI', 'Interfaz y navegación'],
+  ['HEALTH', 'Salud del servicio'],
+  ['PAR', 'Sesiones concurrentes'],
+];
+
+export const CASES = [
+  // ───────────────────────────── AUTH ─────────────────────────────
+  {
+    id: 'TC-AUTH-01', title: 'Registro de participante', priority: 'Alta', type: 'Funcional', guide: '1.1',
+    pre: ['El email no está registrado.'],
+    data: 'name "Test User", email test1@reto.local, password Passw0rd1',
+    steps: ['Abrir /register.', 'Completar nombre, email y contraseña válida.', 'Pulsar Crear cuenta (POST /api/auth/register).'],
+    expected: ['201 con { user, tokens }.', 'user.role = PARTICIPANT y la respuesta no incluye passwordHash.', 'La web inicia sesión y redirige a /dashboard.'],
+    auto: [
+      U('auth.service.spec.ts', 'register crea usuario y no expone passwordHash'),
+      A('app.e2e-spec.ts', 'POST /api/auth/register crea participante'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-02', title: 'Política de contraseña', priority: 'Alta', type: 'Seguridad', guide: '1.1',
+    pre: ['Ninguna.'],
+    data: 'passwords "soloLetras" (sin número), "corta1" (menos de 8) y "12345678" (sin letra)',
+    steps: ['Intentar registrarse con cada contraseña inválida.'],
+    expected: ['400 en los tres casos: "La contraseña debe incluir al menos una letra y un número" o el mínimo de 8 caracteres.', 'No se crea el usuario (el login posterior responde 401).', 'La web muestra el error junto al formulario y no navega.'],
+    auto: [
+      A('platform-rules.e2e-spec.ts', 'AUTH: el registro rechaza contraseñas sin número (400)'),
+      W('01-auth-navigation.spec.ts', 'el registro exige una contraseña que cumpla la política'),
+      G('inicio de sesión y registro'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-03', title: 'Email ya registrado', priority: 'Media', type: 'Negativo', guide: '1.1',
+    pre: ['Existe una cuenta con el email a usar.'],
+    data: 'email ana@reto.local (o uno creado en la misma prueba)',
+    steps: ['POST /api/auth/register con el email existente.'],
+    expected: ['409 "Email ya registrado".', 'La cuenta existente no cambia.'],
+    auto: [
+      U('auth.service.spec.ts', 'register lanza ConflictException si el email ya existe'),
+      A('platform-rules.e2e-spec.ts', 'AUTH: el registro rechaza un email ya usado (409)'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-04', title: 'Inicio de sesión correcto', priority: 'Alta', type: 'Funcional', guide: '1.2',
+    pre: ['Cuenta activa.'],
+    data: 'admin@reto.local / ChangeMe123!',
+    steps: ['POST /api/auth/login con email y contraseña.'],
+    expected: ['200 con { user, tokens: { accessToken, refreshToken } }.', 'user.role = ADMIN para el administrador.'],
+    auto: [
+      U('auth.service.spec.ts', 'login válido devuelve tokens'),
+      A('app.e2e-spec.ts', 'POST /api/auth/login con credenciales correctas'),
+      S('Admin obtiene token'),
+      S('Ana (participante) obtiene token'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-05', title: 'Contraseña incorrecta', priority: 'Alta', type: 'Seguridad', guide: '1.2',
+    pre: ['Cuenta activa.'],
+    data: 'ana@reto.local / wrong',
+    steps: ['POST /api/auth/login con contraseña errónea.'],
+    expected: ['401 "Credenciales inválidas".', 'El mensaje es el mismo exista o no el email (no revela cuentas).'],
+    auto: [
+      U('auth.service.spec.ts', 'login con password incorrecto lanza Unauthorized'),
+      A('app.e2e-spec.ts', 'POST /api/auth/login con password incorrecto -> 401'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-06', title: 'Perfil de la sesión', priority: 'Alta', type: 'Funcional', guide: '1.2',
+    pre: ['Sesión iniciada.'],
+    data: 'Authorization: Bearer <accessToken>',
+    steps: ['GET /api/auth/me.'],
+    expected: ['200 con el perfil (id, name, email, role) sin passwordHash.', 'El rol corresponde a la cuenta: ADMIN o PARTICIPANT.'],
+    auto: [
+      A('app.e2e-spec.ts', 'GET /api/auth/me devuelve el perfil autenticado'),
+      S('Sesión admin -> rol ADMIN'),
+      S('Sesión Ana -> rol PARTICIPANT'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-07', title: 'Acceso sin token', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Ninguna.'],
+    data: 'Sin cabecera Authorization',
+    steps: ['GET /api/auth/me (y cualquier endpoint protegido) sin token.'],
+    expected: ['401 en todos los endpoints protegidos.'],
+    auto: [
+      A('app.e2e-spec.ts', 'rechaza acceso sin token (401)'),
+      S('Sin token -> 401'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-08', title: 'Renovar la sesión con el refresh token', priority: 'Alta', type: 'Funcional', guide: '1.2',
+    pre: ['Sesión iniciada.'],
+    data: '{ refreshToken } emitido en el login',
+    steps: ['POST /api/auth/refresh con el refresh token.', 'Usar el accessToken nuevo en GET /api/auth/me.'],
+    expected: ['Respuesta exitosa con accessToken y refreshToken nuevos.', 'El accessToken nuevo autentica (200 en /auth/me).'],
+    auto: [A('platform-rules.e2e-spec.ts', 'AUTH: el refresh token emite un access token nuevo que funciona')],
+  },
+  {
+    id: 'TC-AUTH-09', title: 'Límite de intentos de login', priority: 'Alta', type: 'Seguridad', guide: '1.2',
+    pre: ['Misma IP, ventana de 1 minuto.'],
+    data: '7 intentos de login con contraseña incorrecta (más de 5 por minuto)',
+    steps: ['Enviar 7 POST /api/auth/login seguidos.'],
+    expected: ['Mientras quede cupo responde 401.', 'Al superar 5 intentos por minuto responde 429 Too Many Requests, y sigue en 429 en los intentos siguientes.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'AUTH: tras 5 intentos de login en un minuto responde 429')],
+  },
+  {
+    id: 'TC-AUTH-10', title: 'Access token vencido: renovación transparente en la web', priority: 'Alta', type: 'Funcional', guide: '1.2',
+    pre: ['Sesión de administrador iniciada en la web.'],
+    data: 'accessToken con firma alterada en localStorage (equivale a vencido); luego también el refreshToken',
+    steps: ['Abrir /dashboard con sesión.', 'Invalidar el accessToken guardado y recargar.', 'Repetir invalidando también el refreshToken.'],
+    expected: ['Con refresh válido: la web llama a /auth/refresh, guarda un token nuevo y sigue en /dashboard sin pedir login.', 'Con refresh inválido: redirige a /login y borra los tokens guardados.'],
+    auto: [
+      W('01-auth-navigation.spec.ts', 'un access token vencido se renueva solo con el refresh token'),
+      W('01-auth-navigation.spec.ts', 'si el refresh token también es inválido, vuelve al login y borra la sesión'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-11', title: 'Cuenta inactiva no inicia sesión', priority: 'Media', type: 'Seguridad', guide: '1.2',
+    pre: ['Usuario con isActive = false.'],
+    data: 'Credenciales correctas de la cuenta inactiva',
+    steps: ['POST /api/auth/login.'],
+    expected: ['401, igual que con credenciales inválidas.'],
+    auto: [U('auth.service.spec.ts', 'login de usuario inactivo lanza Unauthorized')],
+  },
+  {
+    id: 'TC-AUTH-12', title: 'Refresh token inválido', priority: 'Media', type: 'Seguridad', guide: '1.2',
+    pre: ['Ninguna.'],
+    data: 'refreshToken "no-es-un-token"',
+    steps: ['POST /api/auth/refresh con un token inválido.'],
+    expected: ['401.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'AUTH: un refresh token inválido se rechaza (401)')],
+  },
+  {
+    id: 'TC-AUTH-13', title: 'Un 429 transitorio no cierra la sesión', priority: 'Alta', type: 'Regresión', guide: '1.2', defect: 'DEF-02',
+    pre: ['Sesión de administrador iniciada en la web.'],
+    data: 'Las dos primeras llamadas a /api/auth/me responden 429',
+    steps: ['Abrir /dashboard mientras /auth/me responde 429 dos veces.'],
+    expected: ['La web reintenta con espera creciente y entra al dashboard.', 'Los tokens siguen guardados; solo un 401 cierra la sesión.'],
+    auto: [W('01-auth-navigation.spec.ts', 'un 429 transitorio al cargar el perfil no cierra la sesión')],
+  },
+  {
+    id: 'TC-AUTH-14', title: 'Un corte de red al renovar el token no cierra la sesión', priority: 'Alta', type: 'Regresión', guide: '1.2', defect: 'DEF-05',
+    pre: ['Sesión de administrador iniciada en la web.'],
+    data: 'accessToken invalidado; la primera llamada a /api/auth/refresh se corta (red caída); las siguientes llegan al servidor',
+    steps: ['Invalidar el accessToken guardado.', 'Recargar /dashboard mientras la primera renovación falla por red.'],
+    expected: ['La sesión se conserva: la web reintenta, renueva el token y entra al dashboard.', 'Solo un rechazo del servidor al refresh token (400/401/403) borra la sesión.'],
+    auto: [
+      W('01-auth-navigation.spec.ts', 'un corte de red al renovar el token no cierra la sesión'),
+      W('01-auth-navigation.spec.ts', 'un access token vencido se renueva solo con el refresh token'),
+    ],
+  },
+
+  // ───────────────────────────── SEC ─────────────────────────────
+  {
+    id: 'TC-SEC-01', title: 'Solo el administrador gestiona retos', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Sesión de participante.'],
+    data: 'ana@reto.local',
+    steps: ['POST /api/challenges como participante.', 'POST /api/challenges/:id/activate como participante.'],
+    expected: ['403 en ambos; no se crea ni activa ningún reto.'],
+    auto: [
+      A('app.e2e-spec.ts', 'participante no puede crear retos (RBAC 403)'),
+      A('challenge-lifecycle.e2e-spec.ts', 'un participante no puede activar retos (403)'),
+      S('Ana NO puede crear retos (403)'),
+    ],
+  },
+  {
+    id: 'TC-SEC-02', title: 'CORS restringido en producción', priority: 'Alta', type: 'Seguridad', guide: '8.4',
+    pre: ['Variables CORS_ORIGIN y NODE_ENV.'],
+    data: 'CORS_ORIGIN "https://a.com/, https://b.com"; sin CORS_ORIGIN en desarrollo y en producción',
+    steps: ['Resolver el origen permitido para cada combinación.'],
+    expected: ['Lista normalizada (sin espacios ni barra final).', 'En desarrollo sin configurar refleja el origen del navegador.', 'En producción sin configurar no abre la API a cualquier origen y emite una advertencia.'],
+    auto: [
+      U('cors.spec.ts', 'usa la lista configurada y normaliza espacios y slash final'),
+      U('cors.spec.ts', 'en desarrollo sin configuración refleja el origen del navegador'),
+      U('cors.spec.ts', 'en producción sin configuración NO abre la API a cualquier origen'),
+      U('cors.spec.ts', 'avisa cuando falta configuración y calla cuando está bien'),
+    ],
+  },
+  {
+    id: 'TC-SEC-03', title: 'Proxy de confianza y límite global configurable', priority: 'Alta', type: 'Seguridad', guide: '8.4', defect: 'DEF-02',
+    pre: ['Variables TRUST_PROXY, THROTTLE_LIMIT y THROTTLE_TTL_MS.'],
+    data: 'TRUST_PROXY vacío/"true"/"false"/"2"/"loopback, 10.0.0.0/8"; THROTTLE_LIMIT "500"/"mucho"; THROTTLE_TTL_MS "30000"/"-5"',
+    steps: ['Resolver trust proxy y el límite global para cada combinación.'],
+    expected: ['Producción sin configurar confía en 1 proxy; desarrollo en ninguno.', 'Los valores explícitos se respetan.', 'Por defecto 100 peticiones por 60 s; valores inválidos vuelven al defecto.'],
+    auto: [
+      U('http.spec.ts', 'en producción sin configurar confía en un proxy delante'),
+      U('http.spec.ts', 'en desarrollo sin configurar no confía en proxies'),
+      U('http.spec.ts', 'respeta la configuración explícita'),
+      U('http.spec.ts', 'usa 100 peticiones por minuto por defecto'),
+      U('http.spec.ts', 'admite límites configurados y descarta valores inválidos'),
+    ],
+  },
+  {
+    id: 'TC-SEC-04', title: 'El seed exige contraseña de admin en producción', priority: 'Alta', type: 'Seguridad', guide: '8.4',
+    pre: ['Base de datos accesible.'],
+    data: 'NODE_ENV=production y SEED_ADMIN_PASSWORD vacío',
+    steps: ['cd backend && NODE_ENV=production SEED_ADMIN_PASSWORD= npx ts-node prisma/seed.ts', 'Consultar si cambió algún usuario.'],
+    expected: ['Sale con código 1 y el mensaje "SEED_ADMIN_PASSWORD es obligatorio en producción".', 'No modifica la base (0 usuarios actualizados).'],
+    manual: { date: '2026-10-01', result: 'Aprobado', evidence: 'exit=1, mensaje mostrado y 0 usuarios modificados en los 2 minutos siguientes' },
+  },
+
+  // ───────────────────────────── CHAL ─────────────────────────────
+  {
+    id: 'TC-CHAL-01', title: 'Crear un reto', priority: 'Alta', type: 'Funcional', guide: '2.1',
+    pre: ['Sesión de administrador.'],
+    data: 'name, month, year, startDate < endDate, validDays [1..6], feePerParticipant, currency, prizeBudget, minHeartRateMinutes',
+    steps: ['Abrir Retos > Nuevo reto (o POST /api/challenges).', 'Completar el formulario y guardar.'],
+    expected: ['201 con el reto en estado DRAFT.', 'Las reglas enviadas quedan persistidas; las de puntaje toman sus defaults si no se envían.', 'El formulario web muestra el bloque "Reglas de puntaje".'],
+    auto: [
+      A('challenge-lifecycle.e2e-spec.ts', 'admin crea dos retos en DRAFT con fechas que se solapan'),
+      A('challenge-scoring.e2e-spec.ts', 'crea un reto con reglas propias y las persiste'),
+      W('05-challenges-scoring.spec.ts', 'el formulario de reto trae las reglas de puntaje con sus valores por defecto'),
+      G('menú de administración y lista de retos'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-02', title: 'Un reto por mes y año', priority: 'Media', type: 'Negativo', guide: '2.1',
+    pre: ['Existe un reto para el mes/año.'],
+    data: 'Mismo month y year que un reto existente',
+    steps: ['POST /api/challenges con el mes repetido.'],
+    expected: ['409 "Ya existe un reto para M/AAAA".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'CHAL: no permite dos retos para el mismo mes y año (409)')],
+  },
+  {
+    id: 'TC-CHAL-03', title: 'Período con fechas válidas', priority: 'Media', type: 'Negativo', guide: '2.1',
+    pre: ['Sesión de administrador.'],
+    data: 'startDate igual o posterior a endDate',
+    steps: ['POST /api/challenges con el período invertido.'],
+    expected: ['400 "startDate debe ser menor que endDate".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'CHAL: rechaza un período con inicio igual o posterior al fin (400)')],
+  },
+  {
+    id: 'TC-CHAL-04', title: 'Activar un reto', priority: 'Alta', type: 'Funcional', guide: '2.2',
+    pre: ['Reto en DRAFT.'],
+    data: 'POST /api/challenges/:id/activate; PATCH { status: "ACTIVE" }',
+    steps: ['Activar el reto.', 'Activarlo otra vez.', 'Activar un id inexistente.'],
+    expected: ['DRAFT pasa a ACTIVE.', 'Reactivar un ACTIVE es idempotente (no escribe).', 'Id inexistente: 404.', 'Activar por PATCH aplica las mismas reglas y el resto de campos.'],
+    auto: [
+      U('challenges.service.spec.ts', 'activa un reto en DRAFT'),
+      U('challenges.service.spec.ts', 'es idempotente si el reto ya está ACTIVE (no escribe)'),
+      U('challenges.service.spec.ts', 'devuelve 404 si el reto no existe'),
+      U('challenges.service.spec.ts', 'activa y además aplica el resto de campos'),
+      U('challenges.service.spec.ts', 'sin más campos devuelve el reto activado sin segunda escritura'),
+      A('challenge-lifecycle.e2e-spec.ts', 'activar A: DRAFT -> ACTIVE'),
+      A('challenge-lifecycle.e2e-spec.ts', 'reactivar A es idempotente'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-05', title: 'Editar las reglas de un reto', priority: 'Media', type: 'Funcional', guide: '2.3',
+    pre: ['Reto existente.'],
+    data: 'PATCH /api/challenges/:id con validDays, feePerParticipant y prizeDescription nuevos',
+    steps: ['Enviar el PATCH.', 'Leer el reto.'],
+    expected: ['200 y los cambios quedan persistidos.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'CHAL: PATCH cambia las reglas de un reto existente')],
+  },
+  {
+    id: 'TC-CHAL-06', title: 'Reto activo por defecto', priority: 'Alta', type: 'Funcional', guide: '2.4',
+    pre: ['Dos retos ACTIVE: A (más antiguo) con el usuario inscrito y B (más reciente) sin él.'],
+    data: 'GET /api/challenges/active como inscrito y como no inscrito',
+    steps: ['Consultar el reto activo con cada usuario.', 'Consultar sin retos activos.'],
+    expected: ['El inscrito recibe A; el no inscrito recibe B.', 'Sin retos activos: null.', 'La respuesta incluye participants.'],
+    auto: [
+      U('challenges.service.spec.ts', 'prefiere el reto activo más reciente en el que participa el usuario'),
+      U('challenges.service.spec.ts', 'si no participa en ninguno devuelve el activo más reciente'),
+      U('challenges.service.spec.ts', 'devuelve null sin retos activos'),
+      A('challenge-lifecycle.e2e-spec.ts', 'GET /challenges/active: prefiere el reto donde participa el usuario'),
+      A('challenge-lifecycle.e2e-spec.ts', 'GET /challenges/active: sin participación devuelve el activo más reciente'),
+      S('Hay un reto activo'),
+      S('GET /challenges/active devuelve un reto donde Ana participa'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-07', title: 'Varios retos con reglas distintas', priority: 'Media', type: 'Funcional', guide: '2.1',
+    pre: ['Sesión de administrador.'],
+    data: 'Segundo reto con validDays [0,6], minHeartRateMinutes 30, currency USD',
+    steps: ['Crear el segundo reto (idempotente si ya existe).', 'GET /api/challenges.'],
+    expected: ['El listado incluye ambos retos.', 'Cada uno conserva sus propias reglas.'],
+    auto: [S('Segundo reto'), S('Listado de retos disponible')],
+  },
+  {
+    id: 'TC-CHAL-08', title: 'Varios retos activos a la vez', priority: 'Alta', type: 'Funcional', guide: '2.4',
+    pre: ['A en ACTIVE; B en DRAFT.'],
+    data: 'GET /api/challenges/active/list',
+    steps: ['Activar B con A activo.', 'Listar los activos como usuario inscrito solo en A.'],
+    expected: ['Ambos quedan ACTIVE (activar no cierra a los demás).', 'La lista es [B, A] con isParticipant [false, true].', 'Sin activos la lista es vacía.'],
+    auto: [
+      U('challenges.service.spec.ts', 'no bloquea la activación aunque exista otro reto ACTIVE'),
+      U('challenges.service.spec.ts', 'lista los activos del más reciente al más antiguo con isParticipant'),
+      U('challenges.service.spec.ts', 'devuelve lista vacía sin retos activos'),
+      A('challenge-lifecycle.e2e-spec.ts', 'activar B mientras A está activo: ambos quedan ACTIVE'),
+      A('challenge-lifecycle.e2e-spec.ts', 'GET /challenges/active/list: más reciente primero e isParticipant por usuario'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-09', title: 'Actividades independientes por reto', priority: 'Alta', type: 'Funcional', guide: '2.4',
+    pre: ['Usuario inscrito en A y B con fechas solapadas.'],
+    data: 'Misma fecha en A y en B; repetida en A',
+    steps: ['Registrar la fecha en A y en B.', 'Repetirla en A.', 'Consultar ambos rankings.'],
+    expected: ['201 y 201.', 'El duplicado en A: 409.', 'Cada ranking cuenta solo sus actividades.'],
+    auto: [A('challenge-lifecycle.e2e-spec.ts', 'actividades por reto: misma fecha en A y B (201 x2), duplicado en A -> 409, rankings independientes')],
+  },
+  {
+    id: 'TC-CHAL-10', title: 'Selector de reto en la web', priority: 'Media', type: 'UI', guide: '2.4',
+    pre: ['Dos o más retos activos.'],
+    data: 'Selector "Reto activo seleccionado" en la cabecera',
+    steps: ['Abrir el dashboard.', 'Cambiar de reto en el selector.', 'Recargar la página.'],
+    expected: ['Con un solo reto no hay selector; con varios aparece.', 'Mi reto, Subir actividad y Ranking usan el reto elegido.', 'La elección sobrevive la recarga.'],
+    auto: [
+      W('05-challenges-scoring.spec.ts', 'con varios retos activos aparece el selector y la elección persiste'),
+      G('selector de reto con varios retos activos'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-11', title: 'Cerrar un reto y no reactivarlo', priority: 'Alta', type: 'Funcional', guide: '6.3',
+    pre: ['A y B activos.'],
+    data: 'POST /api/challenges/:id/close; luego activate y PATCH { status: "ACTIVE" }',
+    steps: ['Cerrar A.', 'Listar activos.', 'Intentar reactivar A por activate y por PATCH.'],
+    expected: ['A pasa a COMPLETED, B sigue ACTIVE y A sale de la lista de activos.', 'Reactivar un COMPLETED: 400 por ambas vías.'],
+    auto: [
+      U('challenges.service.spec.ts', 'rechaza reactivar un reto COMPLETED con 400'),
+      U('challenges.service.spec.ts', 'aplica las reglas de activación (COMPLETED -> 400)'),
+      A('challenge-lifecycle.e2e-spec.ts', 'cerrar A mantiene B activo y A ya no aparece en la lista'),
+      A('challenge-lifecycle.e2e-spec.ts', 'un reto COMPLETED no puede reactivarse (400), ni por PATCH'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-12', title: 'Consultar en la web el ranking de un reto cerrado', priority: 'Media', type: 'Observación', guide: '6.3', observation: 'OBS-01',
+    pre: ['Un reto en COMPLETED.'],
+    data: 'Reto cerrado con premiación registrada',
+    steps: ['Abrir Ranking en la web.', 'Buscar el reto cerrado en el selector.'],
+    expected: ['Comportamiento actual: el selector lista solo retos activos, así que el ranking final no es accesible desde la web.', 'Alternativa: GET /api/challenges/:id/results devuelve el resultado final con ganadores.'],
+    manual: { date: '2026-10-01', result: 'Limitación conocida', evidence: 'Observado al generar las capturas de la guía; documentado como OBS-01 en el reporte y en el paso 6.3 de la guía' },
+  },
+
+  // ───────────────────────────── PART ─────────────────────────────
+  {
+    id: 'TC-PART-01', title: 'Inscribir participantes', priority: 'Alta', type: 'Funcional', guide: '3.1',
+    pre: ['Reto existente; usuarios registrados.'],
+    data: 'POST /api/challenges/:id/participants { userId } para 5 usuarios',
+    steps: ['Inscribir a cada usuario.'],
+    expected: ['201 por cada inscripción y los 5 aparecen en el reto.'],
+    auto: [A('challenge-finance.e2e-spec.ts', 'admin crea el reto (cuota 120, presupuesto 600) e inscribe 5 participantes')],
+  },
+  {
+    id: 'TC-PART-02', title: 'Inscripción duplicada', priority: 'Media', type: 'Negativo', guide: '3.1',
+    pre: ['El usuario ya está inscrito.'],
+    data: 'Mismo userId',
+    steps: ['Inscribirlo otra vez.'],
+    expected: ['409 "El usuario ya participa en este reto".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'PART: inscribir dos veces a la misma persona devuelve 409')],
+  },
+  {
+    id: 'TC-PART-03', title: 'Quitar a un participante', priority: 'Media', type: 'Funcional', guide: '3.2',
+    pre: ['Participante inscrito en un reto activo.'],
+    data: 'DELETE /api/challenges/:id/participants/:userId',
+    steps: ['Quitarlo.', 'Leer la lista de participantes.'],
+    expected: ['204 y ya no aparece en la lista.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'PART: quitar a un participante lo saca de la lista (204)')],
+  },
+  {
+    id: 'TC-PART-04', title: 'Registrar el pago de un participante', priority: 'Alta', type: 'Funcional', guide: '3.3',
+    pre: ['Reto con cuota 120.'],
+    data: 'PATCH .../payment { paid: true }, { paid: true, amountPaid: 60 }, { paid: false }',
+    steps: ['Marcar pagado sin monto.', 'Marcar pagado con monto.', 'Marcar impago.'],
+    expected: ['Sin monto registra la cuota y paidAt.', 'Con monto respeta el monto.', 'Impago limpia monto y fecha.'],
+    auto: [
+      U('challenges.service.spec.ts', 'pagado sin monto registra la cuota del reto'),
+      U('challenges.service.spec.ts', 'pagado con monto explícito respeta el monto'),
+      U('challenges.service.spec.ts', 'impago limpia monto y fecha'),
+      A('challenge-finance.e2e-spec.ts', 'marcar pagado sin monto registra la cuota; con monto lo respeta'),
+    ],
+  },
+  {
+    id: 'TC-PART-05', title: 'Comprobante de pago del participante', priority: 'Media', type: 'Funcional', guide: '4.2',
+    pre: ['Participante inscrito.'],
+    data: 'Imagen o PDF del comprobante',
+    steps: ['En Mi reto, pulsar Subir comprobante y elegir el archivo.', 'Como admin, abrir Participantes.'],
+    expected: ['Se guarda paymentProofUrl y aparece "Ver comprobante cargado".', 'El comprobante no marca el pago: paid sigue en false hasta que el admin lo marca.', 'El admin ve "Ver comprobante de pago".'],
+    auto: [
+      A('platform-rules.e2e-spec.ts', 'PART: el participante sube su comprobante de pago'),
+      G('comprobante de pago disponible para el participante'),
+      G('participantes con resumen financiero'),
+    ],
+  },
+  {
+    id: 'TC-PART-06', title: 'Reto cerrado: sin altas ni bajas', priority: 'Media', type: 'Negativo', guide: '6.3',
+    pre: ['Reto en COMPLETED.'],
+    data: 'Inscribir y quitar en el reto cerrado',
+    steps: ['Intentar inscribir.', 'Intentar quitar.'],
+    expected: ['400 "No se puede modificar un reto cerrado" en ambos.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'PART: en un reto cerrado no se inscribe ni se quita a nadie (400)')],
+  },
+
+  // ───────────────────────────── ACT ─────────────────────────────
+  {
+    id: 'TC-ACT-01', title: 'Registrar la actividad del día', priority: 'Alta', type: 'Funcional', guide: '4.3',
+    pre: ['Participante inscrito en un reto ACTIVE; día válido dentro del período.'],
+    data: 'Carrera, 45 min, 7.2 km, 30 min de FC, foto del entreno + captura de FC',
+    steps: ['Abrir Subir actividad.', 'Completar los datos y adjuntar las fotos.', 'Pulsar Registrar actividad.'],
+    expected: ['201 con la actividad en PENDING.', 'Aparece en Mis actividades con la fecha exacta registrada.'],
+    auto: [
+      W('02-activity-upload.spec.ts', 'registra la actividad y la muestra con su fecha exacta'),
+      S('Se registró una actividad nueva'),
+    ],
+  },
+  {
+    id: 'TC-ACT-02', title: 'Foto obligatoria', priority: 'Alta', type: 'Negativo', guide: '4.3',
+    pre: ['Participante inscrito.'], data: 'photos: []',
+    steps: ['POST /api/activities sin fotos.'],
+    expected: ['400 "Al menos una foto/captura es obligatoria".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'ACT: sin fotos la actividad se rechaza (400)')],
+  },
+  {
+    id: 'TC-ACT-03', title: 'Fecha fuera del período', priority: 'Alta', type: 'Negativo', guide: '4.3',
+    pre: ['Participante inscrito.'], data: 'Fecha anterior al inicio o posterior al fin',
+    steps: ['POST /api/activities con esa fecha.'],
+    expected: ['400 "La fecha está fuera del período del reto".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'ACT: una fecha fuera del período se rechaza (400)')],
+  },
+  {
+    id: 'TC-ACT-04', title: 'Día de la semana no habilitado', priority: 'Alta', type: 'Negativo', guide: '4.3',
+    pre: ['Reto de lunes a sábado.'], data: 'Un domingo dentro del período',
+    steps: ['POST /api/activities en domingo.'],
+    expected: ['400 "Ese día de la semana no es válido para este reto".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'ACT: un día de la semana no habilitado se rechaza (400)')],
+  },
+  {
+    id: 'TC-ACT-05', title: 'Una actividad por día y reto', priority: 'Alta', type: 'Negativo', guide: '4.3',
+    pre: ['Ya existe una actividad del participante para la fecha.'], data: 'Misma fecha y reto',
+    steps: ['Registrar otra actividad ese día (web y API).'],
+    expected: ['409 "Ya registraste una actividad para ese día".', 'La web muestra el error y no duplica.'],
+    auto: [
+      W('02-activity-upload.spec.ts', 'rechaza una segunda actividad para el mismo día'),
+      A('challenge-lifecycle.e2e-spec.ts', 'actividades por reto: misma fecha en A y B (201 x2), duplicado en A -> 409, rankings independientes'),
+    ],
+  },
+  {
+    id: 'TC-ACT-06', title: 'Solo los inscritos registran', priority: 'Alta', type: 'Seguridad', guide: '4.3',
+    pre: ['Usuario no inscrito en el reto.'], data: 'e2e-rules-outsider',
+    steps: ['POST /api/activities en ese reto.'],
+    expected: ['403 "No participas en este reto".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'ACT: quien no está inscrito no puede registrar (403)')],
+  },
+  {
+    id: 'TC-ACT-07', title: 'Solo en retos activos', priority: 'Alta', type: 'Negativo', guide: '4.3',
+    pre: ['Reto en DRAFT o COMPLETED.'], data: 'Actividad válida en cualquier otro aspecto',
+    steps: ['Registrar en un reto DRAFT.', 'Registrar en un reto COMPLETED.'],
+    expected: ['400 "El reto no está activo" en ambos.'],
+    auto: [
+      A('platform-rules.e2e-spec.ts', 'ACT: en un reto que no está activo no se registra (400)'),
+      A('platform-rules.e2e-spec.ts', 'ACT: en un reto cerrado no se registran actividades (400)'),
+    ],
+  },
+  {
+    id: 'TC-ACT-08', title: 'Validar una actividad conforme', priority: 'Alta', type: 'Funcional', guide: '5.2',
+    pre: ['Actividad PENDING que cumple la regla de FC.'], data: 'POST /api/activities/:id/validate sin cuerpo',
+    steps: ['En Validaciones pulsar Validar.', 'El participante consulta sus actividades.'],
+    expected: ['VALIDATED con validatedAt/validatedById y validationNote null.', 'La tarjeta sale de la lista y el participante la ve validada.', 'Suma al ranking.'],
+    auto: [
+      U('activities.service.spec.ts', 'valida una actividad conforme sin cuerpo y sin nota'),
+      W('03-admin-validation.spec.ts', 'valida una actividad conforme con un clic'),
+      S('Admin valida la actividad de Ana'),
+      S('Ana ve su actividad VALIDATED'),
+    ],
+  },
+  {
+    id: 'TC-ACT-09', title: 'Rechazar con motivo', priority: 'Alta', type: 'Funcional', guide: '5.3',
+    pre: ['Actividad PENDING.'], data: 'reason "La captura no muestra los minutos de FC"',
+    steps: ['Pulsar Rechazar, escribir el motivo y confirmar.', 'El participante abre Mis actividades.'],
+    expected: ['REJECTED con rejectionReason guardado.', 'El participante ve el estado Rechazado y el motivo.'],
+    auto: [
+      A('platform-rules.e2e-spec.ts', 'VAL: el rechazo guarda el motivo y el participante lo ve'),
+      G('mis actividades con validada, pendiente y rechazada'),
+      G('validaciones: chips, override y rechazo'),
+    ],
+  },
+  {
+    id: 'TC-ACT-10', title: 'Mis actividades', priority: 'Alta', type: 'Seguridad', guide: '4.4',
+    pre: ['Dos participantes con actividades.'], data: 'GET /api/activities/me',
+    steps: ['Consultar como cada participante.'],
+    expected: ['Cada uno recibe solo sus actividades, con su estado.'],
+    auto: [
+      A('platform-rules.e2e-spec.ts', 'ACT: cada participante solo ve sus propias actividades'),
+      S('Ana ve sus actividades'),
+    ],
+  },
+  {
+    id: 'TC-ACT-11', title: 'Listados y pendientes solo para el admin', priority: 'Alta', type: 'Seguridad', guide: '5.1',
+    pre: ['Actividades pendientes en el reto.'], data: 'GET /api/activities y /api/activities/pending',
+    steps: ['Consultar como participante.', 'Consultar como admin.'],
+    expected: ['Participante: 403 en ambos.', 'Admin: recibe las pendientes, cada una con heartRateCompliant según la regla de su reto (chip Cumple / No cumple FC).'],
+    auto: [
+      U('activities.service.spec.ts', 'marca cada actividad según la regla de su reto'),
+      A('platform-rules.e2e-spec.ts', 'RBAC: el participante no lista todas las actividades ni las pendientes (403)'),
+      S('Admin ve actividades pendientes'),
+      S('Ana NO puede listar todas las actividades (403)'),
+      G('validaciones: chips, override y rechazo'),
+    ],
+  },
+  {
+    id: 'TC-ACT-12', title: 'Retirar una actividad', priority: 'Media', type: 'Funcional', guide: '4.5',
+    pre: ['Actividades propias PENDING y VALIDATED; actividad ajena.'], data: 'DELETE /api/activities/:id',
+    steps: ['Borrar la propia pendiente.', 'Borrar una ajena.', 'Borrar la propia validada; luego como admin.'],
+    expected: ['Propia pendiente: 204.', 'Ajena: 403.', 'Validada: 403 para el participante y 204 para el admin.'],
+    auto: [
+      A('platform-rules.e2e-spec.ts', 'ACT: el participante borra su actividad pendiente (204)'),
+      A('platform-rules.e2e-spec.ts', 'ACT: el participante no puede borrar actividades ajenas (403)'),
+      A('platform-rules.e2e-spec.ts', 'ACT: el participante no puede borrar una actividad ya validada (403); el admin sí'),
+    ],
+  },
+  {
+    id: 'TC-ACT-13', title: 'Regla de FC: registro por debajo del mínimo', priority: 'Alta', type: 'Negativo', guide: '4.3',
+    pre: ['Reto ACTIVE con minHeartRateMinutes 30.'],
+    data: '20 min de FC con captura; 35 min sin foto HEART_RATE; captura sin minutos; minutos de FC > duración',
+    steps: ['POST /api/activities con cada combinación.'],
+    expected: ['400 en todas; el mensaje del primer caso menciona 30.', 'hasHeartRateProof se deriva de las fotos, no del flag enviado.', 'No se crea ninguna actividad.'],
+    auto: [
+      U('activities.service.spec.ts', 'no cumple si los minutos están por debajo del mínimo (menciona el mínimo)'),
+      U('activities.service.spec.ts', 'no cumple si faltan los minutos'),
+      U('activities.service.spec.ts', 'no cumple sin captura de FC'),
+      U('activities.service.spec.ts', 'rechaza minutos con FC mayores a la duración'),
+      U('activities.service.spec.ts', 'rechaza una actividad por debajo del mínimo mencionando el mínimo'),
+      U('activities.service.spec.ts', 'deriva hasHeartRateProof de las fotos: sin foto HEART_RATE se rechaza aunque el flag venga true'),
+      A('activity-heart-rate.e2e-spec.ts', 'rechaza registro con 20 min de FC en un reto de 30 (mensaje menciona 30)'),
+      A('activity-heart-rate.e2e-spec.ts', 'rechaza registro sin foto HEART_RATE aunque tenga minutos suficientes'),
+      A('activity-heart-rate.e2e-spec.ts', 'rechaza registro con captura pero sin heartRateMinutes'),
+      A('activity-heart-rate.e2e-spec.ts', 'rechaza heartRateMinutes mayor que durationMinutes'),
+    ],
+  },
+  {
+    id: 'TC-ACT-14', title: 'Regla de FC: registro conforme', priority: 'Alta', type: 'Funcional', guide: '4.3',
+    pre: ['Reto con mínimo 30.'], data: '45 min, 35 min de FC, fotos ACTIVITY + HEART_RATE, hasHeartRateProof enviado en false',
+    steps: ['POST /api/activities.'],
+    expected: ['201 con hasHeartRateProof true (derivado) y heartRateCompliant true.'],
+    auto: [
+      U('activities.service.spec.ts', 'cumple con minutos >= mínimo y captura'),
+      U('activities.service.spec.ts', 'crea una actividad conforme con heartRateCompliant=true y el flag derivado'),
+      A('activity-heart-rate.e2e-spec.ts', 'registra una actividad conforme: hasHeartRateProof derivado y heartRateCompliant=true'),
+    ],
+  },
+  {
+    id: 'TC-ACT-15', title: 'Validar una actividad no conforme exige nota', priority: 'Alta', type: 'Funcional', guide: '5.2',
+    pre: ['Actividad PENDING sin la FC mínima (p. ej. importada).'], data: 'validate sin cuerpo; { override: true }; { override: true, note: "Corrió con el grupo" }',
+    steps: ['Validar sin cuerpo.', 'Validar con override sin nota.', 'Validar con override y nota (web: pulsar Validar, escribir la nota y Validar con nota).'],
+    expected: ['400, 400 y luego VALIDATED.', 'validationNote guarda la nota y heartRateCompliant sigue false.', 'La web pide la nota antes de enviar.'],
+    auto: [
+      U('activities.service.spec.ts', 'rechaza validar una actividad no conforme sin override'),
+      U('activities.service.spec.ts', 'rechaza override sin nota'),
+      U('activities.service.spec.ts', 'valida con override y guarda la nota; heartRateCompliant sigue false'),
+      A('activity-heart-rate.e2e-spec.ts', 'validar una actividad no conforme requiere override + nota'),
+      A('activity-heart-rate.e2e-spec.ts', 'validar una actividad conforme no requiere cuerpo y deja validationNote null'),
+      W('03-admin-validation.spec.ts', 'una actividad que no cumple la regla de FC exige nota de override'),
+      G('validaciones: chips, override y rechazo'),
+    ],
+  },
+  {
+    id: 'TC-ACT-16', title: 'Importación con minutos de FC y advertencias', priority: 'Media', type: 'Funcional', guide: '7.2',
+    pre: ['Reto con mínimo 20.'], data: 'CSV con una fila sin FC, una conforme y una con minutos de FC > duración',
+    steps: ['Previsualizar el archivo.'],
+    expected: ['La fila sin FC es válida con advertencia que menciona el mínimo (summary.warnings = 1).', 'Minutos de FC > duración es error de la fila.', 'La plantilla trae la columna heartRateMinutes.'],
+    auto: [
+      U('import.service.spec.ts', 'parsea heartRateMinutes'),
+      U('import.service.spec.ts', 'rechaza heartRateMinutes mayor que durationMinutes'),
+      U('import.service.spec.ts', 'preview: fila sin FC en un reto con mínimo -> válida con advertencia'),
+      A('activity-heart-rate.e2e-spec.ts', 'la plantilla de importación incluye heartRateMinutes y el preview reporta warnings'),
+    ],
+  },
+  {
+    id: 'TC-ACT-17', title: 'Reto sin regla de FC', priority: 'Media', type: 'Funcional', guide: '2.1',
+    pre: ['Reto con minHeartRateMinutes 0.'], data: 'Actividad sin minutos de FC ni captura',
+    steps: ['Crear y activar el reto.', 'Registrar la actividad.'],
+    expected: ['201 y heartRateCompliant true: la regla no aplica.'],
+    auto: [
+      U('activities.service.spec.ts', 'un reto con mínimo 0 no aplica la regla'),
+      U('activities.service.spec.ts', 'con mínimo 0 acepta actividades sin minutos ni captura'),
+      A('activity-heart-rate.e2e-spec.ts', 'admin crea un reto estricto (30 min) y uno sin regla (0) y activa ambos'),
+      A('activity-heart-rate.e2e-spec.ts', 'en el reto sin regla acepta actividades sin minutos ni captura'),
+    ],
+  },
+  {
+    id: 'TC-ACT-18', title: 'Formulario de subida guiado', priority: 'Alta', type: 'UI', guide: '4.3',
+    pre: ['Reto con mínimo de FC seleccionado.'], data: '12 min de FC; luego minutos suficientes con captura y foto',
+    steps: ['Ingresar minutos por debajo del mínimo.', 'Completar minutos, captura y foto.'],
+    expected: ['Con minutos insuficientes el botón Registrar actividad queda deshabilitado y un aviso explica el mínimo.', 'Con todo en regla el botón se habilita.'],
+    auto: [
+      W('02-activity-upload.spec.ts', 'el formulario guía y bloquea hasta cumplir la regla de FC'),
+      G('formulario de subida bloqueado y listo'),
+    ],
+  },
+  {
+    id: 'TC-ACT-19', title: 'El rechazo exige un motivo', priority: 'Media', type: 'Negativo', guide: '5.3',
+    pre: ['Actividad PENDING.'], data: 'reason "no" (2 caracteres)',
+    steps: ['POST /api/activities/:id/reject con el motivo corto.'],
+    expected: ['400; la actividad sigue PENDING.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'VAL: rechazar exige un motivo de al menos 3 caracteres (400)')],
+  },
+
+  // ───────────────────────────── RES ─────────────────────────────
+  {
+    id: 'TC-RES-01', title: 'Ranking y ganador automático', priority: 'Alta', type: 'Funcional', guide: '6.1',
+    pre: ['Reto con actividades validadas.'], data: 'GET /api/challenges/:id/results',
+    steps: ['Consultar los resultados.'],
+    expected: ['ranking ordenado por puntaje y, a igual puntaje, por km.', 'Un único líder es el ganador; sin validadas no hay ganador.', 'winners, tiedAtTop, drawNeeded y notes son coherentes.'],
+    auto: [
+      U('results.service.spec.ts', 'declara un ganador único'),
+      U('results.service.spec.ts', 'sin actividades validadas -> sin ganador'),
+      S('Hay ranking'),
+      S('Top del ranking calculado'),
+    ],
+  },
+  {
+    id: 'TC-RES-02', title: 'Empate dentro del cupo de ganadores', priority: 'Alta', type: 'Funcional', guide: '6.2',
+    pre: ['2 participantes empatados en el tope; maxWinners 2.'], data: 'Mismo puntaje',
+    steps: ['Consultar los resultados.'],
+    expected: ['Ambos ganan, sin sorteo (drawNeeded false), y el premio se divide.'],
+    auto: [
+      U('results.service.spec.ts', 'empate de 2 -> ambos ganan sin sorteo'),
+      U('scoring.spec.ts', 'empate dentro del cupo: ganan todos sin sorteo'),
+    ],
+  },
+  {
+    id: 'TC-RES-03', title: 'Empate que supera el cupo: sorteo', priority: 'Alta', type: 'Funcional', guide: '6.2',
+    pre: ['3 o más empatados en el tope; tiebreakRule DRAW; maxWinners 2.'], data: 'Mismo puntaje',
+    steps: ['Consultar los resultados.'],
+    expected: ['drawNeeded true y winners con 2 elegidos al azar entre los empatados.'],
+    auto: [U('scoring.spec.ts', 'DRAW con más empatados que cupos: sortea entre los empatados')],
+  },
+  {
+    id: 'TC-RES-04', title: 'La premiación manual prevalece', priority: 'Alta', type: 'Funcional', guide: '6.4',
+    pre: ['Reto activo con ranking.'], data: 'POST /api/challenges/:id/awards { userIds: [bruno], notes }',
+    steps: ['Registrar la premiación.', 'Consultar los resultados.'],
+    expected: ['El reto pasa a COMPLETED.', 'winners = premiados aunque el cálculo diga otra cosa; payout reparte entre ellos (300 a 1 premiado con pote 300).', 'Nota "Premiación registrada por el administrador".'],
+    auto: [
+      U('results.service.spec.ts', 'una premiación registrada manda sobre el cálculo automático'),
+      A('platform-rules.e2e-spec.ts', 'RES: la premiación manual prevalece, reparte el premio y cierra el reto'),
+    ],
+  },
+  {
+    id: 'TC-RES-05', title: 'Solo se premia a participantes', priority: 'Media', type: 'Negativo', guide: '6.4',
+    pre: ['Usuario que no participa en el reto.'], data: 'userIds con el id ajeno',
+    steps: ['Registrar la premiación.'],
+    expected: ['400 "Solo se puede premiar a participantes del reto".'],
+    auto: [A('platform-rules.e2e-spec.ts', 'RES: no se puede premiar a quien no participa (400)')],
+  },
+  {
+    id: 'TC-RES-06', title: 'El panel de premiación sugiere a los ganadores de las reglas', priority: 'Media', type: 'Regresión', guide: '6.4', defect: 'DEF-04',
+    pre: ['Reto de demostración: 1 ganador, desempate por km; Ana lidera con 96 puntos.'], data: 'Panel de premiación en Ranking (admin)',
+    steps: ['Abrir Ranking como administrador.'],
+    expected: ['Viene marcada solo Ana (ganadora según las reglas).', 'Carla y Diego (no califica) aparecen sin marcar.'],
+    auto: [G('panel de premiación')],
+  },
+
+  // ───────────────────────────── SCORE ─────────────────────────────
+  {
+    id: 'TC-SCORE-01', title: 'Puntaje configurable', priority: 'Alta', type: 'Funcional', guide: '6.1',
+    pre: ['Reto con 10 puntos por día validado y 1 por km.'], data: '3 días validados y 12.5 km',
+    steps: ['Consultar los resultados.'],
+    expected: ['score = 42.5 y los km reordenan el ranking.', 'Con los defaults (1 y 0) score = días validados.', 'Los decimales de Prisma se redondean a 2.'],
+    auto: [
+      U('scoring.spec.ts', 'con los defaults el puntaje son los días validados'),
+      U('scoring.spec.ts', 'suma puntos por kilómetro cuando el reto lo configura'),
+      U('scoring.spec.ts', 'acepta decimales de Prisma (string) y redondea a 2'),
+      U('scoring.spec.ts', 'sin actividades validadas el puntaje es 0'),
+      U('results.service.spec.ts', 'los kilómetros suman puntos y reordenan el ranking'),
+      S('El ranking expone score y qualified'),
+      S('Con los defaults el puntaje son los días validados'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-02', title: 'Mínimo de días para calificar', priority: 'Alta', type: 'Funcional', guide: '6.1',
+    pre: ['Reto con minValidatedDaysToQualify 2; el de mayor puntaje tiene 1 día.'], data: 'GET results',
+    steps: ['Consultar los resultados.'],
+    expected: ['Aparece con qualified false, no entra en tiedAtTop ni gana.', 'Si nadie califica no hay ganador y payout.winnersCount = 0.', 'Con el default se exige al menos un punto.'],
+    auto: [
+      U('scoring.spec.ts', 'con el default exige al menos un punto'),
+      U('scoring.spec.ts', 'respeta el mínimo de días validados'),
+      U('results.service.spec.ts', 'el mínimo de días validados deja fuera al puntero y sin ganador'),
+      A('challenge-scoring.e2e-spec.ts', 'el ranking expone score y qualified, y el mínimo deja fuera al de mayor puntaje'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-03', title: 'Número de ganadores y desempate', priority: 'Alta', type: 'Funcional', guide: '6.2',
+    pre: ['Empate en el tope.'], data: 'maxWinners 1 con TOTAL_KM; DRAW; SHARE_ALL',
+    steps: ['Consultar resultados con cada regla.'],
+    expected: ['TOTAL_KM elige al de más km sin sorteo; si los km también empatan en el corte, sortea entre esos.', 'DRAW sortea maxWinners entre los empatados.', 'SHARE_ALL declara ganadores a todos los empatados y divide el premio.', 'Sin empatados no hay ganador; un líder único gana sin desempate.'],
+    auto: [
+      U('scoring.spec.ts', 'sin empatados no hay ganador'),
+      U('scoring.spec.ts', 'un solo participante en el tope gana sin desempate'),
+      U('scoring.spec.ts', 'maxWinners = 1 devuelve un único ganador'),
+      U('scoring.spec.ts', 'TOTAL_KM desempata por kilómetros sin sorteo'),
+      U('scoring.spec.ts', 'TOTAL_KM con kilómetros también empatados en el corte: sortea entre esos'),
+      U('scoring.spec.ts', 'TOTAL_KM combina cupos ya asegurados con sorteo en el corte'),
+      U('scoring.spec.ts', 'SHARE_ALL: ganan todos los empatados aunque superen el cupo'),
+      U('results.service.spec.ts', 'maxWinners = 1 con desempate por kilómetros elige al de más km'),
+      U('results.service.spec.ts', 'SHARE_ALL reparte entre todos los empatados aunque superen el cupo'),
+      A('challenge-scoring.e2e-spec.ts', 'desempata por kilómetros y entrega el pote completo al único ganador'),
+      A('challenge-scoring.e2e-spec.ts', 'SHARE_ALL reparte el premio entre todos los empatados'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-04', title: 'Validación de la configuración de puntaje', priority: 'Media', type: 'Negativo', guide: '2.1',
+    pre: ['Sesión de administrador.'], data: 'maxWinners 0; luego 10/día, 1/km, mínimo 5, 1 ganador, TOTAL_KM',
+    steps: ['Crear el reto inválido.', 'Crear el reto válido.'],
+    expected: ['400 para maxWinners 0.', '201 y los cinco valores quedan persistidos.'],
+    auto: [
+      A('challenge-scoring.e2e-spec.ts', 'rechaza una configuración inválida (maxWinners = 0)'),
+      S('maxWinners = 0 se rechaza (400)'),
+      S('Reto con reglas de puntaje propias creado/actualizado'),
+      S('Reglas de puntaje persistidas'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-05', title: 'Ranking web con reglas propias', priority: 'Media', type: 'UI', guide: '6.1',
+    pre: ['Un reto con reglas propias y otro con los defaults.'], data: 'Ranking de cada reto',
+    steps: ['Abrir el ranking de cada reto.'],
+    expected: ['Con reglas propias: describe la regla, agrega la columna Puntos y marca "no califica".', 'Con los defaults: sin columna de puntos.'],
+    auto: [
+      W('05-challenges-scoring.spec.ts', 'el ranking describe la regla, muestra puntos y marca a quien no califica'),
+      W('05-challenges-scoring.spec.ts', 'un reto con las reglas por defecto no muestra la columna de puntos'),
+      G('ranking con puntos, no califica y premio proyectado'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-06', title: 'Notas de la regla y compatibilidad', priority: 'Media', type: 'Funcional', guide: '6.1',
+    pre: ['Reto con reglas propias y reto del seed con defaults.'], data: 'results.notes',
+    steps: ['Consultar los resultados de ambos.'],
+    expected: ['Con reglas propias las notas describen puntaje y mínimo ("Mínimo para calificar").', 'Con defaults no se agrega descripción y el comportamiento histórico se mantiene.'],
+    auto: [
+      U('scoring.spec.ts', 'no describe nada con la configuración por defecto'),
+      U('scoring.spec.ts', 'describe puntaje y mínimo cuando están configurados'),
+      A('challenge-scoring.e2e-spec.ts', 'un reto sin reglas propias mantiene el comportamiento histórico'),
+      S('Sus resultados describen la regla activa'),
+      S('El reto seed conserva las reglas por defecto'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-07', title: 'El tope se muestra en la unidad del reto', priority: 'Media', type: 'Regresión', guide: '6.1', defect: 'DEF-03',
+    pre: ['Reto con reglas de puntaje propias.'], data: 'Ana con 96 puntos',
+    steps: ['Abrir Ranking y Mi reto.'],
+    expected: ['Ranking: "top actual: 96 puntos" (no "96 días").', 'Mi reto: tarjeta Top del reto "96 pts".'],
+    auto: [
+      W('05-challenges-scoring.spec.ts', 'el ranking describe la regla, muestra puntos y marca a quien no califica'),
+      G('ranking con puntos, no califica y premio proyectado'),
+      G('panel Mi reto muestra período, cuenta regresiva y métricas'),
+    ],
+  },
+
+  // ───────────────────────────── FIN ─────────────────────────────
+  {
+    id: 'TC-FIN-01', title: 'Estados de pago', priority: 'Alta', type: 'Funcional', guide: '3.3',
+    pre: ['Reto con cuota 120.'], data: 'Pagos 120, 60 y ninguno; reto gratuito',
+    steps: ['Marcar los pagos y leer el estado de cada participante.'],
+    expected: ['paid (completo), partial (menos que la cuota) y unpaid.', 'Con cuota 0 todos quedan pagados.', 'Impago limpia monto y fecha y actualiza el resumen.'],
+    auto: [
+      U('finance.service.spec.ts', 'pagado completo, parcial e impago'),
+      U('finance.service.spec.ts', 'con cuota 0 todos están pagados'),
+      A('challenge-finance.e2e-spec.ts', 'marcar impago limpia monto y fecha y actualiza el resumen'),
+    ],
+  },
+  {
+    id: 'TC-FIN-02', title: 'Resumen financiero', priority: 'Alta', type: 'Funcional', guide: '3.4',
+    pre: ['Cuota 120, presupuesto 600, 5 inscritos: 3 pagaron 120, 1 pagó 60, 1 nada.'], data: 'GET /api/challenges/:id/finance',
+    steps: ['Consultar como admin.'],
+    expected: ['expectedTotal 600, collectedTotal 420, pendingTotal 180.', 'budgetCovered false y budgetDelta -180.', 'counts { paid 3, partial 1, unpaid 1 } y el state de cada participante.'],
+    auto: [
+      U('finance.service.spec.ts', 'pagos mixtos: 3 completos, 1 parcial, 1 impago'),
+      U('finance.service.spec.ts', 'presupuesto cubierto con excedente'),
+      U('finance.service.spec.ts', 'reto gratuito: todos pagados y nada pendiente'),
+      U('finance.service.spec.ts', 'fila histórica marcada pagada sin monto -> parcial con 0'),
+      U('finance.service.spec.ts', 'calcula a partir del reto y sus participantes'),
+      A('challenge-finance.e2e-spec.ts', 'GET /challenges/:id/finance: esperado 600, recaudado 420, pendiente 180, presupuesto no cubierto'),
+      S('Admin obtiene el resumen financiero'),
+      S('Esperado = cuota x inscritos'),
+      S('Pendiente = max(0, esperado - recaudado)'),
+      S('Cobertura del presupuesto coherente'),
+      S('Estado de pago válido por participante'),
+    ],
+  },
+  {
+    id: 'TC-FIN-03', title: 'Finanzas solo para el admin', priority: 'Alta', type: 'Seguridad', guide: '3.4',
+    pre: ['Reto existente.'], data: 'GET finance como participante; como admin con id inexistente',
+    steps: ['Consultar en ambos escenarios.'],
+    expected: ['403 para el participante.', '404 para un reto inexistente.'],
+    auto: [
+      U('finance.service.spec.ts', '404 si el reto no existe'),
+      A('challenge-finance.e2e-spec.ts', 'el resumen financiero es solo para admin (403) y 404 si el reto no existe'),
+      S('Ana NO puede ver finanzas (403)'),
+    ],
+  },
+  {
+    id: 'TC-FIN-04', title: 'Premio por ganador en los resultados', priority: 'Alta', type: 'Funcional', guide: '6.1',
+    pre: ['Presupuesto 600.'], data: '1 ganador; 2 empatados; 3 premiados; presupuesto 0',
+    steps: ['Consultar results.payout en cada escenario.'],
+    expected: ['perWinner 600, 300 y 200.', 'Presupuesto 0: monetary false y perWinner 0.', 'El reparto nunca supera el pote (redondeo hacia abajo); sin ganadores perWinner 0.'],
+    auto: [
+      U('finance.service.spec.ts', 'un ganador se lleva el pote'),
+      U('finance.service.spec.ts', 'dos ganadores reparten'),
+      U('finance.service.spec.ts', 'tres premiados'),
+      U('finance.service.spec.ts', 'pote 0 -> premio no monetario'),
+      U('finance.service.spec.ts', 'sin ganadores -> perWinner 0'),
+      U('finance.service.spec.ts', 'el reparto nunca supera el pote (redondeo hacia abajo)'),
+      U('results.service.spec.ts', 'presupuesto 0 -> premio no monetario'),
+      A('challenge-finance.e2e-spec.ts', 'results incluye payout: pote 600 para un ganador'),
+      A('challenge-finance.e2e-spec.ts', 'un reto con presupuesto 0 reporta premio no monetario'),
+      S('Results incluye payout con pote = presupuesto'),
+    ],
+  },
+  {
+    id: 'TC-FIN-05', title: 'Finanzas en la web', priority: 'Media', type: 'UI', guide: '3.4',
+    pre: ['Reto de demostración: 5 inscritos, cuota 150; Ana y Bruno pagaron, Carla 75.'], data: 'Participantes (admin) y Ranking (participante)',
+    steps: ['Abrir Participantes y marcar/desmarcar un pago.', 'Abrir Ranking como participante.'],
+    expected: ['Tarjetas Esperado 750, Recaudado 375, Pendiente y Presupuesto, actualizadas al instante.', 'Chip Parcial con el monto.', 'Ranking: "Premio: X BOB por ganador", marcado proyectado.'],
+    auto: [
+      W('04-finance.spec.ts', 'el resumen financiero refleja los pagos al instante'),
+      W('04-finance.spec.ts', 'el ranking muestra el premio por ganador'),
+      G('participantes con resumen financiero'),
+    ],
+  },
+
+  // ───────────────────────────── UP ─────────────────────────────
+  {
+    id: 'TC-UP-01', title: 'Firma de subida', priority: 'Alta', type: 'Seguridad', guide: '4.3',
+    pre: ['Ninguna.'], data: 'POST /api/upload/sign { folder, resourceType }',
+    steps: ['Firmar sin sesión.', 'Firmar con sesión.'],
+    expected: ['Sin sesión: 401.', 'Con sesión: 201; en desarrollo { local: true, uploadUrl: .../api/upload/local }.'],
+    auto: [A('platform-rules.e2e-spec.ts', 'UP: firmar una subida exige sesión (401) y con sesión devuelve la firma')],
+  },
+  {
+    id: 'TC-UP-02', title: 'Simulador local de subidas en desarrollo', priority: 'Media', type: 'Funcional', guide: '0.1',
+    pre: ['Sin Cloudinary, NODE_ENV distinto de production.'], data: 'POST /api/upload/local (multipart file)',
+    steps: ['Subir sin sesión.', 'Comprobar que el simulador está activo.'],
+    expected: ['Sin sesión: 401.', 'Sin Cloudinary en desarrollo el simulador queda activo.'],
+    auto: [
+      U('upload.service.spec.ts', 'sin Cloudinary en desarrollo activa el simulador local'),
+      A('platform-rules.e2e-spec.ts', 'UP: el simulador local de subidas exige sesión (401)'),
+    ],
+  },
+  {
+    id: 'TC-UP-03', title: 'Sin simulador local en producción', priority: 'Alta', type: 'Seguridad', guide: '8.4',
+    pre: ['NODE_ENV=production o Cloudinary configurado.'], data: 'Configuración de UploadService',
+    steps: ['Resolver el modo de subida.'],
+    expected: ['En producción sin Cloudinary no se activa el simulador (subidas deshabilitadas).', 'Con Cloudinary nunca se usa el modo local.'],
+    auto: [
+      U('upload.service.spec.ts', 'sin Cloudinary en producción NO activa el simulador local'),
+      U('upload.service.spec.ts', 'con Cloudinary configurado nunca usa el modo local'),
+    ],
+  },
+
+  // ───────────────────────────── IMP ─────────────────────────────
+  {
+    id: 'TC-IMP-01', title: 'Plantilla de importación', priority: 'Media', type: 'Funcional', guide: '7.1',
+    pre: ['Sesión de administrador.'], data: 'GET /api/import/template?format=csv|xlsx',
+    steps: ['Descargar la plantilla en CSV y XLSX.', 'Volver a leerla.'],
+    expected: ['Trae las cabeceras esperadas, incluida heartRateMinutes.', 'Ambos formatos se pueden volver a parsear.'],
+    auto: [
+      U('import.service.spec.ts', 'la plantilla incluye la columna heartRateMinutes'),
+      U('import.service.spec.ts', 'genera CSV reparseable con las cabeceras esperadas'),
+      U('import.service.spec.ts', 'genera XLSX reparseable'),
+      W('06-import.spec.ts', 'la plantilla se descarga con la columna de minutos de FC'),
+    ],
+  },
+  {
+    id: 'TC-IMP-02', title: 'Vista previa sin guardar', priority: 'Alta', type: 'Funcional', guide: '7.2',
+    pre: ['Archivo con filas válidas, inválidas y con advertencia.'], data: 'Email inválido, duración inválida, exerciseType NADAR',
+    steps: ['Subir el archivo y pulsar Previsualizar.'],
+    expected: ['Filas válidas y con error, cada error con su motivo, y advertencias de FC.', 'No escribe nada en la base.'],
+    auto: [
+      U('import.service.spec.ts', 'acepta una fila válida'),
+      U('import.service.spec.ts', 'rechaza email y duración inválidos'),
+      U('import.service.spec.ts', 'rechaza exerciseType inválido'),
+      W('06-import.spec.ts', 'previsualiza con advertencias de FC e importa las filas válidas'),
+      G('importación: vista previa, resultado y Google Sheets'),
+    ],
+  },
+  {
+    id: 'TC-IMP-03', title: 'Importar de forma idempotente', priority: 'Alta', type: 'Funcional', guide: '7.3',
+    pre: ['Vista previa con filas válidas.'], data: 'duplicateStrategy skip y update',
+    steps: ['Importar.', 'Importar otra vez con skip.', 'Importar con update.'],
+    expected: ['Crea usuarios, inscripciones y actividades.', 'La repetición omite; update actualiza.', 'Muestra el resumen de creadas y omitidas.'],
+    auto: [
+      W('06-import.spec.ts', 'previsualiza con advertencias de FC e importa las filas válidas'),
+      A('import-sheet.e2e-spec.ts', 'commit es idempotente: crea, luego omite, luego actualiza'),
+      G('importación: vista previa, resultado y Google Sheets'),
+    ],
+  },
+  {
+    id: 'TC-IMP-04', title: 'Importación solo para el admin', priority: 'Alta', type: 'Seguridad', guide: '7.1',
+    pre: ['Sesión de participante.'], data: 'GET /api/import/template; endpoints de Google Sheets',
+    steps: ['Llamar a los endpoints de importación.'],
+    expected: ['403 en todos.'],
+    auto: [
+      A('app.e2e-spec.ts', 'importación es solo para admin (403 a participante)'),
+      A('import-sheet.e2e-spec.ts', 'solo admin (403 para participante)'),
+      S('Ana NO puede usar importación (403)'),
+    ],
+  },
+  {
+    id: 'TC-IMP-05', title: 'Google Sheets sin configurar', priority: 'Media', type: 'Funcional', guide: '7.4',
+    pre: ['Sin variables GOOGLE_*.'], data: 'GET /api/import/sheet/status; POST preview y commit',
+    steps: ['Consultar el estado.', 'Intentar preview y commit.', 'Abrir Importar en la web.'],
+    expected: ['status { configured: false }.', 'preview y commit: 503; la importación por archivo sigue funcionando.', 'La web explica qué variable falta (GOOGLE_SERVICE_ACCOUNT_EMAIL).'],
+    auto: [
+      U('sheets.client.spec.ts', 'isConfigured es false sin las variables'),
+      U('import.service.spec.ts', 'sin configuración: status configured=false y preview 503'),
+      A('import-sheet.e2e-spec.ts', 'sin configuración: status configured=false, preview y commit 503, archivo sigue funcionando'),
+      W('06-import.spec.ts', 'la sección de Google Sheets explica que falta configurarla'),
+      G('importación: vista previa, resultado y Google Sheets'),
+    ],
+  },
+  {
+    id: 'TC-IMP-06', title: 'Google Sheets: estado de la hoja', priority: 'Media', type: 'Integración', guide: '7.4',
+    pre: ['Integración configurada (cliente falso en pruebas).'], data: 'Hoja compartida y hoja no compartida',
+    steps: ['GET /api/import/sheet/status?spreadsheetId=... para cada hoja.'],
+    expected: ['Compartida: readable true con título, hojas, rango resuelto (primera hoja) y filas.', 'No compartida: readable false con el motivo.', 'El cliente llama a las URLs correctas con el rango codificado y el token.', 'Los errores de Google se traducen a motivos legibles: 403 not_shared, 404 not_found, 400 invalid_range, 500 api_error.'],
+    auto: [
+      U('import.service.spec.ts', 'status legible: título, hojas, rango resuelto (primera hoja) y filas de datos'),
+      U('import.service.spec.ts', 'status no compartida: readable=false con motivo'),
+      U('sheets.client.spec.ts', 'lee metadatos y valores con las URLs correctas (rango codificado) y el token'),
+      U('sheets.client.spec.ts', 'mapea HTTP 403 a not_shared'),
+      U('sheets.client.spec.ts', 'mapea HTTP 404 a not_found'),
+      U('sheets.client.spec.ts', 'mapea HTTP 400 a invalid_range'),
+      U('sheets.client.spec.ts', 'mapea HTTP 500 a api_error'),
+      A('import-sheet.e2e-spec.ts', 'status: hoja compartida legible (título, hojas, rango, filas) y hoja no compartida con motivo'),
+    ],
+  },
+  {
+    id: 'TC-IMP-07', title: 'Google Sheets: vista previa, hojas y cabeceras', priority: 'Media', type: 'Integración', guide: '7.4',
+    pre: ['Hoja con 1 fila conforme, 1 sin FC y 1 inválida.'], data: 'preview; range=febrero; cabecera sin date',
+    steps: ['Previsualizar.', 'Previsualizar otra hoja con range.', 'Previsualizar con cabecera incompleta.'],
+    expected: ['{ total 3, valid 2, invalid 1, warnings 1 }, igual que con archivo.', 'range lee solo esa hoja.', 'Cabecera incompleta: 400 nombrando la columna.', 'Acepta cabeceras con mayúsculas/espacios e ignora filas vacías.'],
+    auto: [
+      U('import.service.spec.ts', 'mapea la cabecera y conserva las celdas como texto'),
+      U('import.service.spec.ts', 'acepta cabeceras con mayúsculas y espacios'),
+      U('import.service.spec.ts', 'ignora filas vacías (incluida una cabecera precedida de filas en blanco)'),
+      U('import.service.spec.ts', 'rechaza cabeceras incompletas nombrando las columnas que faltan'),
+      U('import.service.spec.ts', 'preview desde hoja refleja el mismo resumen que el archivo'),
+      A('import-sheet.e2e-spec.ts', 'preview refleja el resumen del archivo: 3 filas, 2 válidas, 1 inválida, 1 advertencia'),
+      A('import-sheet.e2e-spec.ts', 'cabecera incompleta -> 400 nombrando la columna'),
+      A('import-sheet.e2e-spec.ts', 'selección de hoja: range=febrero lee solo esa hoja'),
+    ],
+  },
+  {
+    id: 'TC-IMP-08', title: 'Google Sheets: fallo de lectura sin importación parcial', priority: 'Alta', type: 'Negativo', guide: '7.4',
+    pre: ['Hoja no compartida con la cuenta de servicio.'], data: 'commit sobre esa hoja',
+    steps: ['Importar.'],
+    expected: ['400 con el motivo de acceso.', 'No se crea ninguna actividad.'],
+    auto: [
+      U('import.service.spec.ts', 'fallo de lectura en preview/commit -> 400 con el motivo'),
+      A('import-sheet.e2e-spec.ts', 'hoja no compartida en commit -> 400 sin importar nada'),
+    ],
+  },
+  {
+    id: 'TC-IMP-09', title: 'Acentos y eñes en archivos importados', priority: 'Alta', type: 'Regresión', guide: '7.2', defect: 'DEF-01',
+    pre: ['CSV guardado en UTF-8 (con y sin BOM) y XLSX.'], data: 'name "José Ñandú", notes "Olvidé el reloj"',
+    steps: ['Previsualizar cada archivo.'],
+    expected: ['Los textos llegan intactos (sin "Ã©" ni "Ã±").'],
+    auto: [
+      U('import.service.spec.ts', 'conserva acentos y eñes de un CSV en UTF-8 (con y sin BOM)'),
+      U('import.service.spec.ts', 'conserva acentos al leer un XLSX'),
+      A('platform-rules.e2e-spec.ts', 'IMP: un CSV en UTF-8 conserva acentos y eñes en la vista previa'),
+    ],
+  },
+  {
+    id: 'TC-IMP-10', title: 'Fechas y decimales en archivos importados', priority: 'Media', type: 'Funcional', guide: '7.2',
+    pre: ['Archivo con fechas DD/MM/YYYY e ISO y distancias con coma.'], data: '08/09/2026, 2026-09-08, "7,5"',
+    steps: ['Previsualizar.'],
+    expected: ['DD/MM/YYYY se normaliza a ISO.', 'Las fechas ISO no se corren por zona horaria.', 'La coma decimal se acepta (7.5 km).'],
+    auto: [
+      U('import.service.spec.ts', 'normaliza fecha en formato DD/MM/YYYY'),
+      U('import.service.spec.ts', 'acepta coma decimal en distanceKm'),
+      U('import.service.spec.ts', 'conserva las fechas ISO de un CSV sin desfase de zona horaria'),
+    ],
+  },
+  {
+    id: 'TC-IMP-11', title: 'Autenticación con cuenta de servicio de Google', priority: 'Media', type: 'Integración', guide: '7.4',
+    pre: ['GOOGLE_SERVICE_ACCOUNT_EMAIL y GOOGLE_PRIVATE_KEY.'], data: 'Clave privada en una sola línea con \\n escapados',
+    steps: ['Normalizar la clave.', 'Firmar el JWT y canjearlo por un access token.'],
+    expected: ['La clave se desescapa y se le quitan comillas.', 'JWT RS256 con los claims del flujo de cuenta de servicio.', 'El token se cachea; si Google no lo emite, el error es claro.'],
+    auto: [
+      U('sheets-auth.spec.ts', 'desescapa \\n y quita comillas de una variable de entorno de una línea'),
+      U('sheets-auth.spec.ts', 'firma un JWT RS256 con los claims del flujo de cuenta de servicio'),
+      U('sheets-auth.spec.ts', 'canjea el JWT por un access token y lo cachea'),
+      U('sheets-auth.spec.ts', 'propaga un error claro si Google no emite el token'),
+    ],
+  },
+
+  // ───────────────────────────── UI ─────────────────────────────
+  {
+    id: 'TC-UI-01', title: 'Rutas privadas', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Sin sesión.'], data: '/dashboard',
+    steps: ['Abrir una ruta privada.'],
+    expected: ['Redirige a /login.'],
+    auto: [W('01-auth-navigation.spec.ts', 'una ruta privada sin sesión redirige al login')],
+  },
+  {
+    id: 'TC-UI-02', title: 'Menú según el rol', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Sesión de participante y de administrador.'], data: 'Navegación del dashboard',
+    steps: ['Entrar como participante.', 'Entrar como administrador.'],
+    expected: ['El participante ve Mi reto, Subir actividad y Ranking, sin secciones de administración; Salir cierra la sesión.', 'El admin ve además Retos, Participantes, Validaciones e Importar.'],
+    auto: [
+      W('01-auth-navigation.spec.ts', 'el participante entra y no ve las secciones de administración'),
+      W('01-auth-navigation.spec.ts', 'el admin ve las cuatro secciones de administración'),
+      G('menú de administración y lista de retos'),
+    ],
+  },
+  {
+    id: 'TC-UI-03', title: 'Panel Mi reto', priority: 'Media', type: 'UI', guide: '4.1',
+    pre: ['Participante en un reto activo.'], data: 'Reto Octubre 2026 de demostración',
+    steps: ['Abrir /dashboard.'],
+    expected: ['Muestra el período (01-sep → 31-oct), "Finaliza en Xd Yh Zm", Validados, Pendientes, Posición y Top del reto.', 'La cuenta regresiva llega a cero a la medianoche local al terminar el último día (la fecha de fin es inclusiva, igual que para registrar actividades).'],
+    auto: [
+      F('dates.test.ts', 'dayEndMs es la medianoche local al terminar el día (endDate inclusivo)'),
+      G('panel Mi reto muestra período, cuenta regresiva y métricas'),
+    ],
+  },
+  {
+    id: 'TC-UI-04', title: 'Fechas sin desfase de zona horaria', priority: 'Alta', type: 'Regresión', guide: '4.4',
+    pre: ['Navegador en una zona al oeste de UTC (America/La_Paz).'], data: 'Actividad registrada con fecha D',
+    steps: ['Registrar la actividad.', 'Verla en Mis actividades.'],
+    expected: ['Se muestra exactamente el día D, no D-1.'],
+    auto: [
+      F('dates.test.ts', 'toDayKey devuelve el día calendario del valor del backend'),
+      F('dates.test.ts', 'formatDay no corre el día hacia atrás al oeste de UTC'),
+      F('dates.test.ts', 'formatDay usa el locale es-BO'),
+      F('dates.test.ts', 'isoToday devuelve el día local con formato YYYY-MM-DD'),
+      W('02-activity-upload.spec.ts', 'registra la actividad y la muestra con su fecha exacta'),
+      U('import.service.spec.ts', 'conserva las fechas ISO de un CSV sin desfase de zona horaria'),
+    ],
+  },
+  {
+    id: 'TC-UI-05', title: 'Documentación interactiva de la API', priority: 'Baja', type: 'Funcional', guide: '0.3',
+    pre: ['API en marcha.'], data: '/api/docs',
+    steps: ['Abrir Swagger.'],
+    expected: ['Lista los módulos de la API, entre ellos challenges y activities.'],
+    auto: [G('Swagger documenta la API')],
+  },
+  {
+    id: 'TC-UI-06', title: 'El tema sigue al sistema por defecto', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Navegador sin tema elegido (sin la clave reto.theme).'],
+    data: 'Sistema en modo claro; sistema en modo oscuro; cambio del sistema con la app abierta; valor guardado inválido',
+    steps: ['Abrir /login con el sistema en claro y luego en oscuro.', 'Con la app abierta, cambiar el tema del sistema.'],
+    expected: ['Sistema claro: la web se ve clara (fondo rgb(246, 245, 242)); sistema oscuro o sin preferencia: oscura.', 'Si el sistema cambia, la web lo sigue sin recargar.', 'Un valor guardado que no es "light" ni "dark" se ignora.'],
+    auto: [
+      F('theme.test.ts', 'sin elección guardada sigue al sistema; sin preferencia del sistema queda oscuro'),
+      F('theme.test.ts', 'un valor guardado inválido se ignora'),
+      W('07-theme.spec.ts', 'sin elección guardada sigue el tema del sistema'),
+      W('07-theme.spec.ts', 'si el sistema cambia, la app lo sigue sin recargar'),
+    ],
+  },
+  {
+    id: 'TC-UI-07', title: 'Interruptor de modo claro/oscuro', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Sesión de participante; sistema en modo oscuro.'],
+    data: 'Interruptor "Modo claro" (rol switch) del encabezado',
+    steps: ['Pulsar el interruptor.', 'Recargar la página.', 'Cambiar el tema del sistema.', 'Con el foco en el interruptor, pulsar Espacio y luego Enter.'],
+    expected: ['Cambia al tema claro al instante y aria-checked pasa a true.', 'La elección se guarda (reto.theme = light) y sobrevive la recarga.', 'La elección guardada manda sobre el sistema.', 'El teclado alterna el tema igual que el clic.'],
+    auto: [
+      F('theme.test.ts', 'la elección guardada manda sobre el sistema'),
+      W('07-theme.spec.ts', 'el interruptor cambia el tema al instante y la elección sobrevive la recarga'),
+      W('07-theme.spec.ts', 'el interruptor funciona con el teclado'),
+      G('interruptor de tema en el encabezado'),
+    ],
+  },
+  {
+    id: 'TC-UI-08', title: 'El tema elegido se aplica sin parpadeo', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Tema claro guardado; sistema en modo oscuro.'],
+    data: 'reto.theme = light',
+    steps: ['Abrir /login y leer data-theme en DOMContentLoaded, antes de que React hidrate.'],
+    expected: ['data-theme ya es "light" al terminar de analizar el documento: la página nunca se pinta en oscuro.', 'El script previo a la hidratación resuelve igual que la lógica de la app, también con el almacenamiento bloqueado.'],
+    auto: [
+      F('theme.test.ts', 'el script previo a la hidratación resuelve igual que resolveTheme'),
+      F('theme.test.ts', 'si el almacenamiento está bloqueado, el script sigue al sistema'),
+      W('07-theme.spec.ts', 'el tema guardado se aplica antes de pintar y manda sobre el sistema'),
+    ],
+  },
+  {
+    id: 'TC-UI-09', title: 'Contraste y pantallas en ambos temas', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Paletas definidas en frontend/app/globals.css.'],
+    data: 'Texto, texto secundario, estados e insignias sobre fondo, tarjeta y superficie elevada',
+    steps: ['Medir el contraste de cada color sobre los fondos donde se usa, en los dos temas.', 'Abrir Mi reto, Subir actividad y Ranking en modo claro.'],
+    expected: ['Texto principal de al menos 4.5:1; texto secundario, estados e insignias de al menos 3:1; texto negro del botón principal de al menos 4.5:1.', 'Fondo, texto y tarjetas usan la paleta clara, y la fecha de Subir actividad usa controles claros (color-scheme light).'],
+    auto: [
+      F('theme.test.ts', 'contraste del tema oscuro'),
+      F('theme.test.ts', 'contraste del tema claro'),
+      W('07-theme.spec.ts', 'las pantallas principales y los controles nativos se ven en modo claro'),
+    ],
+  },
+
+  // ───────────────────────────── HEALTH ─────────────────────────────
+  {
+    id: 'TC-HEALTH-01', title: 'Servicio vivo', priority: 'Alta', type: 'Funcional', guide: '8.1',
+    pre: ['API en marcha.'], data: 'GET /api/health',
+    steps: ['Consultar.'],
+    expected: ['200 { status: "ok", timestamp }.'],
+    auto: [A('app.e2e-spec.ts', 'GET /api/health responde ok')],
+  },
+  {
+    id: 'TC-HEALTH-02', title: 'Base de datos accesible', priority: 'Alta', type: 'Funcional', guide: '8.1',
+    pre: ['API y Postgres en marcha.'], data: 'GET /api/health/db',
+    steps: ['Consultar.'],
+    expected: ['200 { status: "ok", db: "up" }.'],
+    auto: [A('app.e2e-spec.ts', 'GET /api/health/db verifica la conexión')],
+  },
+
+  // ───────────────────────────── PAR ─────────────────────────────
+  {
+    id: 'TC-PAR-01', title: 'Dos roles trabajando a la vez', priority: 'Alta', type: 'Integración', guide: '0.2',
+    pre: ['API en marcha con el seed cargado.'], data: 'node scripts/parallel-session-test.mjs',
+    steps: ['Ejecutar el script: admin y Ana con sesiones simultáneas registran, validan, consultan finanzas, puntaje y retos activos.'],
+    expected: ['Todos los chequeos en PASS (64): sesiones, registro y validación concurrentes, RBAC, finanzas, puntaje y varios retos activos.'],
+    auto: [S('*')],
+  },
+];
+
+/** Defectos encontrados al preparar esta versión del catálogo. */
+export const DEFECTS = [
+  {
+    id: 'DEF-01', severity: 'Alta', status: 'Corregido', cases: ['TC-IMP-09'],
+    title: 'La importación CSV dañaba acentos y eñes',
+    detail: 'Un CSV en UTF-8 se leía como Latin-1: "Olvidé el reloj" llegaba como "OlvidÃ© el reloj" (también "Ana Pérez" de la plantilla). Ahora los CSV se decodifican como UTF-8 (con o sin BOM) y los XLSX se leen como binario.',
+  },
+  {
+    id: 'DEF-02', severity: 'Alta', status: 'Corregido', cases: ['TC-AUTH-13', 'TC-SEC-03'],
+    title: 'Un pico de tráfico cerraba la sesión de los usuarios',
+    detail: 'La web cerraba la sesión ante cualquier error de /auth/me, incluido un 429 del limitador. Detrás de un proxy, además, todos los usuarios compartían el cupo de 100 peticiones por minuto. Ahora la web reintenta y solo un 401 cierra la sesión; la API confía en el proxy (TRUST_PROXY) y el límite es configurable.',
+  },
+  {
+    id: 'DEF-03', severity: 'Media', status: 'Corregido', cases: ['TC-SCORE-07'],
+    title: 'El tope se mostraba en días aunque el reto puntuara en puntos',
+    detail: 'El ranking decía "top actual: 96 días" y el aviso de empate usaba "días" con reglas de puntaje propias. Ahora la unidad sigue las reglas del reto.',
+  },
+  {
+    id: 'DEF-04', severity: 'Media', status: 'Corregido', cases: ['TC-RES-06'],
+    title: 'El panel de premiación sugería a los empatados por días',
+    detail: 'Sugería a quienes empataban en días validados, ignorando puntaje, mínimo para calificar y número de ganadores. Ahora sugiere los ganadores que calcula el servidor con las reglas del reto.',
+  },
+  {
+    id: 'DEF-05', severity: 'Alta', status: 'Corregido', cases: ['TC-AUTH-14', 'TC-AUTH-10'],
+    title: 'Cambiar de página mientras se renovaba el token cerraba la sesión',
+    detail: 'En frontend/lib/api.ts cualquier error durante la renovación o el reintento posterior (un corte de red, una navegación que aborta la petición, un 429 o 5xx del refresh) borraba los tokens y enviaba al login. Lo detectó la nueva prueba de TC-AUTH-10 al correr la suite completa: consultas en segundo plano renovaban el token y la recarga abortaba sus reintentos. Ahora solo un rechazo del refresh token (400/401/403) cierra la sesión; se confirmó que la prueba de TC-AUTH-14 falla con el código anterior y pasa con la corrección.',
+  },
+];
+
+/** Observaciones abiertas: comportamiento conocido que no es un defecto bloqueante. */
+export const OBSERVATIONS = [
+  {
+    id: 'OBS-01', cases: ['TC-CHAL-12'],
+    title: 'El ranking de un reto cerrado no se puede consultar en la web',
+    detail: 'El selector de reto solo lista retos activos. Tras cerrar un reto, su resultado final (ganadores y premio) solo se consulta por GET /api/challenges/:id/results. Propuesta: listar los retos cerrados en el selector del ranking.',
+  },
+  {
+    id: 'OBS-02', cases: ['TC-CHAL-05', 'TC-ACT-12', 'TC-FIN-01'],
+    title: 'Funciones disponibles solo por API',
+    detail: 'Editar las reglas de un reto, retirar una actividad pendiente y registrar un pago parcial no tienen botón en la web; la guía los documenta por API.',
+  },
+];

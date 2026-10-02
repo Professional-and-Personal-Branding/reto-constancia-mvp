@@ -217,6 +217,21 @@ describe('ImportService (parseo y validación)', () => {
       expect(normalized?.date).toBe('2026-12-26');
     });
 
+    it('conserva acentos y eñes de un CSV en UTF-8 (con y sin BOM)', () => {
+      const csv = 'email,name,notes\nana@x.y,Ana Pérez Núñez,Olvidé el reloj\n';
+      for (const buffer of [Buffer.from(csv, 'utf8'), Buffer.from('\uFEFF' + csv, 'utf8')]) {
+        const rows = service.parse(buffer);
+        expect(rows[0].email).toBe('ana@x.y');
+        expect(rows[0].name).toBe('Ana Pérez Núñez');
+        expect(rows[0].notes).toBe('Olvidé el reloj');
+      }
+    });
+
+    it('conserva acentos al leer un XLSX', () => {
+      const rows = service.parse(service.buildTemplate('xlsx').buffer);
+      expect(rows.map((r) => r.name)).toContain('Ana Pérez');
+    });
+
     it('genera XLSX reparseable', () => {
       const { buffer, filename, contentType } = service.buildTemplate('xlsx');
       expect(filename).toMatch(/\.xlsx$/);

@@ -30,6 +30,9 @@ interface ApiOptions extends Omit<RequestInit, 'body'> {
 
 let refreshPromise: Promise<AuthTokens> | null = null;
 
+/** El servidor rechazó el refresh token: la sesión ya no sirve. */
+const isSessionRejected = (status: number) => status === 400 || status === 401 || status === 403;
+
 async function refreshTokens(): Promise<AuthTokens> {
   const current = getTokens();
   if (!current) throw new ApiError(401, null, 'Sin refresh token');
@@ -43,7 +46,8 @@ async function refreshTokens(): Promise<AuthTokens> {
       body: JSON.stringify({ refreshToken: current.refreshToken }),
     });
     if (!res.ok) {
-      setTokens(null);
+      // Solo un refresh token rechazado invalida la sesión; un 429 o un 5xx son transitorios
+      if (isSessionRejected(res.status)) setTokens(null);
       throw new ApiError(res.status, await res.json().catch(() => null));
     }
     const tokens = (await res.json()) as AuthTokens;
@@ -82,16 +86,22 @@ export async function api<T = unknown>(
 
   // Auto-refresh on 401
   if (res.status === 401 && auth && tokens?.refreshToken) {
+    let fresh: AuthTokens;
     try {
-      const fresh = await refreshTokens();
-      res = await doFetch(fresh.accessToken);
-    } catch {
+      fresh = await refreshTokens();
+    } catch (e) {
+      // Un corte de red, una navegación o un 429/5xx al renovar no cierran la sesión: el error
+      // se propaga y los tokens se conservan para el próximo intento.
+      if (!(e instanceof ApiError) || !isSessionRejected(e.status)) throw e;
       setTokens(null);
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
       throw new ApiError(401, null, 'Sesión expirada');
     }
+    // El reintento queda fuera del try: si falla (p. ej. abortado al cambiar de página) es un
+    // error de esa petición, no de la sesión.
+    res = await doFetch(fresh.accessToken);
   }
 
   if (!res.ok) {

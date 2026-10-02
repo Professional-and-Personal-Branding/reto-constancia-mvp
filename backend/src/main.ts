@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { corsWarning, resolveCorsOrigin } from './common/cors';
+import { resolveTrustProxy } from './common/http';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -14,6 +15,13 @@ async function bootstrap() {
   });
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
+
+  // Detrás de un proxy, el limitador debe ver la IP real del usuario y no la del proxy.
+  const trustProxy = resolveTrustProxy({
+    NODE_ENV: config.get<string>('NODE_ENV'),
+    TRUST_PROXY: config.get<string>('TRUST_PROXY'),
+  });
+  app.set('trust proxy', trustProxy);
 
   app.use(
     helmet({
@@ -51,7 +59,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Reto de Constancia API')
     .setDescription('API para administrar el reto mensual de constancia')
-    .setVersion('0.1.0')
+    .setVersion('1.1.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
