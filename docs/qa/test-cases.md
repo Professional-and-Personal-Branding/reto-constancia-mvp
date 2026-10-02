@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-02** · rama `release/1.1.0` · commit `c946f04`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-02** · rama `feature/closed-challenge-results` · commit `c8122e1` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**99 casos** · 98 aprobados · 0 fallidos · 1 con limitación conocida · 97 automatizados.
+**99 casos** · 99 aprobados · 0 fallidos · 0 con limitación conocida · 98 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 4 | 4 | 0 |
-| [Gestión de retos](#chal) | 12 | 11 | 1 |
+| [Gestión de retos](#chal) | 12 | 12 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -634,7 +634,7 @@
 | [TC-CHAL-09](#tc-chal-09) | Actividades independientes por reto | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-10](#tc-chal-10) | Selector de reto en la web | Media | UI | ✅ Aprobado |
 | [TC-CHAL-11](#tc-chal-11) | Cerrar un reto y no reactivarlo | Alta | Funcional | ✅ Aprobado |
-| [TC-CHAL-12](#tc-chal-12) | Consultar en la web el ranking de un reto cerrado | Media | Observación | 🟡 Limitación conocida |
+| [TC-CHAL-12](#tc-chal-12) | Consultar en la web el ranking de un reto cerrado | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1002,27 +1002,44 @@
 
 | Módulo | Prioridad | Tipo | Paso de la guía | Estado |
 |---|---|---|---|---|
-| Gestión de retos | Media | Observación | 6.3 | 🟡 Limitación conocida |
+| Gestión de retos | Media | Funcional | 6.5 | ✅ Aprobado |
 
 > Relacionado con OBS-01 (ver reporte de validación).
 
 **Precondiciones**
 
-- Un reto en COMPLETED.
+- Un reto en COMPLETED con una actividad validada de Ana y la premiación registrada (presupuesto 300 BOB).
+- Un reto activo elegido en el encabezado.
 
-**Datos de prueba:** Reto cerrado con premiación registrada
+**Datos de prueba:** Reto "E2E Playwright · reto cerrado" (noviembre de 2025); dirección /dashboard/results?reto=<id>; un id inexistente
 
 **Pasos**
 
-1. Abrir Ranking en la web.
-2. Buscar el reto cerrado en el selector.
+1. Abrir Ranking y elegir el reto en "Retos cerrados".
+2. Pulsar "Volver al reto activo".
+3. Abrir directamente la dirección del reto cerrado, y luego una con un id inexistente.
+4. Con la lista de retos activos vacía, abrir Ranking.
+5. Como administrador, abrir el reto cerrado.
 
 **Resultado esperado**
 
-- Comportamiento actual: el selector lista solo retos activos, así que el ranking final no es accesible desde la web.
-- Alternativa: GET /api/challenges/:id/results devuelve el resultado final con ganadores.
+- Se ve el ranking final, el bloque de ganadores con Ana y "300 BOB por ganador" sin la marca "proyectado"; el título dice "cerrado el …" y la dirección incluye ?reto=<id>.
+- Al volver se ve otra vez el reto activo, y el reto elegido en el encabezado no cambió.
+- La dirección compartida abre el reto cerrado; un id inexistente muestra el ranking activo sin error.
+- Sin retos activos, la página ofrece los retos cerrados como enlaces.
+- El administrador ve el reto cerrado en solo lectura: sin panel de premiación (que sigue en el reto activo).
 
-**Verificación manual:** Limitación conocida el 2026-10-01. Evidencia: Observado al generar las capturas de la guía; documentado como OBS-01 en el reporte y en el paso 6.3 de la guía.
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `08-closed-results.spec.ts` | un reto cerrado muestra su ranking final, los ganadores y el premio final |
+| ✅ | UI | `08-closed-results.spec.ts` | abrir un reto cerrado no cambia el reto activo del encabezado |
+| ✅ | UI | `08-closed-results.spec.ts` | la dirección de un reto cerrado se puede compartir |
+| ✅ | UI | `08-closed-results.spec.ts` | una dirección con un reto desconocido muestra el ranking activo |
+| ✅ | UI | `08-closed-results.spec.ts` | sin reto activo, el ranking ofrece los retos cerrados |
+| ✅ | UI | `08-closed-results.spec.ts` | un reto cerrado se consulta en solo lectura, sin panel de premiación |
+| ✅ | Guía | `capture.spec.ts` | ranking de un reto cerrado |
 
 <a id="part"></a>
 

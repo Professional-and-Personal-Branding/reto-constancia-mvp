@@ -370,12 +370,32 @@ export const CASES = [
     ],
   },
   {
-    id: 'TC-CHAL-12', title: 'Consultar en la web el ranking de un reto cerrado', priority: 'Media', type: 'Observación', guide: '6.3', observation: 'OBS-01',
-    pre: ['Un reto en COMPLETED.'],
-    data: 'Reto cerrado con premiación registrada',
-    steps: ['Abrir Ranking en la web.', 'Buscar el reto cerrado en el selector.'],
-    expected: ['Comportamiento actual: el selector lista solo retos activos, así que el ranking final no es accesible desde la web.', 'Alternativa: GET /api/challenges/:id/results devuelve el resultado final con ganadores.'],
-    manual: { date: '2026-10-01', result: 'Limitación conocida', evidence: 'Observado al generar las capturas de la guía; documentado como OBS-01 en el reporte y en el paso 6.3 de la guía' },
+    id: 'TC-CHAL-12', title: 'Consultar en la web el ranking de un reto cerrado', priority: 'Media', type: 'Funcional', guide: '6.5', observation: 'OBS-01',
+    pre: ['Un reto en COMPLETED con una actividad validada de Ana y la premiación registrada (presupuesto 300 BOB).', 'Un reto activo elegido en el encabezado.'],
+    data: 'Reto "E2E Playwright · reto cerrado" (noviembre de 2025); dirección /dashboard/results?reto=<id>; un id inexistente',
+    steps: [
+      'Abrir Ranking y elegir el reto en "Retos cerrados".',
+      'Pulsar "Volver al reto activo".',
+      'Abrir directamente la dirección del reto cerrado, y luego una con un id inexistente.',
+      'Con la lista de retos activos vacía, abrir Ranking.',
+      'Como administrador, abrir el reto cerrado.',
+    ],
+    expected: [
+      'Se ve el ranking final, el bloque de ganadores con Ana y "300 BOB por ganador" sin la marca "proyectado"; el título dice "cerrado el …" y la dirección incluye ?reto=<id>.',
+      'Al volver se ve otra vez el reto activo, y el reto elegido en el encabezado no cambió.',
+      'La dirección compartida abre el reto cerrado; un id inexistente muestra el ranking activo sin error.',
+      'Sin retos activos, la página ofrece los retos cerrados como enlaces.',
+      'El administrador ve el reto cerrado en solo lectura: sin panel de premiación (que sigue en el reto activo).',
+    ],
+    auto: [
+      W('08-closed-results.spec.ts', 'un reto cerrado muestra su ranking final, los ganadores y el premio final'),
+      W('08-closed-results.spec.ts', 'abrir un reto cerrado no cambia el reto activo del encabezado'),
+      W('08-closed-results.spec.ts', 'la dirección de un reto cerrado se puede compartir'),
+      W('08-closed-results.spec.ts', 'una dirección con un reto desconocido muestra el ranking activo'),
+      W('08-closed-results.spec.ts', 'sin reto activo, el ranking ofrece los retos cerrados'),
+      W('08-closed-results.spec.ts', 'un reto cerrado se consulta en solo lectura, sin panel de premiación'),
+      G('ranking de un reto cerrado'),
+    ],
   },
 
   // ───────────────────────────── PART ─────────────────────────────
@@ -1189,12 +1209,12 @@ export const DEFECTS = [
 /** Observaciones abiertas: comportamiento conocido que no es un defecto bloqueante. */
 export const OBSERVATIONS = [
   {
-    id: 'OBS-01', cases: ['TC-CHAL-12'],
-    title: 'El ranking de un reto cerrado no se puede consultar en la web',
-    detail: 'El selector de reto solo lista retos activos. Tras cerrar un reto, su resultado final (ganadores y premio) solo se consulta por GET /api/challenges/:id/results. Propuesta: listar los retos cerrados en el selector del ranking.',
+    id: 'OBS-01', cases: ['TC-CHAL-12'], status: 'Resuelta',
+    title: 'El ranking de un reto cerrado no se podía consultar en la web',
+    detail: 'El selector de reto solo lista retos activos, así que el resultado final de un reto cerrado solo se veía por GET /api/challenges/:id/results. Resuelta con el cambio closed-challenge-results: el Ranking ofrece los retos cerrados, con dirección para compartir y en solo lectura.',
   },
   {
-    id: 'OBS-02', cases: ['TC-CHAL-05', 'TC-ACT-12', 'TC-FIN-01'],
+    id: 'OBS-02', cases: ['TC-CHAL-05', 'TC-ACT-12', 'TC-FIN-01'], status: 'Abierta',
     title: 'Funciones disponibles solo por API',
     detail: 'Editar las reglas de un reto, retirar una actividad pendiente y registrar un pago parcial no tienen botón en la web; la guía los documenta por API.',
   },
