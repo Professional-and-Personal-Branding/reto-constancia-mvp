@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **Retos cerrados en el Ranking** (spec `challenge-lifecycle`). Cualquier usuario elige un reto
+  cerrado en el Ranking y ve su ranking final, los ganadores y el premio final, en solo
+  lectura. La dirección (`/dashboard/results?reto=<id>`) se puede compartir, el reto activo
+  del encabezado no cambia y, sin retos activos, la página ofrece los cerrados. Resuelve la
+  observación OBS-01 del catálogo de casos.
+
 ## [1.1.0] — 2026-10-02
 
 Modo claro, sesiones estables ante picos de tráfico y un catálogo de casos de prueba validado

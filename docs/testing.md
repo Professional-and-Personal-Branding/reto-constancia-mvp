@@ -111,8 +111,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 28 recorridos (incluido el modo claro/oscuro) y 14 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 99 casos de `docs/qa/` están enlazados a 322 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 34 recorridos (incluidos el modo claro/oscuro y los retos cerrados) y 15 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 99 casos de `docs/qa/` están enlazados a 329 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -124,6 +124,19 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-02 · rama `feature/closed-challenge-results` (retos cerrados en el Ranking)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de validar.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.**
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **99 de 99 casos aprobados** con 329
+pruebas ejecutadas y 0 fallidas: unitarias del backend 121, unitarias de la web 12, e2e de API
+81, recorridos de UI 34 (más la preparación), capturas de la guía 15 (más la preparación) y
+sesiones paralelas 64. TC-CHAL-12 pasó de limitación conocida a caso automatizado y la
+observación OBS-01 quedó resuelta.
 
 ### 2026-10-02 · v1.1.0 (rama `release/1.1.0`)
 
