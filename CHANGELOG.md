@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Seguridad
+
+- **Backend sin avisos de dependencias** (antes 12, cinco altos). NestJS 10 → 11.2.7 (Express 5,
+  multer 2.4), `js-yaml` 5.4.2 por `overrides` y `xlsx` 0.20.3 desde el CDN oficial de SheetJS.
+  La CI ahora falla ante cualquier aviso moderado o mayor.
+
+### Cambiado
+
+- `JWT_ACCESS_EXPIRES_IN` y `JWT_REFRESH_EXPIRES_IN` deben ser duraciones válidas (`900`, `15m`,
+  `7d`): un valor mal escrito hace fallar el arranque con un mensaje claro.
+- Instalar las dependencias del backend requiere acceso a `cdn.sheetjs.com`.
+
 ## [1.2.0] — 2026-10-02
 
 Los resultados de los retos cerrados se consultan en la web y el encabezado funciona en el
