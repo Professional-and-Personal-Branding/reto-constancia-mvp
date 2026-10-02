@@ -1,5 +1,9 @@
 # Despliegue en Seenode (paso a paso)
 
+> Para operar un despliegue (orden, controles, prueba de humo, reversión y diagnóstico de
+> incidentes) usa el [runbook de despliegue](./runbook-despliegue.md). Este documento detalla
+> la configuración de cada servicio en el panel de Seenode.
+
 Arquitectura objetivo: dos Web Services (API NestJS y frontend Next.js) + un
 PostgreSQL administrado, todo en Seenode, con Cloudinary como servicio
 complementario para imágenes.

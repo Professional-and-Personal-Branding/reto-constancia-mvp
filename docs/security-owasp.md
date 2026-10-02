@@ -50,26 +50,40 @@ Resumen de los controles implementados, mapeados a principios de OWASP
 - [ ] Variables de entorno gestionadas como secretos en el panel del hosting (no en el repo).
 - [ ] Revisar logs para no exponer datos sensibles.
 
-## Estado de dependencias (revisión 2026-09-08)
+## Estado de dependencias (revisión 2026-10-02)
 
-Comando: `npm audit --omit=dev` en `backend/` y `frontend/`.
+Comando: `npm audit` (con y sin `--omit=dev`) en `backend/`, `frontend/` y `e2e/`.
 
-| Proyecto | Estado | Detalle |
+| Proyecto | Estado | Cómo se llegó |
 |---|---|---|
-| Frontend | **Sin vulnerabilidades** | Next.js actualizado a 15.5.x (la línea 14 ya no recibe los parches de las alertas críticas) y `postcss` forzado a 8.5.x con `overrides` |
-| Backend | **12 alertas abiertas** (5 altas) | 11 son transitivas de NestJS 10: se resuelven subiendo a NestJS 12, que es un cambio mayor y merece su propia iteración. La restante es `xlsx`, que no tiene versión corregida publicada en npm |
+| Backend | **Sin vulnerabilidades** | NestJS 10 → **11.2.7** (Express 5, multer 2.4), `js-yaml` forzado a 5.4.2 con `overrides` y `xlsx` 0.20.3 desde el CDN oficial de SheetJS |
+| Frontend | **Sin vulnerabilidades** | Next.js 15.5.x y `postcss` forzado a 8.5.x con `overrides` |
+| E2E | **Sin vulnerabilidades** | — |
 
-Notas de riesgo del backend:
+**Por qué NestJS 11 y no 12.** Las dos ramas traen las mismas dependencias corregidas (multer
+2.4, Express 5.2), así que NestJS 11 cierra los 9 avisos de NestJS con un solo salto mayor y la
+guía de migración oficial. NestJS 12 exige además TypeScript 6 (sus *schematics* no resuelven
+con TypeScript 5), lo que suma un segundo cambio mayor sin ganancia de seguridad. Se comparó
+resolviendo ambos árboles con `npm install --package-lock-only` y `npm audit` antes de tocar el
+proyecto.
 
-- Las alertas de NestJS (`multer`, `lodash`, `js-yaml`, `body-parser`, `qs`) son de
-  denegación de servicio o de utilidades internas. La superficie expuesta es pequeña: la
-  única subida de archivos vía multer es la importación, restringida a administradores.
-- `xlsx` (SheetJS) tiene alertas de *prototype pollution* y ReDoS sin corrección en npm; el
-  proyecto publica versiones corregidas en su propio CDN. Solo procesa archivos que sube un
-  administrador. Opciones a decidir: fijar la versión del CDN oficial o migrar a otra
-  librería.
-- Recomendación: planificar la subida a NestJS 12 y la decisión sobre `xlsx` como una
-  iteración posterior al despliegue, y volver a correr `npm audit` en cada release.
+**`xlsx` desde el CDN de SheetJS.** SheetJS dejó de publicar en npm en la 0.18.5, que arrastra
+las alertas de *prototype pollution* y ReDoS. La versión corregida (0.20.3) se instala desde
+`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, que es el canal oficial del fabricante;
+`package-lock.json` guarda su hash de integridad, así que un archivo alterado no se instala.
+Consecuencias:
+
+- `npm audit` no conoce ese paquete: las alertas nuevas de SheetJS se siguen en
+  <https://cdn.sheetjs.com/advisories/> y en cada release se revisa si hay una versión nueva.
+- El servidor que instala dependencias (CI, Seenode) necesita salida a `cdn.sheetjs.com`.
+
+**Cambio de comportamiento a tener en cuenta.** `@nestjs/jwt` 11 exige que `JWT_ACCESS_EXPIRES_IN`
+y `JWT_REFRESH_EXPIRES_IN` sean duraciones válidas (`900`, `15m`, `12h`, `7d`). Un valor mal
+escrito ahora hace fallar el arranque con un mensaje que nombra la variable, en vez de emitir
+tokens con una vigencia inesperada.
+
+**CI.** El paso `npm audit --omit=dev` falla desde nivel **moderado** en backend y frontend, para
+que cualquier aviso nuevo aparezca en el PR que lo introduce.
 
 ## Protecciones específicas de producción
 
