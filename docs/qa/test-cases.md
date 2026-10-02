@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-02** · rama `feature/closed-challenge-results` · commit `c8122e1` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-02** · rama `fix/admin-header-overflow` · commit `bd967d6` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**99 casos** · 99 aprobados · 0 fallidos · 0 con limitación conocida · 98 automatizados.
+**100 casos** · 100 aprobados · 0 fallidos · 0 con limitación conocida · 99 automatizados.
 
 ## Cómo leer cada caso
 
@@ -27,7 +27,7 @@
 | [Finanzas](#fin) | 5 | 5 | 0 |
 | [Carga de archivos](#up) | 3 | 3 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
-| [Interfaz y navegación](#ui) | 9 | 9 | 0 |
+| [Interfaz y navegación](#ui) | 10 | 10 | 0 |
 | [Salud del servicio](#health) | 2 | 2 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
@@ -2997,6 +2997,7 @@
 | [TC-UI-03](#tc-ui-03) | Panel Mi reto | Media | UI | ✅ Aprobado |
 | [TC-UI-04](#tc-ui-04) | Fechas sin desfase de zona horaria | Alta | Regresión | ✅ Aprobado |
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
+| [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -3153,6 +3154,42 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Guía | `capture.spec.ts` | Swagger documenta la API |
+
+<a id="tc-ui-10"></a>
+
+### TC-UI-10 · El encabezado entra completo en escritorio y en móvil
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | Regresión | 1.3 | ✅ Aprobado |
+
+> Relacionado con DEF-06 (ver reporte de validación).
+
+**Precondiciones**
+
+- Dos retos activos (aparece el selector de reto).
+- Sesión de administrador (siete secciones) y de participante.
+
+**Datos de prueba:** Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador
+
+**Pasos**
+
+1. Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible.
+2. Abrir /dashboard en móvil.
+
+**Resultado esperado**
+
+- En escritorio el nombre del reto se ve completo y ni la página ni el encabezado se desbordan.
+- En móvil el interruptor de tema y "Salir" quedan visibles en pantalla y la página no se desborda; las secciones pasan a una fila propia que se desplaza.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `09-header-layout.spec.ts` | en escritorio el administrador ve el nombre del reto completo y nada se desborda |
+| ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del administrador no desborda la página |
+| ✅ | UI | `09-header-layout.spec.ts` | en escritorio el participante ve el nombre del reto completo y nada se desborda |
+| ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del participante no desborda la página |
 
 <a id="tc-ui-06"></a>
 

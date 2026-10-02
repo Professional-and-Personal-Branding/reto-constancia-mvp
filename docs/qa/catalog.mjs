@@ -1101,6 +1101,19 @@ export const CASES = [
     auto: [G('Swagger documenta la API')],
   },
   {
+    id: 'TC-UI-10', title: 'El encabezado entra completo en escritorio y en móvil', priority: 'Media', type: 'Regresión', guide: '1.3', defect: 'DEF-06',
+    pre: ['Dos retos activos (aparece el selector de reto).', 'Sesión de administrador (siete secciones) y de participante.'],
+    data: 'Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador',
+    steps: ['Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible.', 'Abrir /dashboard en móvil.'],
+    expected: ['En escritorio el nombre del reto se ve completo y ni la página ni el encabezado se desbordan.', 'En móvil el interruptor de tema y "Salir" quedan visibles en pantalla y la página no se desborda; las secciones pasan a una fila propia que se desplaza.'],
+    auto: [
+      W('09-header-layout.spec.ts', 'en escritorio el administrador ve el nombre del reto completo y nada se desborda'),
+      W('09-header-layout.spec.ts', 'en móvil el encabezado del administrador no desborda la página'),
+      W('09-header-layout.spec.ts', 'en escritorio el participante ve el nombre del reto completo y nada se desborda'),
+      W('09-header-layout.spec.ts', 'en móvil el encabezado del participante no desborda la página'),
+    ],
+  },
+  {
     id: 'TC-UI-06', title: 'El tema sigue al sistema por defecto', priority: 'Media', type: 'UI', guide: '1.4',
     pre: ['Navegador sin tema elegido (sin la clave reto.theme).'],
     data: 'Sistema en modo claro; sistema en modo oscuro; cambio del sistema con la app abierta; valor guardado inválido',
@@ -1203,6 +1216,11 @@ export const DEFECTS = [
     id: 'DEF-05', severity: 'Alta', status: 'Corregido', cases: ['TC-AUTH-14', 'TC-AUTH-10'],
     title: 'Cambiar de página mientras se renovaba el token cerraba la sesión',
     detail: 'En frontend/lib/api.ts cualquier error durante la renovación o el reintento posterior (un corte de red, una navegación que aborta la petición, un 429 o 5xx del refresh) borraba los tokens y enviaba al login. Lo detectó la nueva prueba de TC-AUTH-10 al correr la suite completa: consultas en segundo plano renovaban el token y la recarga abortaba sus reintentos. Ahora solo un rechazo del refresh token (400/401/403) cierra la sesión; se confirmó que la prueba de TC-AUTH-14 falla con el código anterior y pasa con la corrección.',
+  },
+  {
+    id: 'DEF-06', severity: 'Media', status: 'Corregido', cases: ['TC-UI-10'],
+    title: 'El encabezado no entraba: nombre del reto cortado y controles fuera de pantalla en móvil',
+    detail: 'El encabezado era una sola fila. Con las siete secciones del administrador el selector cortaba el nombre del reto ("Reto Octubre 2026 (no ins…"), y en móvil el selector, el interruptor de tema y "Salir" quedaban fuera de la pantalla para ambos roles. Ahora la marca y los controles van arriba y las secciones en una fila propia que se desplaza; el participante en escritorio conserva una sola fila. La prueba de TC-UI-10 falla con el encabezado anterior.',
   },
 ];
 
