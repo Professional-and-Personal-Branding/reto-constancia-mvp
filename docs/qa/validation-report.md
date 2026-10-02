@@ -1,32 +1,33 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-01 22:23 (UTC)
-- **Código:** rama `docs/qa-catalog-and-screenshots`, commit `3943101`
+- **Fecha:** 2026-10-02 00:37 (UTC)
+- **Código:** rama `feature/web-light-theme`, commit `0b842c8` (con cambios sin commit)
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs --reuse`
 
 ## Resultado
 
-**94 de 95 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 1 con limitación conocida.
+**98 de 99 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 1 con limitación conocida.
 
-Se ejecutaron **303 pruebas** automatizadas: 303 pasaron y 0 fallaron.
+Se ejecutaron **322 pruebas** automatizadas: 322 pasaron y 0 fallaron.
 
 ## Suites ejecutadas
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 8.1 s | 2026-10-01 22:22 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 11.8 s | 2026-10-01 22:22 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 23 | 23 | 0 | 27.4 s | 2026-10-01 22:22 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 14 | 14 | 0 | 20.3 s | 2026-10-01 22:23 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 1.0 s | 2026-10-01 22:23 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 5.6 s | 2026-10-02 00:33 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 12 | 12 | 0 | 476 ms | 2026-10-02 00:33 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 8.4 s | 2026-10-02 00:33 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 29 | 29 | 0 | 28.1 s | 2026-10-02 00:34 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 15 | 15 | 0 | 20.2 s | 2026-10-02 00:34 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 961 ms | 2026-10-02 00:34 |
 
 ## Casos por prioridad
 
 | Prioridad | Casos | Aprobados | Fallidos |
 |---|---:|---:|---:|
 | Alta | 62 | 62 | 0 |
-| Media | 32 | 31 | 0 |
+| Media | 36 | 35 | 0 |
 | Baja | 1 | 1 | 0 |
 
 ## Casos por tipo
@@ -37,7 +38,7 @@ Se ejecutaron **303 pruebas** automatizadas: 303 pasaron y 0 fallaron.
 | Seguridad | 19 |
 | Negativo | 15 |
 | Regresión | 6 |
-| UI | 5 |
+| UI | 9 |
 | Observación | 1 |
 | Integración | 4 |
 

@@ -7,6 +7,7 @@
  *
  * Enlaces (`auto`):
  *   U(archivo, título)  prueba unitaria de Jest (backend/src)
+ *   F(archivo, título)  prueba unitaria de la web con node:test (frontend/lib)
  *   A(archivo, título)  prueba e2e de API con Jest + supertest (backend/test)
  *   W(archivo, título)  recorrido de UI con Playwright (e2e/tests)
  *   G(título)           suite de capturas de la guía (e2e/guide/capture.spec.ts)
@@ -17,6 +18,7 @@
  */
 
 const U = (file, title) => ({ kind: 'unit', file, title });
+const F = (file, title) => ({ kind: 'web', file, title });
 const A = (file, title) => ({ kind: 'api', file, title });
 const W = (file, title) => ({ kind: 'ui', file, title });
 const G = (title) => ({ kind: 'guide', file: 'capture.spec.ts', title });
@@ -1051,8 +1053,11 @@ export const CASES = [
     id: 'TC-UI-03', title: 'Panel Mi reto', priority: 'Media', type: 'UI', guide: '4.1',
     pre: ['Participante en un reto activo.'], data: 'Reto Octubre 2026 de demostración',
     steps: ['Abrir /dashboard.'],
-    expected: ['Muestra el período (01-sep → 31-oct), "Finaliza en Xd Yh Zm", Validados, Pendientes, Posición y Top del reto.'],
-    auto: [G('panel Mi reto muestra período, cuenta regresiva y métricas')],
+    expected: ['Muestra el período (01-sep → 31-oct), "Finaliza en Xd Yh Zm", Validados, Pendientes, Posición y Top del reto.', 'La cuenta regresiva llega a cero a la medianoche local al terminar el último día (la fecha de fin es inclusiva, igual que para registrar actividades).'],
+    auto: [
+      F('dates.test.ts', 'dayEndMs es la medianoche local al terminar el día (endDate inclusivo)'),
+      G('panel Mi reto muestra período, cuenta regresiva y métricas'),
+    ],
   },
   {
     id: 'TC-UI-04', title: 'Fechas sin desfase de zona horaria', priority: 'Alta', type: 'Regresión', guide: '4.4',
@@ -1060,6 +1065,10 @@ export const CASES = [
     steps: ['Registrar la actividad.', 'Verla en Mis actividades.'],
     expected: ['Se muestra exactamente el día D, no D-1.'],
     auto: [
+      F('dates.test.ts', 'toDayKey devuelve el día calendario del valor del backend'),
+      F('dates.test.ts', 'formatDay no corre el día hacia atrás al oeste de UTC'),
+      F('dates.test.ts', 'formatDay usa el locale es-BO'),
+      F('dates.test.ts', 'isoToday devuelve el día local con formato YYYY-MM-DD'),
       W('02-activity-upload.spec.ts', 'registra la actividad y la muestra con su fecha exacta'),
       U('import.service.spec.ts', 'conserva las fechas ISO de un CSV sin desfase de zona horaria'),
     ],
@@ -1070,6 +1079,56 @@ export const CASES = [
     steps: ['Abrir Swagger.'],
     expected: ['Lista los módulos de la API, entre ellos challenges y activities.'],
     auto: [G('Swagger documenta la API')],
+  },
+  {
+    id: 'TC-UI-06', title: 'El tema sigue al sistema por defecto', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Navegador sin tema elegido (sin la clave reto.theme).'],
+    data: 'Sistema en modo claro; sistema en modo oscuro; cambio del sistema con la app abierta; valor guardado inválido',
+    steps: ['Abrir /login con el sistema en claro y luego en oscuro.', 'Con la app abierta, cambiar el tema del sistema.'],
+    expected: ['Sistema claro: la web se ve clara (fondo rgb(246, 245, 242)); sistema oscuro o sin preferencia: oscura.', 'Si el sistema cambia, la web lo sigue sin recargar.', 'Un valor guardado que no es "light" ni "dark" se ignora.'],
+    auto: [
+      F('theme.test.ts', 'sin elección guardada sigue al sistema; sin preferencia del sistema queda oscuro'),
+      F('theme.test.ts', 'un valor guardado inválido se ignora'),
+      W('07-theme.spec.ts', 'sin elección guardada sigue el tema del sistema'),
+      W('07-theme.spec.ts', 'si el sistema cambia, la app lo sigue sin recargar'),
+    ],
+  },
+  {
+    id: 'TC-UI-07', title: 'Interruptor de modo claro/oscuro', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Sesión de participante; sistema en modo oscuro.'],
+    data: 'Interruptor "Modo claro" (rol switch) del encabezado',
+    steps: ['Pulsar el interruptor.', 'Recargar la página.', 'Cambiar el tema del sistema.', 'Con el foco en el interruptor, pulsar Espacio y luego Enter.'],
+    expected: ['Cambia al tema claro al instante y aria-checked pasa a true.', 'La elección se guarda (reto.theme = light) y sobrevive la recarga.', 'La elección guardada manda sobre el sistema.', 'El teclado alterna el tema igual que el clic.'],
+    auto: [
+      F('theme.test.ts', 'la elección guardada manda sobre el sistema'),
+      W('07-theme.spec.ts', 'el interruptor cambia el tema al instante y la elección sobrevive la recarga'),
+      W('07-theme.spec.ts', 'el interruptor funciona con el teclado'),
+      G('interruptor de tema en el encabezado'),
+    ],
+  },
+  {
+    id: 'TC-UI-08', title: 'El tema elegido se aplica sin parpadeo', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Tema claro guardado; sistema en modo oscuro.'],
+    data: 'reto.theme = light',
+    steps: ['Abrir /login y leer data-theme en DOMContentLoaded, antes de que React hidrate.'],
+    expected: ['data-theme ya es "light" al terminar de analizar el documento: la página nunca se pinta en oscuro.', 'El script previo a la hidratación resuelve igual que la lógica de la app, también con el almacenamiento bloqueado.'],
+    auto: [
+      F('theme.test.ts', 'el script previo a la hidratación resuelve igual que resolveTheme'),
+      F('theme.test.ts', 'si el almacenamiento está bloqueado, el script sigue al sistema'),
+      W('07-theme.spec.ts', 'el tema guardado se aplica antes de pintar y manda sobre el sistema'),
+    ],
+  },
+  {
+    id: 'TC-UI-09', title: 'Contraste y pantallas en ambos temas', priority: 'Media', type: 'UI', guide: '1.4',
+    pre: ['Paletas definidas en frontend/app/globals.css.'],
+    data: 'Texto, texto secundario, estados e insignias sobre fondo, tarjeta y superficie elevada',
+    steps: ['Medir el contraste de cada color sobre los fondos donde se usa, en los dos temas.', 'Abrir Mi reto, Subir actividad y Ranking en modo claro.'],
+    expected: ['Texto principal de al menos 4.5:1; texto secundario, estados e insignias de al menos 3:1; texto negro del botón principal de al menos 4.5:1.', 'Fondo, texto y tarjetas usan la paleta clara, y la fecha de Subir actividad usa controles claros (color-scheme light).'],
+    auto: [
+      F('theme.test.ts', 'contraste del tema oscuro'),
+      F('theme.test.ts', 'contraste del tema claro'),
+      W('07-theme.spec.ts', 'las pantallas principales y los controles nativos se ven en modo claro'),
+    ],
   },
 
   // ───────────────────────────── HEALTH ─────────────────────────────

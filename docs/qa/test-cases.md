@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-01** · rama `docs/qa-catalog-and-screenshots` · commit `3943101`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-02** · rama `feature/web-light-theme` · commit `0b842c8` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**95 casos** · 94 aprobados · 0 fallidos · 1 con limitación conocida · 93 automatizados.
+**99 casos** · 98 aprobados · 0 fallidos · 1 con limitación conocida · 97 automatizados.
 
 ## Cómo leer cada caso
 
@@ -27,7 +27,7 @@
 | [Finanzas](#fin) | 5 | 5 | 0 |
 | [Carga de archivos](#up) | 3 | 3 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
-| [Interfaz y navegación](#ui) | 5 | 5 | 0 |
+| [Interfaz y navegación](#ui) | 9 | 9 | 0 |
 | [Salud del servicio](#health) | 2 | 2 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
@@ -2980,6 +2980,10 @@
 | [TC-UI-03](#tc-ui-03) | Panel Mi reto | Media | UI | ✅ Aprobado |
 | [TC-UI-04](#tc-ui-04) | Fechas sin desfase de zona horaria | Alta | Regresión | ✅ Aprobado |
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
+| [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
+| [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
+| [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
+| [TC-UI-09](#tc-ui-09) | Contraste y pantallas en ambos temas | Media | UI | ✅ Aprobado |
 
 <a id="tc-ui-01"></a>
 
@@ -3062,11 +3066,13 @@
 **Resultado esperado**
 
 - Muestra el período (01-sep → 31-oct), "Finaliza en Xd Yh Zm", Validados, Pendientes, Posición y Top del reto.
+- La cuenta regresiva llega a cero a la medianoche local al terminar el último día (la fecha de fin es inclusiva, igual que para registrar actividades).
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Web (unitaria) | `dates.test.ts` | dayEndMs es la medianoche local al terminar el día (endDate inclusivo) |
 | ✅ | Guía | `capture.spec.ts` | panel Mi reto muestra período, cuenta regresiva y métricas |
 
 <a id="tc-ui-04"></a>
@@ -3096,6 +3102,10 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Web (unitaria) | `dates.test.ts` | toDayKey devuelve el día calendario del valor del backend |
+| ✅ | Web (unitaria) | `dates.test.ts` | formatDay no corre el día hacia atrás al oeste de UTC |
+| ✅ | Web (unitaria) | `dates.test.ts` | formatDay usa el locale es-BO |
+| ✅ | Web (unitaria) | `dates.test.ts` | isoToday devuelve el día local con formato YYYY-MM-DD |
 | ✅ | UI | `02-activity-upload.spec.ts` | registra la actividad y la muestra con su fecha exacta |
 | ✅ | Unitaria | `import.service.spec.ts` | conserva las fechas ISO de un CSV sin desfase de zona horaria |
 
@@ -3126,6 +3136,140 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Guía | `capture.spec.ts` | Swagger documenta la API |
+
+<a id="tc-ui-06"></a>
+
+### TC-UI-06 · El tema sigue al sistema por defecto
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | UI | 1.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Navegador sin tema elegido (sin la clave reto.theme).
+
+**Datos de prueba:** Sistema en modo claro; sistema en modo oscuro; cambio del sistema con la app abierta; valor guardado inválido
+
+**Pasos**
+
+1. Abrir /login con el sistema en claro y luego en oscuro.
+2. Con la app abierta, cambiar el tema del sistema.
+
+**Resultado esperado**
+
+- Sistema claro: la web se ve clara (fondo rgb(246, 245, 242)); sistema oscuro o sin preferencia: oscura.
+- Si el sistema cambia, la web lo sigue sin recargar.
+- Un valor guardado que no es "light" ni "dark" se ignora.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `theme.test.ts` | sin elección guardada sigue al sistema; sin preferencia del sistema queda oscuro |
+| ✅ | Web (unitaria) | `theme.test.ts` | un valor guardado inválido se ignora |
+| ✅ | UI | `07-theme.spec.ts` | sin elección guardada sigue el tema del sistema |
+| ✅ | UI | `07-theme.spec.ts` | si el sistema cambia, la app lo sigue sin recargar |
+
+<a id="tc-ui-07"></a>
+
+### TC-UI-07 · Interruptor de modo claro/oscuro
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | UI | 1.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de participante; sistema en modo oscuro.
+
+**Datos de prueba:** Interruptor "Modo claro" (rol switch) del encabezado
+
+**Pasos**
+
+1. Pulsar el interruptor.
+2. Recargar la página.
+3. Cambiar el tema del sistema.
+4. Con el foco en el interruptor, pulsar Espacio y luego Enter.
+
+**Resultado esperado**
+
+- Cambia al tema claro al instante y aria-checked pasa a true.
+- La elección se guarda (reto.theme = light) y sobrevive la recarga.
+- La elección guardada manda sobre el sistema.
+- El teclado alterna el tema igual que el clic.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `theme.test.ts` | la elección guardada manda sobre el sistema |
+| ✅ | UI | `07-theme.spec.ts` | el interruptor cambia el tema al instante y la elección sobrevive la recarga |
+| ✅ | UI | `07-theme.spec.ts` | el interruptor funciona con el teclado |
+| ✅ | Guía | `capture.spec.ts` | interruptor de tema en el encabezado |
+
+<a id="tc-ui-08"></a>
+
+### TC-UI-08 · El tema elegido se aplica sin parpadeo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | UI | 1.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Tema claro guardado; sistema en modo oscuro.
+
+**Datos de prueba:** reto.theme = light
+
+**Pasos**
+
+1. Abrir /login y leer data-theme en DOMContentLoaded, antes de que React hidrate.
+
+**Resultado esperado**
+
+- data-theme ya es "light" al terminar de analizar el documento: la página nunca se pinta en oscuro.
+- El script previo a la hidratación resuelve igual que la lógica de la app, también con el almacenamiento bloqueado.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `theme.test.ts` | el script previo a la hidratación resuelve igual que resolveTheme |
+| ✅ | Web (unitaria) | `theme.test.ts` | si el almacenamiento está bloqueado, el script sigue al sistema |
+| ✅ | UI | `07-theme.spec.ts` | el tema guardado se aplica antes de pintar y manda sobre el sistema |
+
+<a id="tc-ui-09"></a>
+
+### TC-UI-09 · Contraste y pantallas en ambos temas
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | UI | 1.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Paletas definidas en frontend/app/globals.css.
+
+**Datos de prueba:** Texto, texto secundario, estados e insignias sobre fondo, tarjeta y superficie elevada
+
+**Pasos**
+
+1. Medir el contraste de cada color sobre los fondos donde se usa, en los dos temas.
+2. Abrir Mi reto, Subir actividad y Ranking en modo claro.
+
+**Resultado esperado**
+
+- Texto principal de al menos 4.5:1; texto secundario, estados e insignias de al menos 3:1; texto negro del botón principal de al menos 4.5:1.
+- Fondo, texto y tarjetas usan la paleta clara, y la fecha de Subir actividad usa controles claros (color-scheme light).
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `theme.test.ts` | contraste del tema oscuro |
+| ✅ | Web (unitaria) | `theme.test.ts` | contraste del tema claro |
+| ✅ | UI | `07-theme.spec.ts` | las pantallas principales y los controles nativos se ven en modo claro |
 
 <a id="health"></a>
 
