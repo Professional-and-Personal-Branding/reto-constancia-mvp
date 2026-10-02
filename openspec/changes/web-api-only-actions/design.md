@@ -12,10 +12,6 @@ controls. `ChallengesService.create` checks `startDate < endDate`; `update` does
 - Close the period gap on update with the same rule and message as creation.
 
 **Non-Goals:**
-- Changing what the API allows on `COMPLETED` challenges. Today `PATCH` can still edit a
-  closed challenge's rules and move it back to `DRAFT`; the e2e fixtures rely on the latter to
-  reset test data. Blocking it changes the lifecycle contract and the test infrastructure, so
-  it is recorded as observation OBS-03 for a separate decision. The web never offers it.
 - Editing month or year (they are the challenge's unique key).
 - Warning about existing activities that fall outside an edited period.
 
@@ -36,6 +32,24 @@ rejections and closing challenges, it is keyboard accessible, and it works where
 "Marcar pagado" opens an amount field pre-filled with the fee and a "Guardar pago" button.
 The default path (full payment) stays one confirmation away; a partial amount is just a
 different number. The summary refreshes through the existing query invalidation.
+
+### Closed challenges are final in the API (OBS-03)
+`update` rejects any change once the challenge is `COMPLETED`, before looking at the fields,
+with the message the participant endpoints already use. Awards stay allowed: they are the
+way to record a prize drawn after closing, and `POST /awards` does not touch rules or dates.
+*Alternative:* block only rule fields and keep `status: DRAFT` as an admin "reopen". Rejected:
+the lifecycle spec already says a closed challenge cannot be reactivated, and a reopen path
+would let the final results drift.
+
+### Test data no longer reopens challenges
+The Playwright fixture, the guide capture suite and the parallel-session script reopened
+closed challenges to reuse a month. They now call a shared helper (`scripts/lib/test-db.mjs`)
+that deletes their own test challenges by month and year with Prisma; participants,
+activities and awards go with them through the existing cascades. The helper is test-only: it
+refuses any `DATABASE_URL` whose host is not local, and it only deletes the month/year pairs it
+is given. This mirrors what the backend e2e suites already do through `PrismaService`.
+*Alternative:* an admin `DELETE /challenges/:id` endpoint. Rejected: it would add a destructive
+production endpoint just to serve tests.
 
 ### Period validation on update
 `update` merges the incoming dates with the stored ones and applies the creation rule before

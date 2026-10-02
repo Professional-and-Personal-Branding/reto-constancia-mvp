@@ -30,3 +30,26 @@ stored ones: the start date MUST be before the end date. A violation MUST be rej
 - **GIVEN** a challenge from 2025-05-01 to 2025-05-31
 - **WHEN** it is updated with `endDate = 2025-04-15`
 - **THEN** the response is 400 "startDate debe ser menor que endDate" and the challenge is unchanged
+
+### Requirement: Closed challenges are final
+Once a challenge is `COMPLETED`, updating it SHALL be rejected with 400 "No se puede modificar
+un reto cerrado", whatever the fields, including its status: a closed challenge cannot be
+edited, moved back to `DRAFT` or reactivated. Registering its award SHALL remain allowed, so a
+prize drawn in person after closing can still be recorded.
+
+#### Scenario: Editing a closed challenge's rules
+- **GIVEN** a `COMPLETED` challenge with `pointsPerKm = 1`
+- **WHEN** an admin updates it with `pointsPerKm = 5`
+- **THEN** the response is 400 "No se puede modificar un reto cerrado"
+- **AND** its rules and final results are unchanged
+
+#### Scenario: Moving a closed challenge back to draft
+- **GIVEN** a `COMPLETED` challenge
+- **WHEN** an admin updates it with `status = DRAFT`
+- **THEN** the response is 400 and the challenge stays `COMPLETED`
+
+#### Scenario: Award after closing
+- **GIVEN** a `COMPLETED` challenge
+- **WHEN** an admin registers its award
+- **THEN** the award is recorded and the challenge stays `COMPLETED`
+
