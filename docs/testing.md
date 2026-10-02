@@ -111,8 +111,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 38 recorridos (incluidos el modo claro/oscuro, los retos cerrados y el encabezado en escritorio y móvil) y 15 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 100 casos de `docs/qa/` están enlazados a 333 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 43 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, y editar retos, retirar actividades y pagos parciales) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 102 casos de `docs/qa/` están enlazados a 353 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -124,6 +124,16 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-02 · rama `feature/web-api-only-actions` (acciones en la web y reto cerrado definitivo)
+
+Base reiniciada con `npx prisma migrate reset --force`. **Batería:** 11 de 11 pasos en verde.
+**Catálogo:** 102 de 102 casos aprobados con 353 pruebas y 0 fallidas: unitarias del backend
+128, unitarias de la web 12, e2e de API 85, recorridos de UI 43 (más la preparación), capturas
+de la guía 18 (más la preparación) y sesiones paralelas 65. Casos nuevos: TC-CHAL-13 (un reto
+cerrado es definitivo) y TC-SEC-05 (vigencia de los tokens). Las suites de Playwright y el
+script de sesiones se corrieron dos veces seguidas para comprobar que siguen siendo repetibles
+ahora que no reabren retos cerrados.
 
 ### 2026-10-02 · v1.2.0 (rama `release/1.2.0`)
 

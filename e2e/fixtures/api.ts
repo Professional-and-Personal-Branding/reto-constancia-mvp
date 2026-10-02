@@ -116,6 +116,14 @@ export async function setupChallenge(input: ChallengeInput): Promise<Challenge> 
 
   let challenge = await findChallenge(input.month);
 
+  // Un reto cerrado es definitivo en la API: el de prueba se borra (directo en la base local)
+  // y se crea de nuevo, en lugar de reabrirlo.
+  if (challenge?.status === 'COMPLETED') {
+    const { deleteTestChallenges } = await import('../../scripts/lib/test-db.mjs');
+    await deleteTestChallenges([{ month: input.month, year: E2E_YEAR }]);
+    challenge = undefined;
+  }
+
   if (!challenge) {
     const created = await api<Challenge>('POST', '/challenges', {
       token: admin,
@@ -133,9 +141,6 @@ export async function setupChallenge(input: ChallengeInput): Promise<Challenge> 
     challenge = created.body;
   } else {
     await clearActivities(challenge.id);
-    if (challenge.status === 'COMPLETED') {
-      await api('PATCH', `/challenges/${challenge.id}`, { token: admin, body: { status: 'DRAFT' } });
-    }
     const updated = await api<Challenge>('PATCH', `/challenges/${challenge.id}`, {
       token: admin,
       body: rules,

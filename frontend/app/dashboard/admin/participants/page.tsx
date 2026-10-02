@@ -149,13 +149,8 @@ export default function ParticipantsPage() {
                 fee={fee}
                 currency={challenge.currency}
                 state={stateOf(p.userId)}
-                onTogglePayment={() =>
-                  paymentMut.mutate({
-                    userId: p.userId,
-                    paid: !p.paid,
-                    amountPaid: !p.paid ? fee : undefined,
-                  })
-                }
+                onPay={(amountPaid) => paymentMut.mutate({ userId: p.userId, paid: true, amountPaid })}
+                onUnpay={() => paymentMut.mutate({ userId: p.userId, paid: false })}
                 onRemove={() => {
                   if (confirm(`¿Quitar a ${p.user.name} del reto?`)) {
                     removeMut.mutate(p.userId);
@@ -208,7 +203,8 @@ function ParticipantRow({
   fee,
   currency,
   state,
-  onTogglePayment,
+  onPay,
+  onUnpay,
   onRemove,
   isPending,
 }: {
@@ -216,12 +212,32 @@ function ParticipantRow({
   fee: number;
   currency: string;
   state?: PaymentState;
-  onTogglePayment: () => void;
+  onPay: (amountPaid: number) => void;
+  onUnpay: () => void;
   onRemove: () => void;
   isPending: boolean;
 }) {
+  // Registrar un pago pide el monto recibido (viene la cuota): menos que la cuota es parcial
+  const [entering, setEntering] = useState(false);
+  const [amount, setAmount] = useState(String(fee));
+  const [amountError, setAmountError] = useState<string | null>(null);
+
+  function savePayment() {
+    const value = Number(amount);
+    if (!amount.trim() || !Number.isFinite(value) || value <= 0) {
+      setAmountError('Indica un monto mayor que cero');
+      return;
+    }
+    setAmountError(null);
+    setEntering(false);
+    onPay(value);
+  }
+
   return (
-    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <div
+      className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+      aria-label={`Participante ${p.user.name}`}
+    >
       <div className="flex-1 min-w-0">
         <p className="font-medium">{p.user.name}</p>
         <p className="text-xs text-ink-mute">{p.user.email}</p>
@@ -251,13 +267,64 @@ function ParticipantRow({
             Debe {fee} {currency}
           </span>
         )}
-        <button
-          onClick={onTogglePayment}
-          disabled={isPending}
-          className="btn-ghost text-xs py-1.5 px-3"
-        >
-          {p.paid ? 'Marcar impago' : 'Marcar pagado'}
-        </button>
+        {p.paid ? (
+          <button onClick={onUnpay} disabled={isPending} className="btn-ghost text-xs py-1.5 px-3">
+            Marcar impago
+          </button>
+        ) : entering ? (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              savePayment();
+            }}
+          >
+            <label className="flex items-center gap-1 text-xs text-ink-dim">
+              Monto recibido
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                className="input w-24 py-1 text-sm"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                aria-label="Monto recibido"
+                aria-invalid={!!amountError}
+              />
+              {currency}
+            </label>
+            <button type="submit" disabled={isPending} className="btn-primary text-xs py-1.5 px-3">
+              Guardar pago
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEntering(false);
+                setAmountError(null);
+              }}
+              className="btn-ghost text-xs py-1.5 px-3"
+            >
+              Cancelar
+            </button>
+            {amountError && (
+              <span role="alert" className="w-full text-xs text-bad">
+                {amountError}
+              </span>
+            )}
+          </form>
+        ) : (
+          <button
+            onClick={() => {
+              setAmount(String(fee));
+              setEntering(true);
+            }}
+            disabled={isPending}
+            className="btn-ghost text-xs py-1.5 px-3"
+          >
+            Marcar pagado
+          </button>
+        )}
         <button
           onClick={onRemove}
           disabled={isPending}

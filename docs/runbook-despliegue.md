@@ -223,6 +223,7 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | La web llama a una API equivocada | `NEXT_PUBLIC_API_URL` mal en el **build** | Corregir y **recompilar** la web |
 | Muchos usuarios reciben 429 a la vez | La API no ve la IP real: todos comparten el cupo | `TRUST_PROXY=1` (por defecto en producción); si hay dos proxies, `2` |
 | "Subir actividad" deshabilitado | Faltan variables `CLOUDINARY_*` | Cargarlas y redeploy |
+| Editar un reto responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: su resultado es definitivo | Esperado desde 1.3: no se edita ni se reabre; la premiación sí se puede registrar |
 | Login responde 429 | 5 intentos por minuto por IP (protección anti fuerza bruta) | Esperar un minuto |
 | La sesión se cierra sola | Refresh token rechazado (secretos JWT rotados) | Esperado tras rotar secretos: volver a iniciar sesión |
 | Importar desde Google Sheets dice "no configurado" | Faltan `GOOGLE_*` | Opcional: ver `docs/import-template.md` |

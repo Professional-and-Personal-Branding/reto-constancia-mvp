@@ -7,8 +7,11 @@
  * Incluye verificación de RBAC y de apertura de múltiples retos con reglas configurables.
  *
  * Uso: node scripts/parallel-session-test.mjs
- * Requiere el backend corriendo (por defecto http://localhost:3002/api).
+ * Requiere el backend corriendo (por defecto http://localhost:3002/api) y su base local: el
+ * segundo reto de prueba se borra al empezar y al terminar (un reto cerrado no se reabre).
  */
+
+import { deleteTestChallenges } from './lib/test-db.mjs';
 
 const BASE = process.env.API_URL ?? 'http://localhost:3002/api';
 const ADMIN = { email: 'admin@reto.local', password: 'ChangeMe123!' };
@@ -212,7 +215,9 @@ async function main() {
   const all = await req('GET', '/challenges', { token: adminTok });
   check('Listado de retos disponible', Array.isArray(all.json), `total=${all.json?.length}`);
 
-  // Crea (o reutiliza) un segundo reto con reglas DISTINTAS al de mayo.
+  // Crea un segundo reto con reglas DISTINTAS al de mayo. Una corrida anterior lo deja cerrado,
+  // y un reto cerrado es definitivo: se borra el de prueba y se crea de nuevo.
+  await deleteTestChallenges([{ month: 12, year: 2026 }]);
   const customRules = {
     name: 'Reto Diciembre 2026 (reglas distintas)',
     month: 12,
@@ -253,10 +258,6 @@ async function main() {
 
   // ---- 8. Múltiples retos ACTIVOS a la vez (OpenSpec: challenge-lifecycle) ----
   section('8. Múltiples retos activos a la vez y selección por participante');
-  if (c?.status === 'COMPLETED') {
-    // Corrida anterior interrumpida: vuelve a DRAFT para que el flujo sea repetible.
-    await req('PATCH', `/challenges/${sid}`, { token: adminTok, body: { status: 'DRAFT' } });
-  }
   const anaActivate = await req('POST', `/challenges/${sid}/activate`, { token: anaTok });
   check('Ana NO puede activar retos (403)', anaActivate.status === 403, `status=${anaActivate.status}`);
 
@@ -378,8 +379,10 @@ async function main() {
 
   // Limpieza para que la corrida sea repetible
   if (decCreated) await req('DELETE', `/activities/${decCreated.id}`, { token: anaTok });
-  const reset = await req('PATCH', `/challenges/${sid}`, { token: adminTok, body: { status: 'DRAFT' } });
-  check('Segundo reto vuelve a DRAFT (limpieza)', reset.json?.status === 'DRAFT', `status=${reset.status}`);
+  const reopen = await req('PATCH', `/challenges/${sid}`, { token: adminTok, body: { status: 'DRAFT' } });
+  check('Un reto cerrado no vuelve a borrador (400)', reopen.status === 400, `status=${reopen.status}`);
+  const removed = await deleteTestChallenges([{ month: 12, year: 2026 }]);
+  check('Segundo reto de prueba eliminado (limpieza)', removed === 1, `borrados=${removed}`);
 
   // Limpieza: la actividad de mayo creada en la sección 3 se elimina (admin) para que la corrida sea repetible
   if (created) await req('DELETE', `/activities/${created.id}`, { token: adminTok });

@@ -37,6 +37,9 @@ test('el resumen financiero refleja los pagos al instante', async ({ page }) => 
   await expect(row).toContainText('Debe 120 BOB');
 
   await page.getByRole('button', { name: 'Marcar pagado' }).first().click();
+  // El monto viene con la cuota: guardarlo sin cambiarlo es el pago completo
+  await expect(page.getByLabel('Monto recibido')).toHaveValue('120');
+  await page.getByRole('button', { name: 'Guardar pago' }).click();
 
   await expect(summary).toContainText('1 pagados');
   await expect(row).toContainText('Pagado');

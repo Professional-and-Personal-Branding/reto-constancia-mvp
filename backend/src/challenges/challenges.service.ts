@@ -26,9 +26,7 @@ export class ChallengesService {
       );
     }
 
-    if (new Date(dto.startDate) >= new Date(dto.endDate)) {
-      throw new BadRequestException('startDate debe ser menor que endDate');
-    }
+    assertValidPeriod(new Date(dto.startDate), new Date(dto.endDate));
 
     return this.prisma.challenge.create({
       data: {
@@ -129,6 +127,23 @@ export class ChallengesService {
     // Activar vía PATCH pasa por las mismas reglas de ciclo de vida que POST :id/activate
     if (dto.status === ChallengeStatus.ACTIVE) {
       current = await this.activate(id);
+    }
+    // Un reto cerrado es definitivo: ni reglas, ni fechas, ni volver a borrador. Cambiarlo
+    // reescribiría su ranking final y sus ganadores. La premiación sigue permitida (awards).
+    if (current.status === ChallengeStatus.COMPLETED) {
+      // Volver a pedir el cierre (POST :id/close) es idempotente: no cambia nada
+      const onlyClosing = Object.entries(dto).every(
+        ([key, value]) => value === undefined || (key === 'status' && value === ChallengeStatus.COMPLETED),
+      );
+      if (onlyClosing) return current;
+      throw new BadRequestException('No se puede modificar un reto cerrado');
+    }
+    // El período resultante combina lo nuevo con lo guardado, con la misma regla que al crear
+    if (dto.startDate !== undefined || dto.endDate !== undefined) {
+      assertValidPeriod(
+        new Date(dto.startDate ?? current.startDate),
+        new Date(dto.endDate ?? current.endDate),
+      );
     }
     const data: Prisma.ChallengeUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
@@ -302,5 +317,12 @@ export class ChallengesService {
 
   isWithinPeriod(challenge: Challenge, date: Date): boolean {
     return date >= challenge.startDate && date <= challenge.endDate;
+  }
+}
+
+/** Regla del período de un reto, compartida por la creación y la edición. */
+function assertValidPeriod(start: Date, end: Date): void {
+  if (start >= end) {
+    throw new BadRequestException('startDate debe ser menor que endDate');
   }
 }

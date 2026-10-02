@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
@@ -63,6 +63,22 @@ export default function DashboardPage() {
     queryKey: ['results', challenge?.id],
     queryFn: () => api<ChallengeResults>(`/challenges/${challenge!.id}/results`),
     enabled: !!challenge,
+  });
+
+  // Retirar una actividad propia pendiente (la API solo lo permite mientras está pendiente)
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const withdrawMut = useMutation({
+    mutationFn: (id: string) => api(`/activities/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setWithdrawError(null);
+      qc.invalidateQueries({ queryKey: ['activities'] });
+      qc.invalidateQueries({ queryKey: ['results'] });
+    },
+    onError: (e) => {
+      const body = (e as ApiError).body as { message?: string | string[] } | null;
+      const msg = body?.message ?? (e instanceof Error ? e.message : 'No se pudo retirar la actividad');
+      setWithdrawError(Array.isArray(msg) ? msg.join(', ') : msg);
+    },
   });
 
   const uploadPaymentMut = useMutation({
@@ -231,10 +247,20 @@ export default function DashboardPage() {
       {/* Mis actividades */}
       <section>
         <h2 className="display text-2xl mb-4 tracking-wider">Mis actividades</h2>
+        {withdrawError && (
+          <div role="alert" className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5 mb-3">
+            {withdrawError}
+          </div>
+        )}
         {activities && activities.length > 0 ? (
-          <div className="card divide-y divide-line">
+          <div className="card divide-y divide-line" aria-label="Mis actividades">
             {activities.map((a) => (
-              <ActivityRow key={a.id} activity={a} />
+              <ActivityRow
+                key={a.id}
+                activity={a}
+                withdrawing={withdrawMut.isPending && withdrawMut.variables === a.id}
+                onWithdraw={() => withdrawMut.mutate(a.id)}
+              />
             ))}
           </div>
         ) : (
@@ -277,9 +303,20 @@ function StatusBadge({ status }: { status: DailyActivity['status'] }) {
   return <span className="badge-pending">Pendiente</span>;
 }
 
-function ActivityRow({ activity }: { activity: DailyActivity }) {
+function ActivityRow({
+  activity,
+  onWithdraw,
+  withdrawing,
+}: {
+  activity: DailyActivity;
+  onWithdraw: () => void;
+  withdrawing: boolean;
+}) {
+  // Confirmación en la misma fila: el retiro borra la actividad y no se puede deshacer
+  const [confirming, setConfirming] = useState(false);
+  const pending = activity.status === 'PENDING';
   return (
-    <div className="p-4 flex items-center gap-4">
+    <div className="p-4 flex flex-wrap items-center gap-4">
       <div className="display text-2xl text-ink-dim w-16 text-center">
         {formatDate(activity.date)}
       </div>
@@ -293,6 +330,27 @@ function ActivityRow({ activity }: { activity: DailyActivity }) {
         )}
       </div>
       <StatusBadge status={activity.status} />
+      {pending &&
+        (confirming ? (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-ink-dim">¿Retirar esta actividad?</span>
+            <button
+              type="button"
+              onClick={onWithdraw}
+              disabled={withdrawing}
+              className="btn-danger text-sm py-1 px-3"
+            >
+              {withdrawing ? 'Retirando…' : 'Sí, retirar'}
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} className="btn-ghost text-sm py-1 px-3">
+              No
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="btn-ghost text-sm py-1 px-3">
+            Retirar
+          </button>
+        ))}
     </div>
   );
 }

@@ -92,7 +92,8 @@ a `.qa-results/shots`, para no reescribir las capturas versionadas.
 | `tests/07-theme.spec.ts` | Guía 1.4 · Modo claro y oscuro | TC-UI-06, TC-UI-07, TC-UI-08, TC-UI-09 |
 | `tests/08-closed-results.spec.ts` | Guía 6.5 · Retos cerrados en el Ranking | TC-CHAL-12 |
 | `tests/09-header-layout.spec.ts` | Guía 1.3 · Encabezado en escritorio y móvil | TC-UI-10 |
-| `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 13 |
+| `tests/10-api-only-actions.spec.ts` | Guía 2.3, 3.3 y 4.5 · Editar reto, pago parcial y retirar actividad | TC-CHAL-05, TC-FIN-01, TC-ACT-12 |
+| `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 16 |
 
 La relación exacta caso → prueba está en [`qa/test-cases.md`](./qa/test-cases.md).
 
@@ -116,6 +117,13 @@ inscripciones, actividades) en el **año 2025**, reservado para estas pruebas y 
 datos del seed. Cada spec usa un mes distinto, así no se pisan entre sí, y cierra su reto en
 `afterAll`. El año está en el pasado a propósito: el formulario de subida no acepta fechas
 futuras.
+
+**Reinicio de datos.** Un reto cerrado es definitivo en la API (no se edita ni vuelve a
+borrador). Cuando `setupChallenge` encuentra cerrado el reto de su mes, lo borra con
+`scripts/lib/test-db.mjs` y lo crea de nuevo; las inscripciones, actividades y premiaciones se
+van con él por las cascadas del esquema. El helper escribe directo en la base con el cliente de
+Prisma del backend y **se niega a operar si `DATABASE_URL` no apunta a una base local**. La suite
+de capturas y `scripts/parallel-session-test.mjs` usan el mismo helper.
 
 **Selección de reto.** `fixtures/ui.ts` fija el reto en `localStorage` antes de navegar, en
 vez de depender del orden de los retos activos. Eso hace las pruebas deterministas aunque en
