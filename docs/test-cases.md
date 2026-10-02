@@ -103,9 +103,9 @@ recorrido de sesiones paralelas y los recorridos de UI con Playwright. Solo nece
 de datos: si la API no está arriba, el corredor la levanta. Variantes y detalle de cada
 suite: [`testing.md`](./testing.md) y [`e2e-playwright.md`](./e2e-playwright.md).
 
-**Qué casos están automatizados:** 97 de los 99 casos del catálogo se validan con pruebas
-automatizadas; los otros dos son una verificación manual registrada (TC-SEC-04) y una
-limitación conocida (TC-CHAL-12). Para correr las suites y ver el estado de cada caso:
+**Qué casos están automatizados:** 98 de los 99 casos del catálogo se validan con pruebas
+automatizadas; el otro es una verificación manual registrada (TC-SEC-04). Para correr las
+suites y ver el estado de cada caso:
 
 ```bash
 node scripts/validate-test-cases.mjs

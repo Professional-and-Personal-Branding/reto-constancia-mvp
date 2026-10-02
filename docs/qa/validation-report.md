@@ -1,52 +1,49 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-02 01:15 (UTC)
-- **Código:** rama `release/1.1.0`, commit `c946f04`
+- **Fecha:** 2026-10-02 06:42 (UTC)
+- **Código:** rama `feature/closed-challenge-results`, commit `c8122e1` (con cambios sin commit)
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs --reuse`
 
 ## Resultado
 
-**98 de 99 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 1 con limitación conocida.
+**99 de 99 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
 
-Se ejecutaron **322 pruebas** automatizadas: 322 pasaron y 0 fallaron.
+Se ejecutaron **329 pruebas** automatizadas: 329 pasaron y 0 fallaron.
 
 ## Suites ejecutadas
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 9.3 s | 2026-10-02 01:13 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 12 | 12 | 0 | 873 ms | 2026-10-02 01:13 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 16.2 s | 2026-10-02 01:14 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 29 | 29 | 0 | 36.0 s | 2026-10-02 01:14 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 15 | 15 | 0 | 26.0 s | 2026-10-02 01:15 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 1.0 s | 2026-10-02 01:15 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 20.6 s | 2026-10-02 06:37 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 12 | 12 | 0 | 482 ms | 2026-10-02 06:37 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 11.2 s | 2026-10-02 06:38 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 35 | 35 | 0 | 31.6 s | 2026-10-02 06:38 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 16 | 16 | 0 | 21.5 s | 2026-10-02 06:38 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 943 ms | 2026-10-02 06:39 |
 
 ## Casos por prioridad
 
 | Prioridad | Casos | Aprobados | Fallidos |
 |---|---:|---:|---:|
 | Alta | 62 | 62 | 0 |
-| Media | 36 | 35 | 0 |
+| Media | 36 | 36 | 0 |
 | Baja | 1 | 1 | 0 |
 
 ## Casos por tipo
 
 | Tipo | Casos |
 |---|---:|
-| Funcional | 45 |
+| Funcional | 46 |
 | Seguridad | 19 |
 | Negativo | 15 |
 | Regresión | 6 |
 | UI | 9 |
-| Observación | 1 |
 | Integración | 4 |
 
 ## Casos que requieren atención
 
-| Caso | Estado | Detalle |
-|---|---|---|
-| TC-CHAL-12 · Consultar en la web el ranking de un reto cerrado | 🟡 Limitación conocida | Observado al generar las capturas de la guía; documentado como OBS-01 en el reporte y en el paso 6.3 de la guía |
+Ninguno.
 
 ## Pruebas fallidas
 
@@ -62,12 +59,12 @@ Ninguna.
 | DEF-04 | Media | Corregido | **El panel de premiación sugería a los empatados por días.** Sugería a quienes empataban en días validados, ignorando puntaje, mínimo para calificar y número de ganadores. Ahora sugiere los ganadores que calcula el servidor con las reglas del reto. | TC-RES-06 |
 | DEF-05 | Alta | Corregido | **Cambiar de página mientras se renovaba el token cerraba la sesión.** En frontend/lib/api.ts cualquier error durante la renovación o el reintento posterior (un corte de red, una navegación que aborta la petición, un 429 o 5xx del refresh) borraba los tokens y enviaba al login. Lo detectó la nueva prueba de TC-AUTH-10 al correr la suite completa: consultas en segundo plano renovaban el token y la recarga abortaba sus reintentos. Ahora solo un rechazo del refresh token (400/401/403) cierra la sesión; se confirmó que la prueba de TC-AUTH-14 falla con el código anterior y pasa con la corrección. | TC-AUTH-14, TC-AUTH-10 |
 
-## Observaciones abiertas
+## Observaciones
 
-| ID | Observación | Casos |
-|---|---|---|
-| OBS-01 | **El ranking de un reto cerrado no se puede consultar en la web.** El selector de reto solo lista retos activos. Tras cerrar un reto, su resultado final (ganadores y premio) solo se consulta por GET /api/challenges/:id/results. Propuesta: listar los retos cerrados en el selector del ranking. | TC-CHAL-12 |
-| OBS-02 | **Funciones disponibles solo por API.** Editar las reglas de un reto, retirar una actividad pendiente y registrar un pago parcial no tienen botón en la web; la guía los documenta por API. | TC-CHAL-05, TC-ACT-12, TC-FIN-01 |
+| ID | Estado | Observación | Casos |
+|---|---|---|---|
+| OBS-01 | Resuelta | **El ranking de un reto cerrado no se podía consultar en la web.** El selector de reto solo lista retos activos, así que el resultado final de un reto cerrado solo se veía por GET /api/challenges/:id/results. Resuelta con el cambio closed-challenge-results: el Ranking ofrece los retos cerrados, con dirección para compartir y en solo lectura. | TC-CHAL-12 |
+| OBS-02 | Abierta | **Funciones disponibles solo por API.** Editar las reglas de un reto, retirar una actividad pendiente y registrar un pago parcial no tienen botón en la web; la guía los documenta por API. | TC-CHAL-05, TC-ACT-12, TC-FIN-01 |
 
 ## Pruebas sin caso asociado
 
