@@ -26,6 +26,12 @@ export default defineConfig({
   },
   projects: [
     { name: 'setup', testDir: './fixtures', testMatch: /auth\.setup\.ts/ },
-    { name: 'guide', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } }, dependencies: ['setup'] },
+    // Sistema en modo claro: la web sigue al sistema, así que las capturas salen en el tema
+    // claro y no se confunden con la guía cuando esta se ve en oscuro.
+    {
+      name: 'guide',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, colorScheme: 'light' },
+      dependencies: ['setup'],
+    },
   ],
 });
