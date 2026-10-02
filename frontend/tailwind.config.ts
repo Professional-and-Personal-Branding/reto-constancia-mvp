@@ -1,5 +1,7 @@
 import type { Config } from 'tailwindcss';
 
+const token = (name: string) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
 const config: Config = {
   content: [
     './app/**/*.{ts,tsx}',
@@ -12,25 +14,27 @@ const config: Config = {
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
       },
+      // Cada color es una variable con canales RGB (paletas en app/globals.css, una por tema).
+      // Así siguen funcionando los modificadores de opacidad como bg-ok/15.
       colors: {
         bg: {
-          DEFAULT: '#0a0a0a',
-          card: '#171717',
-          elev: '#1f1f1f',
+          DEFAULT: token('bg'),
+          card: token('bg-card'),
+          elev: token('bg-elev'),
         },
-        line: '#262626',
+        line: token('line'),
         ink: {
-          DEFAULT: '#fafafa',
-          dim: '#a3a3a3',
-          mute: '#737373',
+          DEFAULT: token('ink'),
+          dim: token('ink-dim'),
+          mute: token('ink-mute'),
         },
         accent: {
-          DEFAULT: '#ff6b35', // naranja deportivo
-          dark: '#e85a28',
+          DEFAULT: token('accent'), // naranja deportivo
+          dark: token('accent-dark'),
         },
-        ok: '#84cc16',
-        warn: '#facc15',
-        bad: '#ef4444',
+        ok: token('ok'),
+        warn: token('warn'),
+        bad: token('bad'),
       },
     },
   },
