@@ -1,17 +1,42 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { formatDay } from '@/lib/dates';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
-import type { ChallengeResults, ParticipantRanking } from '@/lib/types';
+import { useClosedChallenges } from '@/lib/use-closed-challenges';
+import type { Challenge, ChallengeResults, ParticipantRanking } from '@/lib/types';
 
+const RESULTS_PATH = '/dashboard/results';
+
+// useSearchParams necesita un límite de Suspense para que la página siga siendo estática
 export default function ResultsPage() {
+  return (
+    <Suspense fallback={<p className="text-ink-dim">Cargando ranking…</p>}>
+      <Results />
+    </Suspense>
+  );
+}
+
+function Results() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const router = useRouter();
+  const params = useSearchParams();
 
-  const { challenge } = useActiveChallenge();
+  const { challenge: active } = useActiveChallenge();
+  const { closed, isLoading: closedLoading } = useClosedChallenges();
+
+  // ?reto=<id> abre un reto cerrado sin tocar el reto activo elegido en el encabezado.
+  // Un id desconocido o que no está cerrado vuelve al ranking activo.
+  const requestedId = params.get('reto');
+  const closedChallenge = requestedId ? closed.find((c) => c.id === requestedId) : undefined;
+  const challenge: Challenge | null = closedChallenge ?? active ?? null;
+  const isClosedView = !!closedChallenge;
 
   const { data: results, isLoading } = useQuery<ChallengeResults>({
     queryKey: ['results', challenge?.id],
@@ -31,10 +56,30 @@ export default function ResultsPage() {
     },
   });
 
+  const openClosed = (id: string) => router.push(id ? `${RESULTS_PATH}?reto=${id}` : RESULTS_PATH);
+
+  if (requestedId && closedLoading) {
+    return <p className="text-ink-dim">Cargando ranking…</p>;
+  }
+
   if (!challenge) {
     return (
-      <div className="card p-8 text-center">
+      <div className="card p-8 text-center space-y-4">
         <p className="text-ink-dim">Sin reto activo</p>
+        {closed.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm text-ink-dim">Resultados de retos cerrados:</p>
+            <ul className="flex flex-wrap justify-center gap-2">
+              {closed.map((c) => (
+                <li key={c.id}>
+                  <Link href={`${RESULTS_PATH}?reto=${c.id}`} className="btn-ghost text-sm py-1.5 px-3">
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     );
   }
@@ -52,13 +97,40 @@ export default function ResultsPage() {
 
   return (
     <div className="space-y-8">
+      {closed.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <span className="text-ink-mute whitespace-nowrap">Retos cerrados</span>
+            <select
+              aria-label="Retos cerrados"
+              className="input py-1.5 text-sm max-w-[16rem]"
+              value={closedChallenge?.id ?? ''}
+              onChange={(e) => openClosed(e.target.value)}
+            >
+              <option value="">{isClosedView ? 'Reto activo' : 'Elegir un reto cerrado…'}</option>
+              {closed.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {isClosedView && active && (
+            <Link href={RESULTS_PATH} className="text-accent hover:underline">
+              Volver al reto activo
+            </Link>
+          )}
+        </div>
+      )}
+
       <div>
         <p className="text-accent text-xs uppercase tracking-[0.2em] font-semibold mb-2">
           {challenge.name}
+          {isClosedView && ` · cerrado el ${formatDay(challenge.endDate, { day: '2-digit', month: 'short', year: 'numeric' })}`}
         </p>
         <h1 className="display text-5xl leading-none">Ranking</h1>
         <p className="text-ink-dim mt-3">
-          {results.totalValidDays} días válidos en el período · top actual:{' '}
+          {results.totalValidDays} días válidos en el período · top {isClosedView ? 'final' : 'actual'}:{' '}
           <span className="text-accent font-semibold">
             {results.topScore} {scoreUnit(results.topScore)}
           </span>
@@ -121,7 +193,8 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {user?.role === 'ADMIN' && (
+      {/* Un reto cerrado se consulta en solo lectura, también para el administrador */}
+      {user?.role === 'ADMIN' && !isClosedView && (
         <AwardPanel
           results={results}
           isPending={awardMut.isPending}

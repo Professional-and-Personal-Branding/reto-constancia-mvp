@@ -260,18 +260,20 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.1.0 · 2 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.2.0 · 2 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 98 de 99 casos aprobados con 322 pruebas</span>
+      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 100 de 100 casos aprobados con 333 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>El encabezado entra completo también en el celular: el nombre del reto ya no se corta y las secciones van en una fila propia que se desplaza.</li>
+        <li>Los retos cerrados se consultan en el Ranking: ganadores y premio final, con dirección para compartir (paso 6.5).</li>
         <li>Nuevo modo claro con interruptor en el encabezado; por defecto sigue el tema de tu dispositivo (paso 1.4).</li>
         <li>Capturas de la web real en modo claro, dentro de un marco de ventana para no confundirlas con la guía; pulsa una para ampliarla.</li>
         <li>Cada referencia <b>TC-…</b> abre su caso en el catálogo validado (<code>docs/qa/test-cases.md</code>).</li>
@@ -571,8 +573,8 @@
           why: 'Al cerrar, el ranking pasa a ser definitivo.',
           actions: ['Pulsa <span class="ui">Cerrar reto</span> y confirma.'],
           expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores. No se puede volver a activar.',
-          note: 'Limitación conocida (OBS-01): la web solo lista retos activos, así que el ranking de un reto cerrado se consulta por API en <code>GET /api/challenges/:id/results</code>.',
-          refs: ['TC-CHAL-11', 'TC-CHAL-12', 'TC-PART-06']
+          note: 'Después de cerrarlo, cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
+          refs: ['TC-CHAL-11', 'TC-PART-06']
         },
         {
           id: '6.4', role: 'admin', title: 'Registrar la premiación', route: '/dashboard/results',
@@ -581,6 +583,14 @@
           expect: 'La premiación prevalece sobre el cálculo automático, el premio se reparte entre los premiados y el reto queda cerrado.',
           note: 'Solo se puede premiar a participantes del reto.',
           refs: ['TC-RES-04', 'TC-RES-05', 'TC-RES-06']
+        },
+        {
+          id: '6.5', role: 'participante', title: 'Consultar retos cerrados', route: '/dashboard/results',
+          why: 'Para ver quién ganó un reto anterior y con cuánto premio, una vez cerrado.',
+          actions: ['En Ranking, elige el reto en <span class="ui">Retos cerrados</span> (el más reciente primero).', 'Pulsa <span class="ui">Volver al reto activo</span> para regresar al ranking en curso.'],
+          expect: 'Se ve el ranking final, el bloque de ganadores y el premio final por ganador, sin la marca "proyectado". El reto elegido en el encabezado no cambia.',
+          note: 'La dirección del reto cerrado (<code>/dashboard/results?reto=…</code>) se puede compartir. Es de solo lectura para todos, también para el administrador. Si no hay ningún reto activo, el Ranking muestra directamente los retos cerrados.',
+          refs: ['TC-CHAL-12']
         }
       ]
     },
@@ -634,7 +644,7 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 99 casos del catálogo',
+          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 100 casos del catálogo',
           expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },
@@ -642,7 +652,7 @@
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '28 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '38 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
@@ -657,8 +667,8 @@
           id: '8.5', role: 'tecnico', title: 'Validar el catálogo de casos de prueba',
           why: 'Cada caso del catálogo está enlazado a las pruebas que lo demuestran; el validador dice cuáles pasan hoy.',
           cmd: 'cd backend && npx prisma migrate reset --force   # datos limpios del seed\ncd .. && node scripts/validate-test-cases.mjs\nnode scripts/validate-test-cases.mjs --only=ui        # una sola suite\nnode scripts/validate-test-cases.mjs --reuse          # regenera los documentos sin volver a correr',
-          expect: '98 de 99 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
-          note: 'El caso restante, TC-CHAL-12, es una limitación conocida: el ranking de un reto cerrado solo se consulta por API.',
+          expect: 'Los 100 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
+          note: 'Uno de los casos (TC-SEC-04, el seed en producción) es una verificación manual registrada; los demás se validan con pruebas automatizadas.',
           refs: ['qa/validation-report.md', 'qa/catalog.mjs']
         },
         {
@@ -704,6 +714,7 @@
     ['Premio por ganador proyectado y final', '6.1', 'auto'],
     ['Empates y reglas de desempate', '6.2', 'auto'],
     ['Cerrar reto', '6.3', 'auto'],
+    ['Ranking de retos cerrados, con dirección para compartir', '6.5', 'auto'],
     ['Premiación manual que prevalece', '6.4', 'auto'],
     ['Premiación con ganadores sugeridos por las reglas', '6.4', 'auto'],
     ['Plantilla de importación CSV y XLSX', '7.1', 'auto'],
@@ -723,7 +734,7 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 68], '23-tema-interruptor.jpg': [1280, 68], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
@@ -747,6 +758,7 @@
     '5.2': [['14-validar-override.jpg', 'Validar una actividad que no cumple la FC exige una nota de excepción.']],
     '5.3': [['15-rechazar.jpg', 'Rechazo con motivo obligatorio, que verá el participante.']],
     '6.1': [['16-ranking.jpg', 'Ranking con columna de puntos, el tope en puntos, quién no califica y el premio proyectado.']],
+    '6.5': [['17-ranking-cerrado.jpg', 'Reto cerrado: ganadora, premio final y la vuelta al reto activo.']],
     '6.4': [['18-premiacion.jpg', 'Panel de premiación con los ganadores sugeridos por las reglas del reto.']],
     '7.2': [['19-importar-preview.jpg', 'Vista previa: filas válidas, errores por fila y advertencias, sin guardar nada.']],
     '7.3': [['20-importar-resultado.jpg', 'Resultado de la importación: creadas, omitidas, usuarios e inscripciones nuevas.']],
@@ -784,7 +796,7 @@
   }
 
   /* Cada captura va en un marco de ventana con su dirección, para no confundirla con la guía. */
-  const SHOT_URL = { '22-swagger.jpg': 'localhost:3002/api/docs' };
+  const SHOT_URL = { '22-swagger.jpg': 'localhost:3002/api/docs', '17-ranking-cerrado.jpg': 'localhost:3005/dashboard/results?reto=…' };
   const shotUrl = (file, route) => SHOT_URL[file] || 'localhost:3005' + String(route || '/dashboard').split(' ')[0];
 
   function shotsHtml(id, route) {

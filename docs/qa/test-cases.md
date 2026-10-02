@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-02** · rama `release/1.1.0` · commit `c946f04`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-02** · rama `release/1.2.0` · commit `33b372a`. Detalle en [validation-report.md](validation-report.md).
 
-**99 casos** · 98 aprobados · 0 fallidos · 1 con limitación conocida · 97 automatizados.
+**100 casos** · 100 aprobados · 0 fallidos · 0 con limitación conocida · 99 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 4 | 4 | 0 |
-| [Gestión de retos](#chal) | 12 | 11 | 1 |
+| [Gestión de retos](#chal) | 12 | 12 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -27,7 +27,7 @@
 | [Finanzas](#fin) | 5 | 5 | 0 |
 | [Carga de archivos](#up) | 3 | 3 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
-| [Interfaz y navegación](#ui) | 9 | 9 | 0 |
+| [Interfaz y navegación](#ui) | 10 | 10 | 0 |
 | [Salud del servicio](#health) | 2 | 2 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
@@ -634,7 +634,7 @@
 | [TC-CHAL-09](#tc-chal-09) | Actividades independientes por reto | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-10](#tc-chal-10) | Selector de reto en la web | Media | UI | ✅ Aprobado |
 | [TC-CHAL-11](#tc-chal-11) | Cerrar un reto y no reactivarlo | Alta | Funcional | ✅ Aprobado |
-| [TC-CHAL-12](#tc-chal-12) | Consultar en la web el ranking de un reto cerrado | Media | Observación | 🟡 Limitación conocida |
+| [TC-CHAL-12](#tc-chal-12) | Consultar en la web el ranking de un reto cerrado | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1002,27 +1002,44 @@
 
 | Módulo | Prioridad | Tipo | Paso de la guía | Estado |
 |---|---|---|---|---|
-| Gestión de retos | Media | Observación | 6.3 | 🟡 Limitación conocida |
+| Gestión de retos | Media | Funcional | 6.5 | ✅ Aprobado |
 
 > Relacionado con OBS-01 (ver reporte de validación).
 
 **Precondiciones**
 
-- Un reto en COMPLETED.
+- Un reto en COMPLETED con una actividad validada de Ana y la premiación registrada (presupuesto 300 BOB).
+- Un reto activo elegido en el encabezado.
 
-**Datos de prueba:** Reto cerrado con premiación registrada
+**Datos de prueba:** Reto "E2E Playwright · reto cerrado" (noviembre de 2025); dirección /dashboard/results?reto=<id>; un id inexistente
 
 **Pasos**
 
-1. Abrir Ranking en la web.
-2. Buscar el reto cerrado en el selector.
+1. Abrir Ranking y elegir el reto en "Retos cerrados".
+2. Pulsar "Volver al reto activo".
+3. Abrir directamente la dirección del reto cerrado, y luego una con un id inexistente.
+4. Con la lista de retos activos vacía, abrir Ranking.
+5. Como administrador, abrir el reto cerrado.
 
 **Resultado esperado**
 
-- Comportamiento actual: el selector lista solo retos activos, así que el ranking final no es accesible desde la web.
-- Alternativa: GET /api/challenges/:id/results devuelve el resultado final con ganadores.
+- Se ve el ranking final, el bloque de ganadores con Ana y "300 BOB por ganador" sin la marca "proyectado"; el título dice "cerrado el …" y la dirección incluye ?reto=<id>.
+- Al volver se ve otra vez el reto activo, y el reto elegido en el encabezado no cambió.
+- La dirección compartida abre el reto cerrado; un id inexistente muestra el ranking activo sin error.
+- Sin retos activos, la página ofrece los retos cerrados como enlaces.
+- El administrador ve el reto cerrado en solo lectura: sin panel de premiación (que sigue en el reto activo).
 
-**Verificación manual:** Limitación conocida el 2026-10-01. Evidencia: Observado al generar las capturas de la guía; documentado como OBS-01 en el reporte y en el paso 6.3 de la guía.
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `08-closed-results.spec.ts` | un reto cerrado muestra su ranking final, los ganadores y el premio final |
+| ✅ | UI | `08-closed-results.spec.ts` | abrir un reto cerrado no cambia el reto activo del encabezado |
+| ✅ | UI | `08-closed-results.spec.ts` | la dirección de un reto cerrado se puede compartir |
+| ✅ | UI | `08-closed-results.spec.ts` | una dirección con un reto desconocido muestra el ranking activo |
+| ✅ | UI | `08-closed-results.spec.ts` | sin reto activo, el ranking ofrece los retos cerrados |
+| ✅ | UI | `08-closed-results.spec.ts` | un reto cerrado se consulta en solo lectura, sin panel de premiación |
+| ✅ | Guía | `capture.spec.ts` | ranking de un reto cerrado |
 
 <a id="part"></a>
 
@@ -2980,6 +2997,7 @@
 | [TC-UI-03](#tc-ui-03) | Panel Mi reto | Media | UI | ✅ Aprobado |
 | [TC-UI-04](#tc-ui-04) | Fechas sin desfase de zona horaria | Alta | Regresión | ✅ Aprobado |
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
+| [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -3136,6 +3154,42 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Guía | `capture.spec.ts` | Swagger documenta la API |
+
+<a id="tc-ui-10"></a>
+
+### TC-UI-10 · El encabezado entra completo en escritorio y en móvil
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | Regresión | 1.3 | ✅ Aprobado |
+
+> Relacionado con DEF-06 (ver reporte de validación).
+
+**Precondiciones**
+
+- Dos retos activos (aparece el selector de reto).
+- Sesión de administrador (siete secciones) y de participante.
+
+**Datos de prueba:** Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador
+
+**Pasos**
+
+1. Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible.
+2. Abrir /dashboard en móvil.
+
+**Resultado esperado**
+
+- En escritorio el nombre del reto se ve completo y ni la página ni el encabezado se desbordan.
+- En móvil el interruptor de tema y "Salir" quedan visibles en pantalla y la página no se desborda; las secciones pasan a una fila propia que se desplaza.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `09-header-layout.spec.ts` | en escritorio el administrador ve el nombre del reto completo y nada se desborda |
+| ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del administrador no desborda la página |
+| ✅ | UI | `09-header-layout.spec.ts` | en escritorio el participante ve el nombre del reto completo y nada se desborda |
+| ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del participante no desborda la página |
 
 <a id="tc-ui-06"></a>
 

@@ -9,11 +9,11 @@ export function ChallengeSelector() {
   if (challenges.length < 2) return null;
 
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:flex-none">
       <span className="text-ink-mute hidden md:inline">Reto</span>
       <select
         aria-label="Reto activo seleccionado"
-        className="input py-1.5 text-sm max-w-[14rem]"
+        className="input py-1.5 text-sm sm:w-auto sm:max-w-[20rem]"
         value={challenge?.id ?? ''}
         onChange={(e) => select(e.target.value)}
       >
