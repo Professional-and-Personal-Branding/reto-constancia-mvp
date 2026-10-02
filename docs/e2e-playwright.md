@@ -91,6 +91,7 @@ a `.qa-results/shots`, para no reescribir las capturas versionadas.
 | `tests/06-import.spec.ts` | 8 y 9 · Importación por archivo y Google Sheets | TC-IMP-01, 02, 03, 05, TC-ACT-16 |
 | `tests/07-theme.spec.ts` | Guía 1.4 · Modo claro y oscuro | TC-UI-06, TC-UI-07, TC-UI-08, TC-UI-09 |
 | `tests/08-closed-results.spec.ts` | Guía 6.5 · Retos cerrados en el Ranking | TC-CHAL-12 |
+| `tests/09-header-layout.spec.ts` | Guía 1.3 · Encabezado en escritorio y móvil | TC-UI-10 |
 | `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 13 |
 
 La relación exacta caso → prueba está en [`qa/test-cases.md`](./qa/test-cases.md).

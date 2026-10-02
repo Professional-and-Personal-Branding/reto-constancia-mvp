@@ -111,8 +111,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 34 recorridos (incluidos el modo claro/oscuro y los retos cerrados) y 15 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 99 casos de `docs/qa/` están enlazados a 329 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 38 recorridos (incluidos el modo claro/oscuro, los retos cerrados y el encabezado en escritorio y móvil) y 15 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 100 casos de `docs/qa/` están enlazados a 333 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -124,6 +124,13 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-02 · rama `fix/admin-header-overflow` (encabezado en escritorio y móvil)
+
+Base reiniciada con `npx prisma migrate reset --force`. **Batería:** 11 de 11 pasos en verde.
+**Catálogo:** 100 de 100 casos aprobados con 333 pruebas y 0 fallidas (recorridos de UI 38 más
+la preparación). El caso nuevo TC-UI-10 protege el defecto DEF-06: su prueba falla con el
+encabezado anterior (nombre del reto cortado y controles fuera de pantalla en móvil).
 
 ### 2026-10-02 · rama `feature/closed-challenge-results` (retos cerrados en el Ranking)
 

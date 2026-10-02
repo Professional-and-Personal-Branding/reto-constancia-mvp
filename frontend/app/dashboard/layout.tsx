@@ -44,38 +44,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-line bg-bg sticky top-0 z-10 backdrop-blur">
-        <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-accent rounded-sm flex items-center justify-center text-black font-display text-xl leading-none pt-1">
-                R
-              </div>
-              <span className="display text-xl tracking-wider hidden sm:inline">
-                Reto
-              </span>
-            </Link>
-            <nav className="flex items-center gap-1 overflow-x-auto">
-              {navItems.map((item) => {
-                const active = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition',
-                      active
-                        ? 'bg-accent/15 text-accent'
-                        : 'text-ink-dim hover:text-ink hover:bg-bg-elev',
-                      item.admin && 'border border-accent/30',
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
+        {/*
+          Marca y controles arriba; las secciones van debajo, a todo el ancho, y se desplazan si no
+          caben. En escritorio el participante (tres secciones) las tiene en la misma fila.
+        */}
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-8">
+          <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
+            <div className="w-8 h-8 bg-accent rounded-sm flex items-center justify-center text-black font-display text-xl leading-none pt-1">
+              R
+            </div>
+            <span className="display text-xl tracking-wider hidden sm:inline">
+              Reto
+            </span>
+          </Link>
+          <nav
+            aria-label="Secciones"
+            className={cn(
+              'order-last w-full flex items-center gap-1 overflow-x-auto',
+              !isAdmin && 'lg:order-none lg:w-auto lg:flex-1',
+            )}
+          >
+            {navItems.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition',
+                    active
+                      ? 'bg-accent/15 text-accent'
+                      : 'text-ink-dim hover:text-ink hover:bg-bg-elev',
+                    item.admin && 'border border-accent/30',
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
             <ChallengeSelector />
             <ThemeSwitch />
             <div className="text-right hidden sm:block">
