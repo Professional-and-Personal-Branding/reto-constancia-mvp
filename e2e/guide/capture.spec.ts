@@ -236,7 +236,67 @@ test.describe('Participante', () => {
     await expect(page.locator('main')).toContainText('top actual: 96 puntos');
     await shot(page, '16-ranking.jpg');
   });
+
+  test('ranking de un reto cerrado', async ({ page }) => {
+    const closedId = await closedDemoChallenge();
+    await page.goto('/dashboard/results');
+    await page.getByLabel('Retos cerrados').selectOption(closedId);
+    await expect(page).toHaveURL(new RegExp(`\\?reto=${closedId}`));
+    await expect(page.locator('main')).toContainText(`${CLOSED_NAME} · cerrado el`);
+    await expect(page.locator('.card').filter({ hasText: /Ganador/ })).toContainText('Carla Disciplina');
+    await expect(page.getByLabel('Premio por ganador')).not.toContainText('proyectado');
+    await shot(page, '17-ranking-cerrado.jpg');
+  });
 });
+
+const CLOSED_NAME = 'Reto Agosto 2026';
+
+/**
+ * Reto cerrado de demostración: agosto de 2026, con historial validado y la premiación
+ * registrada (que cierra el reto). Si ya existe cerrado se reutiliza tal cual.
+ */
+async function closedDemoChallenge(): Promise<string> {
+  const { admin } = tokens();
+  const list = await api<{ id: string; month: number; year: number; status: string }[]>('GET', '/challenges', { token: admin });
+  const existing = list.body.find((c) => c.month === 8 && c.year === YEAR);
+  if (existing?.status === 'COMPLETED') return existing.id;
+
+  let id = existing?.id;
+  if (!id) {
+    const created = await api<{ id: string }>('POST', '/challenges', {
+      token: admin,
+      body: {
+        name: CLOSED_NAME, month: 8, year: YEAR,
+        startDate: `${YEAR}-08-01T00:00:00.000Z`, endDate: `${YEAR}-08-31T23:59:59.000Z`,
+        validDays: [1, 2, 3, 4, 5, 6], minHeartRateMinutes: 20, feePerParticipant: 150, budgetTotal: 600,
+        currency: 'BOB', prizeDescription: 'Zapatillas de running para quien gane',
+      },
+    });
+    if (created.status !== 201) throw new Error(`No se pudo crear el reto cerrado: ${JSON.stringify(created.body)}`);
+    id = created.body.id;
+  }
+  await api('POST', `/challenges/${id}/activate`, { token: admin });
+
+  // Agosto de 2026: el 3 es lunes. Carla valida seis días, Ana cinco y Bruno cuatro.
+  const days = ['03', '04', '05', '06', '07', '08'];
+  const rows = [
+    ...days.map((d) => ['carla', d, 6]),
+    ...days.slice(0, 5).map((d) => ['ana', d, 7]),
+    ...days.slice(0, 4).map((d) => ['bruno', d, 8]),
+  ].map(([who, d, km]) =>
+    [`${who}@reto.local`, NAMES[who as string], 8, YEAR, `${YEAR}-08-${d}`, 'RUNNING', 40, km, 145, 30, true, 'VALIDATED', '', photo(`${who}-08-${d}`)].join(','),
+  );
+  await importRows(rows);
+
+  const participants = await api<{ userId: string; user: { email: string } }[]>('GET', `/challenges/${id}/participants`, { token: admin });
+  const carla = participants.body.find((p) => p.user.email === 'carla@reto.local');
+  if (!carla) throw new Error('Carla no quedó inscrita en el reto cerrado');
+  await api('POST', `/challenges/${id}/awards`, {
+    token: admin,
+    body: { userIds: [carla.userId], notes: 'Zapatillas entregadas en la reunión de septiembre' },
+  });
+  return id;
+}
 
 test.describe('Administrador', () => {
   test.use({ storageState: STATE.admin });
