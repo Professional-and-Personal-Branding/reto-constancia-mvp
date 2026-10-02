@@ -3,7 +3,10 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.1.0] — 2026-10-02
+
+Modo claro, sesiones estables ante picos de tráfico y un catálogo de casos de prueba validado
+contra las suites reales. Sin cambios de base de datos ni de API: actualizar es desplegar.
 
 ### Añadido
 
@@ -25,6 +28,13 @@ Versionado [SemVer](https://semver.org/lang/es/).
   transitorio y un corte de red durante la renovación.
 - Variables `TRUST_PROXY`, `THROTTLE_LIMIT` y `THROTTLE_TTL_MS` para el limitador de peticiones.
 
+### Cambiado
+
+- **En producción la API confía por defecto en un proxy delante** (`TRUST_PROXY=1`), que es lo
+  que ocurre en Seenode y Render. Si el servicio recibe tráfico directo, sin proxy, define
+  `TRUST_PROXY=false`.
+- La documentación de Swagger (`/api/docs`) informa la versión real de la API.
+
 ### Corregido
 
 - La importación CSV dañaba acentos y eñes ("OlvidÃ© el reloj"): los CSV se leen como UTF-8,
@@ -37,6 +47,9 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - El ranking mostraba el tope en días aunque el reto puntuara en puntos.
 - El panel de premiación sugería a los empatados por días validados en vez de los ganadores
   que dan las reglas del reto.
+- La cuenta regresiva de "Mi reto" marcaba "Finalizado" la noche anterior al último día en
+  zonas al oeste de UTC; ahora llega a cero al terminar ese día, que sigue admitiendo
+  actividades.
 
 ## [1.0.0] — 2026-09-09
 
