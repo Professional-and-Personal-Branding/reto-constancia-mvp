@@ -52,8 +52,8 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
-      # Falla solo ante alertas críticas; las altas/moderadas se revisan en docs/security-owasp.md
-      - run: npm audit --omit=dev --audit-level=critical
+      # Sin avisos abiertos: cualquier alerta moderada o mayor hace fallar el PR (ver docs/security-owasp.md)
+      - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run test:e2e
 
   frontend:
@@ -76,7 +76,7 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
-      - run: npm audit --omit=dev --audit-level=critical
+      - run: npm audit --omit=dev --audit-level=moderate
 
   e2e-ui:
     name: E2E de UI (Playwright)

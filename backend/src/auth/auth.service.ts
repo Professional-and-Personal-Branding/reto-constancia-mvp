@@ -10,6 +10,7 @@ import { User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
+import { jwtExpiresIn } from './jwt-expiry';
 import { LoginDto } from './dto/login.dto';
 
 export interface JwtPayload {
@@ -81,7 +82,7 @@ export class AuthService {
     const accessToken = this.jwt.sign(payload);
     const refreshToken = this.jwt.sign(payload, {
       secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
+      expiresIn: jwtExpiresIn(this.config.get<string>('JWT_REFRESH_EXPIRES_IN'), '7d', 'JWT_REFRESH_EXPIRES_IN'),
     });
     return { accessToken, refreshToken };
   }

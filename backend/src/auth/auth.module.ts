@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { jwtExpiresIn } from './jwt-expiry';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -16,7 +17,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: (cfg: ConfigService) => ({
         secret: cfg.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: cfg.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+          expiresIn: jwtExpiresIn(cfg.get<string>('JWT_ACCESS_EXPIRES_IN'), '15m', 'JWT_ACCESS_EXPIRES_IN'),
         },
       }),
     }),
