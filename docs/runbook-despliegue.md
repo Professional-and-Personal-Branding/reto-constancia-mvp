@@ -6,14 +6,14 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.2.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.3.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
 | **Quién** | Responsable del despliegue (ejecuta) y administrador del reto (verifica la app) |
 
-> Las versiones que incluyen NestJS 11 (PR #30) instalan `xlsx` desde `cdn.sheetjs.com` y
-> validan `JWT_*_EXPIRES_IN` al arrancar. Ambos puntos están cubiertos en los pasos de abajo.
+> Desde la 1.3.0 (NestJS 11) el build instala `xlsx` desde `cdn.sheetjs.com` y la API
+> valida `JWT_*_EXPIRES_IN` al arrancar. Ambos puntos están cubiertos en los pasos de abajo.
 
 ---
 
@@ -183,7 +183,7 @@ actividad, validar) y no se corrige en minutos.
 3. Repite la prueba de humo sobre la versión anterior.
 4. Avisa al administrador del reto y registra el incidente (§8).
 
-Las versiones 1.0.0 → 1.2.0 no tienen migraciones nuevas entre sí, así que revertir entre
+Las versiones 1.0.0 → 1.3.0 no tienen migraciones nuevas entre sí, así que revertir entre
 ellas es solo volver a desplegar el código.
 
 ---

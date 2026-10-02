@@ -125,6 +125,20 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-02 · v1.3.0 (rama `release/1.3.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.**
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **102 de 102 casos aprobados** con 353
+pruebas ejecutadas y 0 fallidas: unitarias del backend 128, unitarias de la web 12, e2e de API
+85, recorridos de UI 43 (más la preparación), capturas de la guía 18 (más la preparación) y
+sesiones paralelas 65.
+
+**Dependencias:** `npm audit` sin avisos en backend, frontend y e2e.
+
 ### 2026-10-02 · rama `feature/web-api-only-actions` (acciones en la web y reto cerrado definitivo)
 
 Base reiniciada con `npx prisma migrate reset --force`. **Batería:** 11 de 11 pasos en verde.
