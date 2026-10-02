@@ -27,6 +27,10 @@
     --role-tech-soft: #e4e5e8;
     --code-bg: #efeeea;
     --shadow: 0 1px 0 rgba(20, 20, 19, .04);
+    /* Marco de ventana de las capturas: más oscuro que la guía en claro, más claro en oscuro */
+    --frame-bar: #d8d5cc;
+    --frame-line: #bdb8ac;
+    --frame-url: #f6f5f1;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -53,6 +57,9 @@
       --role-tech-soft: #24262a;
       --code-bg: #1b1b1b;
       --shadow: none;
+      --frame-bar: #2e2e2e;
+      --frame-line: #474747;
+      --frame-url: #1c1c1c;
     }
   }
   :root[data-theme="dark"] {
@@ -79,6 +86,9 @@
     --role-tech-soft: #24262a;
     --code-bg: #1b1b1b;
     --shadow: none;
+    --frame-bar: #2e2e2e;
+    --frame-line: #474747;
+    --frame-url: #1c1c1c;
   }
 
   * { box-sizing: border-box; }
@@ -192,10 +202,17 @@
   .news ul { margin: 10px 0 2px; padding-left: 1.2em; display: grid; gap: 5px; font-size: 13.5px; color: var(--dim); }
   .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
   .shots figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
-  .shots button { padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--raise); cursor: zoom-in; display: block; width: 100%; }
+  .window { border: 1px solid var(--frame-line); border-radius: 9px; overflow: hidden; background: var(--frame-bar); box-shadow: 0 6px 18px rgba(0, 0, 0, .12); }
+  .window-bar { display: flex; align-items: center; gap: 5px; padding: 6px 9px; border-bottom: 1px solid var(--frame-line); }
+  .window-bar i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .window-bar i:nth-child(1) { background: #ff5f57; }
+  .window-bar i:nth-child(2) { background: #febc2e; }
+  .window-bar i:nth-child(3) { background: #28c840; }
+  .window-bar span { margin-left: 6px; flex: 1; min-width: 0; background: var(--frame-url); color: var(--mute); border-radius: 5px; padding: 2px 8px; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shots button { padding: 0; border: 0; border-radius: 0; overflow: hidden; background: var(--frame-url); cursor: zoom-in; display: block; width: 100%; }
   .shots img { display: block; width: 100%; max-width: 100%; height: 190px; object-fit: cover; object-position: top left; }
   .shots.single { grid-template-columns: 1fr; }
-  .shots.single img { height: auto; max-height: 420px; object-fit: contain; object-position: top center; }
+  .shots.single img { height: auto; }
   .shots figcaption { font-size: 12.5px; color: var(--mute); }
   dialog.viewer { border: 0; padding: 0; background: transparent; max-width: min(1280px, 96vw); max-height: 94vh; }
   dialog.viewer::backdrop { background: rgba(10, 12, 16, .82); }
@@ -243,19 +260,20 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.0.0 · actualizado el 1 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.0.0 · actualizado el 2 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 1 oct 2026: batería 10 de 10 · 94 de 95 casos aprobados con 303 pruebas</span>
-      <span><b>Capturas</b> generadas por Playwright sobre la web real con datos de demostración</span>
+      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 98 de 99 casos aprobados con 322 pruebas</span>
+      <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
-        <li>Capturas de la web real en 20 pasos; pulsa una para ampliarla.</li>
+        <li>Nuevo modo claro con interruptor en el encabezado; por defecto sigue el tema de tu dispositivo (paso 1.4).</li>
+        <li>Capturas de la web real en modo claro, dentro de un marco de ventana para no confundirlas con la guía; pulsa una para ampliarla.</li>
         <li>Cada referencia <b>TC-…</b> abre su caso en el catálogo validado (<code>docs/qa/test-cases.md</code>).</li>
         <li>La sesión ya no se cierra por un pico de tráfico, un corte de red o un cambio de página mientras se renueva (paso 1.2).</li>
         <li>La cuenta regresiva llega a cero al terminar el último día del reto, en tu hora local (paso 4.1).</li>
@@ -360,6 +378,14 @@
           actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.'],
           expect: 'Un participante que intenta una acción de administración por la API recibe 403.',
           refs: ['TC-UI-01', 'TC-UI-02', 'TC-AUTH-07', 'TC-SEC-01']
+        },
+        {
+          id: '1.4', role: 'participante', title: 'Elegir modo claro u oscuro', route: '/dashboard',
+          why: 'Para leer cómodo con mucha luz o de noche. Sirve en todas las pantallas, también en el login.',
+          actions: ['Usa el interruptor del encabezado, junto a tu nombre: encendido es modo claro, apagado es oscuro.', 'También funciona con el teclado: llega con Tab y pulsa Espacio o Enter.'],
+          expect: 'El tema cambia al instante en la página donde estás y este navegador lo recuerda en las próximas visitas, sin parpadeos.',
+          note: 'Mientras no lo toques, la web sigue el modo claro u oscuro de tu dispositivo. Cada navegador guarda su propia elección.',
+          refs: ['TC-UI-06', 'TC-UI-07', 'TC-UI-08', 'TC-UI-09']
         }
       ]
     },
@@ -608,15 +634,15 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 10 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 95 casos del catálogo',
-          expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
+          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 99 casos del catálogo',
+          expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },
         {
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '22 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '28 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
@@ -631,7 +657,7 @@
           id: '8.5', role: 'tecnico', title: 'Validar el catálogo de casos de prueba',
           why: 'Cada caso del catálogo está enlazado a las pruebas que lo demuestran; el validador dice cuáles pasan hoy.',
           cmd: 'cd backend && npx prisma migrate reset --force   # datos limpios del seed\ncd .. && node scripts/validate-test-cases.mjs\nnode scripts/validate-test-cases.mjs --only=ui        # una sola suite\nnode scripts/validate-test-cases.mjs --reuse          # regenera los documentos sin volver a correr',
-          expect: '94 de 95 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
+          expect: '98 de 99 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
           note: 'El caso restante, TC-CHAL-12, es una limitación conocida: el ranking de un reto cerrado solo se consulta por API.',
           refs: ['qa/validation-report.md', 'qa/catalog.mjs']
         },
@@ -639,7 +665,7 @@
           id: '8.6', role: 'tecnico', title: 'Regenerar las capturas y publicar el manual',
           why: 'Cuando cambia una pantalla, las capturas de este manual se rehacen solas sobre la web real.',
           cmd: 'cd e2e && npx playwright test -c playwright.guide.config.ts\ncd .. && node scripts/build-guide-artifact.mjs',
-          expect: 'Las 21 capturas se rehacen en <code>docs/guia-capturas/</code> y <code>docs/guia-plataforma.standalone.html</code> queda listo para publicar como un solo archivo.',
+          expect: 'Las 22 capturas se rehacen en modo claro en <code>docs/guia-capturas/</code> y <code>docs/guia-plataforma.standalone.html</code> queda listo para publicar como un solo archivo.',
           note: 'La suite de capturas arma su propio reto de demostración (octubre de 2026) y también comprueba lo que muestra cada pantalla.',
           refs: ['e2e-playwright.md']
         }
@@ -653,6 +679,7 @@
     ['Inicio de sesión, renovación automática y límite de intentos', '1.2', 'auto'],
     ['Sesión que resiste picos de tráfico y cortes de red', '1.2', 'auto'],
     ['Control de acceso por rol', '1.3', 'auto'],
+    ['Modo claro y oscuro con interruptor recordado', '1.4', 'auto'],
     ['Crear reto con período, días válidos, cuota, presupuesto y premio', '2.1', 'auto'],
     ['Reglas de puntaje configurables', '2.1', 'auto'],
     ['Activar reto (transición explícita, sin reactivar cerrados)', '2.2', 'auto'],
@@ -696,13 +723,14 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 68], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 68], '23-tema-interruptor.jpg': [1280, 68], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
     '0.3': [['22-swagger.jpg', 'Swagger en /api/docs con los endpoints agrupados por módulo.']],
     '1.1': [['02-registro-error.jpg', 'La política de contraseña se explica en el mismo formulario.']],
     '1.2': [['01-login.jpg', 'Pantalla de inicio de sesión.']],
+    '1.4': [['23-tema-interruptor.jpg', 'El interruptor junto al nombre: encendido, la web está en modo claro.']],
     '1.3': [['04-menu-admin.jpg', 'El administrador ve además Retos, Participantes, Validaciones e Importar.']],
     '2.1': [['06-reto-formulario.jpg', 'Formulario de nuevo reto con período, días válidos, cuota, premio y reglas de puntaje.']],
     '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],
@@ -755,12 +783,17 @@
       '</span></div>').join('') + '</div>';
   }
 
-  function shotsHtml(id) {
+  /* Cada captura va en un marco de ventana con su dirección, para no confundirla con la guía. */
+  const SHOT_URL = { '22-swagger.jpg': 'localhost:3002/api/docs' };
+  const shotUrl = (file, route) => SHOT_URL[file] || 'localhost:3005' + String(route || '/dashboard').split(' ')[0];
+
+  function shotsHtml(id, route) {
     const list = SHOTS[id];
     if (!list) return '';
     return '<div class="shots' + (list.length === 1 ? ' single' : '') + '">' + list.map(([file, cap]) =>
-      '<figure><button type="button" class="shot" data-src="' + shotSrc(file) + '" data-cap="' + esc(cap) + '" aria-label="Ampliar captura: ' + esc(cap) + '">' +
-      '<img src="' + shotSrc(file) + '" width="' + shotSize(file)[0] + '" height="' + shotSize(file)[1] + '" alt="' + esc(cap) + '"></button><figcaption>' + esc(cap) + '</figcaption></figure>').join('') + '</div>';
+      '<figure><div class="window"><div class="window-bar" aria-hidden="true"><i></i><i></i><i></i><span>' + esc(shotUrl(file, route)) + '</span></div>' +
+      '<button type="button" class="shot" data-src="' + shotSrc(file) + '" data-cap="' + esc(cap) + '" aria-label="Ampliar captura: ' + esc(cap) + '">' +
+      '<img src="' + shotSrc(file) + '" width="' + shotSize(file)[0] + '" height="' + shotSize(file)[1] + '" alt="' + esc(cap) + '"></button></div><figcaption>' + esc(cap) + '</figcaption></figure>').join('') + '</div>';
   }
 
   /* Las referencias abren el caso o el documento en el repositorio (rama develop). */
@@ -789,7 +822,7 @@
       (s.creds ? credsHtml() : '') +
       (s.expect ? '<div class="expect"><b>Resultado</b><span>' + s.expect + '</span></div>' : '') +
       (s.note ? '<p class="note">' + s.note + '</p>' : '') +
-      shotsHtml(s.id) +
+      shotsHtml(s.id, s.route) +
       (s.refs ? '<div class="refs">' + s.refs.map(refHtml).join('') + '</div>' : '') +
     '</article>';
   }

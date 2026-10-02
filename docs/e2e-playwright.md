@@ -73,7 +73,9 @@ npx playwright test -c playwright.guide.config.ts      # regenera docs/guia-capt
 node ../scripts/build-guide-artifact.mjs               # guía autocontenida con las capturas embebidas
 ```
 
-Corre aparte de `npm test` (su propia configuración, viewport de 1280 × 800). El validador
+Corre aparte de `npm test` (su propia configuración, viewport de 1280 × 800) y emula un sistema en
+modo claro: como la web sigue al sistema, las capturas salen en el tema claro y se distinguen
+de la guía cuando esta se ve en oscuro. El validador
 de casos (`node scripts/validate-test-cases.mjs`) la ejecuta con `GUIDE_SHOTS_DIR` apuntando
 a `.qa-results/shots`, para no reescribir las capturas versionadas.
 
@@ -87,7 +89,8 @@ a `.qa-results/shots`, para no reescribir las capturas versionadas.
 | `tests/04-finance.spec.ts` | 5 · Pagos y resumen financiero | TC-PART-04, TC-FIN-01, 02, 04, 05 |
 | `tests/05-challenges-scoring.spec.ts` | 6 y 7 · Varios retos activos y reglas de puntaje | TC-CHAL-08, TC-CHAL-10, TC-SCORE-05 |
 | `tests/06-import.spec.ts` | 8 y 9 · Importación por archivo y Google Sheets | TC-IMP-01, 02, 03, 05, TC-ACT-16 |
-| `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 11 |
+| `tests/07-theme.spec.ts` | Guía 1.4 · Modo claro y oscuro | TC-UI-06, TC-UI-07, TC-UI-08, TC-UI-09 |
+| `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 12 |
 
 La relación exacta caso → prueba está en [`qa/test-cases.md`](./qa/test-cases.md).
 

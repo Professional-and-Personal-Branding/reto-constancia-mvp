@@ -255,6 +255,15 @@ test.describe('Administrador', () => {
     await shot(page, '06-reto-formulario.jpg', form);
   });
 
+  test('interruptor de tema en el encabezado', async ({ page }) => {
+    await pick(page, '/dashboard');
+    const toggle = page.getByRole('switch', { name: 'Modo claro' });
+    // El sistema está en claro y nadie eligió otro tema: el interruptor aparece encendido
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+    await shot(page, '23-tema-interruptor.jpg', page.locator('header'));
+  });
+
   test('selector de reto con varios retos activos', async ({ page }) => {
     await pick(page, '/dashboard');
     const header = page.locator('header');
