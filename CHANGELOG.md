@@ -13,6 +13,13 @@ Versionado [SemVer](https://semver.org/lang/es/).
   del encabezado no cambia y, sin retos activos, la página ofrece los cerrados. Resuelve la
   observación OBS-01 del catálogo de casos.
 
+### Corregido
+
+- El encabezado no entraba: con las siete secciones del administrador el selector cortaba el
+  nombre del reto, y en el celular el selector, el interruptor de tema y "Salir" quedaban fuera
+  de la pantalla. Ahora la marca y los controles van arriba y las secciones en una fila propia
+  que se desplaza.
+
 ## [1.1.0] — 2026-10-02
 
 Modo claro, sesiones estables ante picos de tráfico y un catálogo de casos de prueba validado
