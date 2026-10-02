@@ -7,13 +7,18 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Añadido
 
-- **Catálogo de casos de prueba validado** (`docs/qa/`): 95 casos con precondiciones, datos,
+- **Modo claro** (spec `web-theme`). La web tiene tema claro y oscuro en todas las pantallas.
+  Por defecto sigue el tema del dispositivo; un interruptor en el encabezado lo cambia y
+  cada navegador recuerda la elección, aplicada antes de pintar para que no haya parpadeos.
+  El contraste de ambas paletas se mide en `npm test` (frontend).
+- **Catálogo de casos de prueba validado** (`docs/qa/`): 99 casos con precondiciones, datos,
   pasos, resultado esperado y las pruebas exactas que validan cada uno.
   `node scripts/validate-test-cases.mjs` corre las suites, cruza cada caso con sus pruebas y
   regenera el catálogo (Markdown y CSV) y el reporte de validación; falla si un caso falla o
   si un enlace no encuentra su prueba.
-- **Capturas en la guía interactiva**: 21 pantallas de la web real, generadas por
-  `e2e/guide/capture.spec.ts` sobre un reto de demostración, con visor ampliado.
+- **Capturas en la guía interactiva**: 22 pantallas de la web real en modo claro, generadas por
+  `e2e/guide/capture.spec.ts` sobre un reto de demostración, dentro de un marco de ventana de
+  navegador y con visor ampliado.
   `scripts/build-guide-artifact.mjs` arma una versión autocontenida para publicar.
 - **Pruebas nuevas**: `backend/test/platform-rules.e2e-spec.ts` (30 reglas de la API que solo
   estaban descritas a mano) y recorridos de Playwright para la renovación de tokens, un 429
