@@ -3,7 +3,10 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.2.0] — 2026-10-02
+
+Los resultados de los retos cerrados se consultan en la web y el encabezado funciona en el
+celular. Sin cambios de base de datos, de API ni de variables: actualizar es desplegar.
 
 ### Añadido
 
