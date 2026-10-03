@@ -3,7 +3,11 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.3.0] — 2026-10-02
+
+Backend sin avisos de seguridad (NestJS 11), tres acciones que solo existían por API ahora en
+la web, y retos cerrados definitivos. Sin migraciones. **Antes de desplegar:** el build necesita
+acceso a `cdn.sheetjs.com` y `JWT_*_EXPIRES_IN` deben ser duraciones válidas (ver el runbook).
 
 ### Añadido
 
