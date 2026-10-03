@@ -184,7 +184,10 @@ actividad, validar) y no se corrige en minutos.
 4. Avisa al administrador del reto y registra el incidente (§8).
 
 Las versiones 1.0.0 → 1.3.0 no tienen migraciones nuevas entre sí, así que revertir entre
-ellas es solo volver a desplegar el código.
+ellas es solo volver a desplegar el código. **La versión siguiente a la 1.3.0 trae una migración**
+(presupuesto automático: `budgetTotal` pasa a ser opcional): toma el respaldo de §5.1 antes de
+desplegarla. Para volver a la 1.3.0 hay que restaurar ese respaldo, porque la 1.3.0 no entiende
+un presupuesto vacío.
 
 ---
 
@@ -224,6 +227,7 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | Muchos usuarios reciben 429 a la vez | La API no ve la IP real: todos comparten el cupo | `TRUST_PROXY=1` (por defecto en producción); si hay dos proxies, `2` |
 | "Subir actividad" deshabilitado | Faltan variables `CLOUDINARY_*` | Cargarlas y redeploy |
 | Editar un reto responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: su resultado es definitivo | Esperado desde 1.3: no se edita ni se reabre; la premiación sí se puede registrar |
+| Registrar un pago responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: no acepta pagos ni comprobantes | Esperado: el pago tardío se registra en el reto siguiente |
 | Login responde 429 | 5 intentos por minuto por IP (protección anti fuerza bruta) | Esperar un minuto |
 | La sesión se cierra sola | Refresh token rechazado (secretos JWT rotados) | Esperado tras rotar secretos: volver a iniciar sesión |
 | Importar desde Google Sheets dice "no configurado" | Faltan `GOOGLE_*` | Opcional: ver `docs/import-template.md` |

@@ -5,6 +5,21 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **El premio se reparte con lo recaudado** (spec `challenge-finance`, cambio `pot-from-collected`):
+  el pote de los resultados es la suma de los pagos confirmados, no el presupuesto. El premio es
+  monetario cuando el reto cobra cuota; un reto con cuota y sin pagos muestra "aún no hay pagos
+  registrados". Quien no pagó puede ganar igual.
+- **Presupuesto automático:** por defecto es cuota × inscritos y se recalcula al inscribir o quitar
+  personas o cambiar la cuota; el admin puede fijar otro monto y volver a automático. El resumen
+  financiero informa `budgetMode` (`auto` o `manual`).
+- **Un reto cerrado no acepta pagos ni comprobantes** (400): el pago tardío se registra en el reto
+  siguiente, y el premio de un reto cerrado queda fijo.
+- **Migración de base de datos** (la primera desde la 1.0.0): `Challenge.budgetTotal` pasa a ser
+  opcional. Los presupuestos en 0 o iguales a cuota × inscritos se vuelven automáticos; el resto se
+  conserva como monto fijado. Tomar respaldo antes de desplegar (ver el runbook).
+
 ### Corregido
 
 - El panel de premiación no actualizaba los ganadores sugeridos si cambiaban sin que cambiara
