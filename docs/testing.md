@@ -125,6 +125,25 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-03 · v1.4.0 (rama `release/1.4.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.**
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **104 de 104 casos aprobados** con 368
+pruebas ejecutadas y 0 fallidas.
+
+**Migración (ruta de actualización):** sobre una base creada con el esquema y el seed de la 1.3.0,
+`prisma migrate deploy` de la 1.4.0 aplicó `challenge_budget_automatic`: el reto de mayo (600 =
+5 × 120) pasó a automático, un reto con 900 fijado se conservó y uno con 0 pasó a automático.
+
+**Dependencias:** producción sin avisos en backend, frontend y e2e. En las dependencias de
+desarrollo apareció el 3 oct un advisory alto de `braces` ≤ 3.0.3 (llega por `micromatch` a Jest,
+ESLint y Tailwind) sin versión corregida publicada; no afecta al servidor y queda para un cambio
+aparte.
+
 ### 2026-10-03 · rama `feature/pot-from-collected` (pote recaudado y presupuesto automático)
 
 Base reiniciada con `npx prisma migrate reset --force` (incluye la migración nueva del

@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.3.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.4.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -184,9 +184,9 @@ actividad, validar) y no se corrige en minutos.
 4. Avisa al administrador del reto y registra el incidente (§8).
 
 Las versiones 1.0.0 → 1.3.0 no tienen migraciones nuevas entre sí, así que revertir entre
-ellas es solo volver a desplegar el código. **La versión siguiente a la 1.3.0 trae una migración**
-(presupuesto automático: `budgetTotal` pasa a ser opcional): toma el respaldo de §5.1 antes de
-desplegarla. Para volver a la 1.3.0 hay que restaurar ese respaldo, porque la 1.3.0 no entiende
+ellas es solo volver a desplegar el código. **La 1.4.0 trae una migración** (presupuesto
+automático: `budgetTotal` pasa a ser opcional): toma el respaldo de §5.1 antes de desplegarla.
+Para volver de la 1.4.0 a la 1.3.0 hay que restaurar ese respaldo, porque la 1.3.0 no entiende
 un presupuesto vacío.
 
 ---
