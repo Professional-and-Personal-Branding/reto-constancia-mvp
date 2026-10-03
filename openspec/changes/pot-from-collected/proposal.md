@@ -1,28 +1,37 @@
 ## Why
 
 The prize pot is the challenge's `budgetTotal`, a number the admin types when creating the
-challenge, whether or not that money was ever collected. The business decided that the pot is
-what participants actually paid: the prize cannot promise money nobody put in. (The other open
-business question, whether someone who did not pay can win, was decided as "yes, as today":
-payments still do not affect the ranking or the winners.)
+challenge, whether or not that money was ever collected, and unrelated to how many people
+enrolled. The business decided:
+
+1. **The pot is what participants actually paid.** The prize cannot promise money nobody put in.
+2. **The budget follows the participants' fees.** By default it is the fee times the enrolled
+   participants and it updates as people enroll or leave or the fee changes. The admin can set a
+   different amount (for example, an extra contribution) and go back to automatic later.
+3. **A closed challenge takes no more payments.** A late payment belongs to the next challenge.
+4. **Someone who did not pay can still win** (no change): payments do not affect the ranking or
+   the winners.
 
 ## What Changes
 
-- **BREAKING (results):** `payout.pot` becomes the challenge's collected total, the sum of the
-  `amountPaid` recorded for its participants, instead of `budgetTotal`. `perWinner` and the split
-  between winners keep their current rules (manual awards first, rounded down to two decimals).
+- **BREAKING (results):** `payout.pot` becomes the challenge's collected total (the sum of the
+  `amountPaid` recorded for its participants) instead of `budgetTotal`. The split between winners
+  keeps its rules (manual awards first, rounded down to two decimals).
 - `payout.monetary` becomes "the challenge charges a fee" (`feePerParticipant > 0`), so a paid
-  challenge with no payments recorded yet shows a pot of 0 instead of "premio no monetario". A
-  free challenge stays non-monetary.
-- `budgetTotal` stays as the admin's **target**: the finance summary keeps comparing collected
-  against it (budget coverage); it no longer defines the prize.
-- The ranking keeps labelling the prize "proyectado" while the challenge is active, since the pot
-  grows as payments are recorded.
+  challenge with nothing collected yet shows a pot of 0, not "premio no monetario".
+- **Budget, automatic by default:** a challenge's budget is `feePerParticipant × enrolled
+  participants` unless the admin sets a manual amount. Creating a challenge without a budget, or
+  setting it back to automatic, uses the computed value. The finance summary reports the
+  effective budget and whether it is automatic or manual; coverage compares collected against it.
+- **BREAKING (data, migration):** `budgetTotal` becomes optional; empty means automatic. Existing
+  challenges whose budget is 0 or equals fee × participants become automatic; any other value is
+  kept as a manual budget.
 - **Payments close with the challenge:** once a challenge is `COMPLETED`, recording or clearing a
-  payment and uploading a payment proof are rejected with 400. A late payment belongs to the next
-  challenge, where the admin records it as usual. This also freezes the pot of a closed challenge.
-- Web copy, guide and catalog stop describing the pot as the budget. `docs/challenge-rules.md`
-  records both business decisions.
+  payment and uploading a payment proof are rejected with 400. This also freezes the pot of a
+  closed challenge.
+- Web: the challenge form offers "Presupuesto automático (cuota × inscritos)" or a manual amount;
+  the finance card shows which one applies; the ranking shows the collected pot, projected while
+  active. Guide, catalog and `docs/challenge-rules.md` record the four decisions.
 
 ## Capabilities
 
@@ -30,16 +39,19 @@ payments still do not affect the ranking or the winners.)
 <!-- None -->
 
 ### Modified Capabilities
-- `challenge-finance`: the "Payout per winner" requirement now takes the pot from the collected
-  total and defines `monetary` by the fee; a new requirement closes payments with the challenge.
+- `challenge-finance`: the financial summary uses an effective budget (automatic or manual), the
+  payout takes the pot from the collected total with `monetary` defined by the fee, payments close
+  with the challenge, and the web shows the budget mode and the collected pot.
 
 ## Impact
 
-- **Backend:** `computePayout` and `ResultsService` use the collected total (already computed for
-  the finance summary); `markPayment` and the payment-proof upload reject closed challenges. No
-  schema changes, no new endpoints; the `payout` shape is unchanged.
-- **Frontend:** the ranking's prize line and the empty-pot message.
-- **Tests:** finance unit tests, results unit tests, finance and platform-rules API e2e, the
-  parallel-session check "pote = presupuesto", the Playwright finance journey and the guide
-  captures whose prize amounts change.
-- **Docs:** guide steps 3.4 and 6.1, QA catalog, `challenge-rules.md`, CHANGELOG.
+- **Database:** one migration making `Challenge.budgetTotal` nullable, with the data rule above.
+- **Backend:** challenge DTOs (`budgetTotal` optional on create, nullable on update), the finance
+  summary, `computePayout` and `ResultsService`, and the closed-challenge guard on payments and
+  payment proofs. No new endpoints; the `payout` shape is unchanged and the finance summary gains
+  `budgetMode`.
+- **Frontend:** challenge form (automatic or manual budget), finance card, ranking prize line.
+- **Tests:** finance and results unit tests, finance and platform-rules API e2e, the
+  parallel-session finance checks, the Playwright finance journey and the guide captures.
+- **Docs:** guide steps 2.1, 2.3, 3.3, 3.4, 6.1 and 6.3, QA catalog, `challenge-rules.md`,
+  CHANGELOG and the runbook (first migration since 1.0: take the backup).
