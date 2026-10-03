@@ -66,3 +66,28 @@ The admin participants page SHALL show the financial summary (expected, collecte
 - **GIVEN** a paid challenge with no payments recorded
 - **WHEN** a participant opens the results page
 - **THEN** it says the pot is 0 because no payments have been recorded yet
+
+## ADDED Requirements
+
+### Requirement: Payments close with the challenge
+Once a challenge is `COMPLETED`, the system SHALL reject recording a payment, clearing a payment
+and uploading a payment proof for it, with 400 "No se puede modificar un reto cerrado". The
+collected total, and therefore the pot, of a closed challenge MUST NOT change. A late payment is
+recorded in another challenge, as any other payment.
+
+#### Scenario: Recording a payment after closing
+- **GIVEN** a `COMPLETED` challenge and an unpaid participant
+- **WHEN** an admin marks the participant as paid
+- **THEN** the response is 400 and the participant stays unpaid
+- **AND** the challenge's `payout.pot` is unchanged
+
+#### Scenario: Clearing a payment after closing
+- **GIVEN** a `COMPLETED` challenge and a paid participant
+- **WHEN** an admin marks the participant as unpaid
+- **THEN** the response is 400 and the payment stays recorded
+
+#### Scenario: Uploading a payment proof after closing
+- **GIVEN** a `COMPLETED` challenge
+- **WHEN** a participant uploads a payment proof for it
+- **THEN** the response is 400
+

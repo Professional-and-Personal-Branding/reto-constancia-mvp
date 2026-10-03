@@ -4,7 +4,8 @@ See proposal.md. `computePayout(budgetTotal, winnersCount)` in `finance.service.
 payout and `ResultsService` calls it with the challenge's `budgetTotal`. The collected total
 already exists: `computeFinance` sums `amountPaid` for the finance summary (paid without amount
 counts as the fee, recorded at payment time). Payments can still be recorded on a closed
-challenge (there is no `COMPLETED` guard on `markPayment`), which matters for a late payment.
+challenge today (there is no `COMPLETED` guard on `markPayment` or on the payment-proof upload);
+this change adds that guard.
 
 ## Goals / Non-Goals
 
@@ -14,7 +15,7 @@ challenge (there is no `COMPLETED` guard on `markPayment`), which matters for a 
 
 **Non-Goals:**
 - Excluding unpaid participants from winning (decided: they can win).
-- Freezing the pot when the challenge closes (see Open Questions).
+- Storing a snapshot of the pot at closing: closing payments makes it unnecessary.
 - Changing how payments are recorded.
 
 ## Decisions
@@ -32,6 +33,16 @@ With the pot tied to payments, "pot is 0" stops meaning "no money involved": a p
 starts at 0. `monetary` becomes `feePerParticipant > 0`, so the web can tell "no payments yet"
 from "free challenge".
 
+### Payments close with the challenge
+`markPayment` and `uploadMyPaymentProof` reject `COMPLETED` challenges with the message the other
+closed-challenge guards use. With no payment changes after closing, the collected total, and so
+the pot, of a closed challenge is final without storing a snapshot. A late payment is recorded by
+the admin in the next challenge like any other payment; nothing moves between challenges
+automatically.
+*Alternative:* keep payments open and freeze the pot in a new column at closing. Rejected: the
+business rule is that a closed challenge takes no more payments, and a snapshot would let the
+recorded payments and the prize disagree.
+
 ### Budget becomes a target
 `budgetTotal` keeps its field and its coverage comparison in the finance summary (labelled as the
 target in the copy). Removing it would break existing data and the admin's goal tracking for no
@@ -41,11 +52,5 @@ gain.
 
 - [Prize shown to participants drops for challenges where little was collected] → that is the
   intended business rule; the ranking marks the amount as projected while the challenge is active.
-- [Late payments after closing change a closed challenge's pot] → see Open Questions.
-
-## Open Questions
-
-- Should payments on a closed challenge stay allowed (the pot of a closed challenge would then
-  grow with late payments) or should the pot be frozen at closing? The default in this change is
-  to keep payments allowed and the pot live; freezing needs a stored snapshot and is a separate
-  change if wanted.
+- [An admin tries to record a late payment on the closed challenge] → the API answers 400 with a
+  clear message, and the guide explains that it goes to the next challenge.

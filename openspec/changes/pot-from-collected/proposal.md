@@ -18,6 +18,9 @@ payments still do not affect the ranking or the winners.)
   against it (budget coverage); it no longer defines the prize.
 - The ranking keeps labelling the prize "proyectado" while the challenge is active, since the pot
   grows as payments are recorded.
+- **Payments close with the challenge:** once a challenge is `COMPLETED`, recording or clearing a
+  payment and uploading a payment proof are rejected with 400. A late payment belongs to the next
+  challenge, where the admin records it as usual. This also freezes the pot of a closed challenge.
 - Web copy, guide and catalog stop describing the pot as the budget. `docs/challenge-rules.md`
   records both business decisions.
 
@@ -28,12 +31,13 @@ payments still do not affect the ranking or the winners.)
 
 ### Modified Capabilities
 - `challenge-finance`: the "Payout per winner" requirement now takes the pot from the collected
-  total and defines `monetary` by the fee.
+  total and defines `monetary` by the fee; a new requirement closes payments with the challenge.
 
 ## Impact
 
 - **Backend:** `computePayout` and `ResultsService` use the collected total (already computed for
-  the finance summary). No schema changes, no new endpoints; the `payout` shape is unchanged.
+  the finance summary); `markPayment` and the payment-proof upload reject closed challenges. No
+  schema changes, no new endpoints; the `payout` shape is unchanged.
 - **Frontend:** the ranking's prize line and the empty-pot message.
 - **Tests:** finance unit tests, results unit tests, finance and platform-rules API e2e, the
   parallel-session check "pote = presupuesto", the Playwright finance journey and the guide
