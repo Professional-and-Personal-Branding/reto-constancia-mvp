@@ -67,7 +67,8 @@ export interface ChallengeInput {
   month: number;
   name: string;
   minHeartRateMinutes?: number;
-  budgetTotal?: number;
+  /** Sin valor = presupuesto automático (cuota × inscritos) */
+  budgetTotal?: number | null;
   feePerParticipant?: number;
   validDays?: number[];
   pointsPerValidatedDay?: number;
@@ -105,7 +106,7 @@ export async function setupChallenge(input: ChallengeInput): Promise<Challenge> 
     validDays: input.validDays ?? [0, 1, 2, 3, 4, 5, 6],
     minHeartRateMinutes: input.minHeartRateMinutes ?? 0,
     feePerParticipant: input.feePerParticipant ?? 0,
-    budgetTotal: input.budgetTotal ?? 0,
+    budgetTotal: input.budgetTotal ?? null,
     currency: 'BOB',
     pointsPerValidatedDay: input.pointsPerValidatedDay ?? 1,
     pointsPerKm: input.pointsPerKm ?? 0,

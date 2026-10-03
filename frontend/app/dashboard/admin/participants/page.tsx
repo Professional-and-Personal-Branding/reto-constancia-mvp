@@ -128,11 +128,9 @@ export default function ParticipantsPage() {
                 ? 'Cubierto'
                 : `Faltan ${Math.abs(finance.budgetDelta)} ${finance.currency}`
             }
-            hint={`${finance.budgetTotal} ${finance.currency}${
-              finance.budgetCovered && finance.budgetDelta > 0
-                ? ` · excedente ${finance.budgetDelta}`
-                : ''
-            }`}
+            hint={`${finance.budgetTotal} ${finance.currency} · ${
+              finance.budgetMode === 'auto' ? 'automático' : 'ajustado'
+            }${finance.budgetCovered && finance.budgetDelta > 0 ? ` · excedente ${finance.budgetDelta}` : ''}`}
             warn={!finance.budgetCovered}
           />
         </section>
