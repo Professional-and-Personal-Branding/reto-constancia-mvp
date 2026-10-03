@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-02** · rama `release/1.2.0` · commit `33b372a`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-02** · rama `release/1.3.0` · commit `d0ceea6`. Detalle en [validation-report.md](validation-report.md).
 
-**100 casos** · 100 aprobados · 0 fallidos · 0 con limitación conocida · 99 automatizados.
+**102 casos** · 102 aprobados · 0 fallidos · 0 con limitación conocida · 101 automatizados.
 
 ## Cómo leer cada caso
 
@@ -18,8 +18,8 @@
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
-| [Seguridad y configuración](#sec) | 4 | 4 | 0 |
-| [Gestión de retos](#chal) | 12 | 12 | 0 |
+| [Seguridad y configuración](#sec) | 5 | 5 | 0 |
+| [Gestión de retos](#chal) | 13 | 13 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -490,6 +490,7 @@
 | [TC-SEC-02](#tc-sec-02) | CORS restringido en producción | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-03](#tc-sec-03) | Proxy de confianza y límite global configurable | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-04](#tc-sec-04) | El seed exige contraseña de admin en producción | Alta | Seguridad | ✅ Aprobado (manual) |
+| [TC-SEC-05](#tc-sec-05) | La vigencia de los tokens se valida al arrancar | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-sec-01"></a>
 
@@ -617,6 +618,38 @@
 
 **Verificación manual:** Aprobado el 2026-10-01. Evidencia: exit=1, mensaje mostrado y 0 usuarios modificados en los 2 minutos siguientes.
 
+<a id="tc-sec-05"></a>
+
+### TC-SEC-05 · La vigencia de los tokens se valida al arrancar
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Variables JWT_ACCESS_EXPIRES_IN y JWT_REFRESH_EXPIRES_IN.
+
+**Datos de prueba:** Vacías; "30m", "12h", "2 days", "900"; "quince minutos" y "15 lunas"
+
+**Pasos**
+
+1. Resolver la vigencia de cada token con cada valor.
+
+**Resultado esperado**
+
+- Sin valor se usan 15m y 7d.
+- Las duraciones válidas se aceptan; un número son segundos.
+- Un valor mal escrito hace fallar el arranque con un mensaje que nombra la variable, en vez de emitir tokens con una vigencia inesperada.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `jwt-expiry.spec.ts` | usa el valor por defecto si la variable no está definida |
+| ✅ | Unitaria | `jwt-expiry.spec.ts` | acepta duraciones con unidad y segundos como número |
+| ✅ | Unitaria | `jwt-expiry.spec.ts` | rechaza un valor mal escrito nombrando la variable |
+
 <a id="chal"></a>
 
 ## Gestión de retos
@@ -635,6 +668,7 @@
 | [TC-CHAL-10](#tc-chal-10) | Selector de reto en la web | Media | UI | ✅ Aprobado |
 | [TC-CHAL-11](#tc-chal-11) | Cerrar un reto y no reactivarlo | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-12](#tc-chal-12) | Consultar en la web el ranking de un reto cerrado | Media | Funcional | ✅ Aprobado |
+| [TC-CHAL-13](#tc-chal-13) | Un reto cerrado es definitivo | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -775,24 +809,35 @@
 
 **Precondiciones**
 
-- Reto existente.
+- Reto en borrador o activo, con cuota 120.
+- Un reto cerrado en la lista.
 
-**Datos de prueba:** PATCH /api/challenges/:id con validDays, feePerParticipant y prizeDescription nuevos
+**Datos de prueba:** Web: Retos > Editar, cuota 150; luego Fin = 2024-12-15 (antes del inicio). API: PATCH con validDays, cuota y premio nuevos; PATCH solo con endDate anterior al inicio
 
 **Pasos**
 
-1. Enviar el PATCH.
-2. Leer el reto.
+1. Abrir Retos y pulsar Editar en el reto activo.
+2. Cambiar la cuota a 150 y pulsar Guardar cambios.
+3. Volver a editar, poner un fin anterior al inicio y guardar.
+4. Revisar el reto cerrado de la lista.
 
 **Resultado esperado**
 
-- 200 y los cambios quedan persistidos.
+- El formulario viene con los valores actuales, el mes y el año fijos, y avisa que el reto está activo.
+- La cuota queda en 150 y el reto sigue activo; solo se envía lo que cambió.
+- Un período con el fin antes del inicio muestra "startDate debe ser menor que endDate" y nada cambia (la API valida el período combinando lo nuevo con lo guardado).
+- El reto cerrado no ofrece Editar.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | valida el período combinando los valores nuevos con los guardados |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | CHAL: PATCH cambia las reglas de un reto existente |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | CHAL: editar solo la fecha de fin antes del inicio se rechaza (400) y no cambia el reto |
+| ✅ | UI | `10-api-only-actions.spec.ts` | edita un reto activo desde la web y un reto cerrado no ofrece edición |
+| ✅ | UI | `10-api-only-actions.spec.ts` | un período con el fin antes del inicio muestra el error de la API y no cambia nada |
+| ✅ | Guía | `capture.spec.ts` | editar un reto activo |
 
 <a id="tc-chal-06"></a>
 
@@ -1040,6 +1085,47 @@
 | ✅ | UI | `08-closed-results.spec.ts` | sin reto activo, el ranking ofrece los retos cerrados |
 | ✅ | UI | `08-closed-results.spec.ts` | un reto cerrado se consulta en solo lectura, sin panel de premiación |
 | ✅ | Guía | `capture.spec.ts` | ranking de un reto cerrado |
+
+<a id="tc-chal-13"></a>
+
+### TC-CHAL-13 · Un reto cerrado es definitivo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Seguridad | 6.3 | ✅ Aprobado |
+
+> Relacionado con OBS-03 (ver reporte de validación).
+
+**Precondiciones**
+
+- Un reto en COMPLETED con su premiación registrada.
+
+**Datos de prueba:** PATCH con pointsPerKm 5 y maxWinners 3; PATCH con status DRAFT; POST close de nuevo; POST awards después del cierre
+
+**Pasos**
+
+1. Intentar cambiar las reglas del reto cerrado.
+2. Intentar devolverlo a borrador.
+3. Volver a cerrarlo.
+4. Registrar su premiación después del cierre.
+
+**Resultado esperado**
+
+- Cambiar reglas o estado: 400 "No se puede modificar un reto cerrado"; las reglas y los ganadores no cambian.
+- Volver a cerrarlo no cambia nada y no es un error (idempotente).
+- La premiación se puede registrar después del cierre (sorteo presencial) y el reto sigue cerrado.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | un reto cerrado no admite cambios de reglas |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un reto cerrado no vuelve a borrador |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar un reto ya cerrado es idempotente (no escribe ni falla) |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | CHAL: un reto cerrado no admite cambios de reglas (400) y conserva su resultado |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | CHAL: un reto cerrado no vuelve a borrador (400) y cerrarlo de nuevo no cambia nada |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RES: la premiación de un reto cerrado se puede registrar después del cierre |
+| ✅ | Sesiones | `parallel-session-test.mjs` | Un reto cerrado no vuelve a borrador |
 
 <a id="part"></a>
 
@@ -1606,25 +1692,31 @@
 **Precondiciones**
 
 - Actividades propias PENDING y VALIDATED; actividad ajena.
+- Web: el navegador con fecha 2025-01-06, dentro del reto de prueba, y una actividad pendiente ese día.
 
-**Datos de prueba:** DELETE /api/activities/:id
+**Datos de prueba:** Web: Mis actividades > Retirar (Cancelar y luego Sí, retirar). API: DELETE /api/activities/:id
 
 **Pasos**
 
-1. Borrar la propia pendiente.
-2. Borrar una ajena.
-3. Borrar la propia validada; luego como admin.
+1. En Mis actividades pulsar Retirar y cancelar.
+2. Pulsar Retirar y confirmar.
+3. Ver una actividad validada.
+4. Por API: borrar la propia pendiente, una ajena y la propia validada; luego como admin.
 
 **Resultado esperado**
 
-- Propia pendiente: 204.
-- Ajena: 403.
-- Validada: 403 para el participante y 204 para el admin.
+- Cancelar no borra nada.
+- Al confirmar, la actividad desaparece, Pendientes baja a 0 y vuelve "Subir actividad de hoy".
+- Las validadas y rechazadas no ofrecen Retirar.
+- API: propia pendiente 204; ajena 403; validada 403 para el participante y 204 para el admin.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | UI | `10-api-only-actions.spec.ts` | retira una actividad pendiente con confirmación y el día queda libre otra vez |
+| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas o rechazadas no ofrecen retirar |
+| ✅ | Guía | `capture.spec.ts` | retirar una actividad pendiente pide confirmación |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante borra su actividad pendiente (204) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar actividades ajenas (403) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar una actividad ya validada (403); el admin sí |
@@ -2330,24 +2422,29 @@
 
 **Precondiciones**
 
-- Reto con cuota 120.
+- Reto con cuota 150 y un participante sin pagar.
 
-**Datos de prueba:** Pagos 120, 60 y ninguno; reto gratuito
+**Datos de prueba:** Web: Marcar pagado con monto 60; luego con el monto por defecto; luego 0. Unitarias: pagos 120, 60 y ninguno; reto gratuito
 
 **Pasos**
 
-1. Marcar los pagos y leer el estado de cada participante.
+1. Pulsar Marcar pagado, poner 60 y Guardar pago.
+2. Marcar impago y volver a pagar con el monto que viene.
+3. Marcar impago, poner 0 y Guardar pago.
 
 **Resultado esperado**
 
-- paid (completo), partial (menos que la cuota) y unpaid.
-- Con cuota 0 todos quedan pagados.
-- Impago limpia monto y fecha y actualiza el resumen.
+- 60 de 150: Parcial 60, debe 90, y el resumen suma 60.
+- Con el monto por defecto (la cuota): Pagado 150.
+- Monto 0: no se guarda y explica que debe ser mayor que cero.
+- paid (completo), partial (menos que la cuota) y unpaid; con cuota 0 todos quedan pagados; impago limpia monto y fecha.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | UI | `10-api-only-actions.spec.ts` | registra un pago parcial, el pago completo por defecto y rechaza un monto cero |
+| ✅ | Guía | `capture.spec.ts` | registrar un pago parcial |
 | ✅ | Unitaria | `finance.service.spec.ts` | pagado completo, parcial e impago |
 | ✅ | Unitaria | `finance.service.spec.ts` | con cuota 0 todos están pagados |
 | ✅ | API e2e | `challenge-finance.e2e-spec.ts` | marcar impago limpia monto y fecha y actualiza el resumen |
@@ -3424,4 +3521,4 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (64) |
+| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (65) |

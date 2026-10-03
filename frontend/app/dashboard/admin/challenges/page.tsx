@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
+import { toDayKey } from '@/lib/dates';
 import type { Challenge, TiebreakRule } from '@/lib/types';
 
 const MONTHS = [
@@ -19,6 +20,7 @@ function lastDayOfMonth(year: number, month: number): number {
 export default function ChallengesPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: challenges } = useQuery<(Challenge & { _count: { participants: number; activities: number } })[]>({
     queryKey: ['challenges', 'all'],
@@ -75,7 +77,7 @@ export default function ChallengesPage() {
         </button>
       </div>
 
-      {showForm && <NewChallengeForm onDone={() => setShowForm(false)} />}
+      {showForm && <ChallengeForm onDone={() => setShowForm(false)} />}
 
       {actionError && (
         <div
@@ -87,8 +89,11 @@ export default function ChallengesPage() {
       )}
 
       <div className="space-y-3">
-        {challenges?.map((c) => (
-          <div key={c.id} className="card p-5">
+        {challenges?.map((c) =>
+          editingId === c.id ? (
+            <ChallengeForm key={c.id} challenge={c} onDone={() => setEditingId(null)} />
+          ) : (
+          <div key={c.id} className="card p-5" aria-label={`Reto ${c.name}`}>
             <div className="flex flex-col md:flex-row md:items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-1">
@@ -106,6 +111,18 @@ export default function ChallengesPage() {
                 </p>
               </div>
               <div className="flex gap-2">
+                {/* Un reto cerrado es definitivo: no se edita */}
+                {c.status !== 'COMPLETED' && (
+                  <button
+                    onClick={() => {
+                      setActionError(null);
+                      setEditingId(c.id);
+                    }}
+                    className="btn-ghost text-sm py-1.5 px-3"
+                  >
+                    Editar
+                  </button>
+                )}
                 {c.status === 'DRAFT' && (
                   <button
                     onClick={() => activateMut.mutate(c.id)}
@@ -129,7 +146,8 @@ export default function ChallengesPage() {
               </div>
             </div>
           </div>
-        ))}
+          ),
+        )}
       </div>
     </div>
   );
@@ -141,51 +159,91 @@ function StatusBadge({ status }: { status: Challenge['status'] }) {
   return <span className="badge bg-warn/15 text-warn">Borrador</span>;
 }
 
-function NewChallengeForm({ onDone }: { onDone: () => void }) {
+type ChallengeRow = Challenge & { _count?: { participants: number; activities: number } };
+
+/**
+ * Formulario de reto. Sin `challenge` crea uno (el período sale del mes elegido); con
+ * `challenge` lo edita: viene completo con los valores actuales, el mes y el año quedan fijos
+ * (son la clave del reto) y solo se envían los campos que cambiaron.
+ */
+function ChallengeForm({ challenge, onDone }: { challenge?: ChallengeRow; onDone: () => void }) {
   const qc = useQueryClient();
   const now = new Date();
+  const editing = !!challenge;
 
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
-  const [name, setName] = useState(`Reto ${MONTHS[now.getMonth()]} ${now.getFullYear()}`);
-  const [validDays, setValidDays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
-  const [minHr, setMinHr] = useState(20);
-  const [fee, setFee] = useState(120);
-  const [budget, setBudget] = useState(600);
-  const [currency, setCurrency] = useState('BOB');
-  const [prize, setPrize] = useState(
-    'Suplemento para gym al ganador (o sorteo en caso de empate)',
-  );
-  // Reglas de puntaje (defaults = comportamiento histórico)
-  const [pointsPerValidatedDay, setPointsPerValidatedDay] = useState(1);
-  const [pointsPerKm, setPointsPerKm] = useState(0);
-  const [minValidatedDaysToQualify, setMinValidatedDaysToQualify] = useState(0);
-  const [maxWinners, setMaxWinners] = useState(2);
-  const [tiebreakRule, setTiebreakRule] = useState<TiebreakRule>('DRAW');
+  const initial = {
+    name: challenge?.name ?? `Reto ${MONTHS[now.getMonth()]} ${now.getFullYear()}`,
+    startDate: challenge ? toDayKey(challenge.startDate) : '',
+    endDate: challenge ? toDayKey(challenge.endDate) : '',
+    validDays: challenge?.validDays ?? [1, 2, 3, 4, 5, 6],
+    minHeartRateMinutes: challenge?.minHeartRateMinutes ?? 20,
+    feePerParticipant: challenge ? Number(challenge.feePerParticipant) : 120,
+    budgetTotal: challenge ? Number(challenge.budgetTotal) : 600,
+    currency: challenge?.currency ?? 'BOB',
+    prizeDescription: challenge?.prizeDescription ?? 'Suplemento para gym al ganador (o sorteo en caso de empate)',
+    // Reglas de puntaje (defaults = comportamiento histórico)
+    pointsPerValidatedDay: challenge?.pointsPerValidatedDay ?? 1,
+    pointsPerKm: challenge ? Number(challenge.pointsPerKm) : 0,
+    minValidatedDaysToQualify: challenge?.minValidatedDaysToQualify ?? 0,
+    maxWinners: challenge?.maxWinners ?? 2,
+    tiebreakRule: challenge?.tiebreakRule ?? ('DRAW' as TiebreakRule),
+  };
+
+  const [month, setMonth] = useState(challenge?.month ?? now.getMonth() + 1);
+  const [year, setYear] = useState(challenge?.year ?? now.getFullYear());
+  const [name, setName] = useState(initial.name);
+  const [startDate, setStartDate] = useState(initial.startDate);
+  const [endDate, setEndDate] = useState(initial.endDate);
+  const [validDays, setValidDays] = useState<number[]>(initial.validDays);
+  const [minHr, setMinHr] = useState(initial.minHeartRateMinutes);
+  const [fee, setFee] = useState(initial.feePerParticipant);
+  const [budget, setBudget] = useState(initial.budgetTotal);
+  const [currency, setCurrency] = useState(initial.currency);
+  const [prize, setPrize] = useState(initial.prizeDescription);
+  const [pointsPerValidatedDay, setPointsPerValidatedDay] = useState(initial.pointsPerValidatedDay);
+  const [pointsPerKm, setPointsPerKm] = useState(initial.pointsPerKm);
+  const [minValidatedDaysToQualify, setMinValidatedDaysToQualify] = useState(initial.minValidatedDaysToQualify);
+  const [maxWinners, setMaxWinners] = useState(initial.maxWinners);
+  const [tiebreakRule, setTiebreakRule] = useState<TiebreakRule>(initial.tiebreakRule);
   const [err, setErr] = useState<string | null>(null);
 
-  const create = useMutation({
+  const save = useMutation({
     mutationFn: () => {
+      const values = {
+        name,
+        startDate,
+        endDate,
+        validDays,
+        minHeartRateMinutes: minHr,
+        feePerParticipant: fee,
+        budgetTotal: budget,
+        currency,
+        prizeDescription: prize,
+        pointsPerValidatedDay,
+        pointsPerKm,
+        minValidatedDaysToQualify,
+        maxWinners,
+        tiebreakRule,
+      };
+      if (editing) {
+        // Solo lo que cambió: no tocar un campo no lo reescribe
+        const changed = Object.fromEntries(
+          Object.entries(values).filter(
+            ([key, value]) => JSON.stringify(value) !== JSON.stringify(initial[key as keyof typeof initial]),
+          ),
+        );
+        if (Object.keys(changed).length === 0) return Promise.resolve(challenge);
+        return api(`/challenges/${challenge!.id}`, { method: 'PATCH', body: changed });
+      }
       const last = lastDayOfMonth(year, month);
       return api('/challenges', {
         method: 'POST',
         body: {
-          name,
+          ...values,
           month,
           year,
           startDate: `${year}-${String(month).padStart(2, '0')}-01`,
           endDate: `${year}-${String(month).padStart(2, '0')}-${String(last).padStart(2, '0')}`,
-          validDays,
-          minHeartRateMinutes: minHr,
-          feePerParticipant: fee,
-          budgetTotal: budget,
-          currency,
-          prizeDescription: prize,
-          pointsPerValidatedDay,
-          pointsPerKm,
-          minValidatedDaysToQualify,
-          maxWinners,
-          tiebreakRule,
         },
       });
     },
@@ -211,16 +269,25 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
       onSubmit={(e) => {
         e.preventDefault();
         setErr(null);
-        create.mutate();
+        save.mutate();
       }}
       className="card p-5 space-y-5"
+      aria-label={editing ? `Editar ${challenge!.name}` : 'Nuevo reto'}
     >
-      <h2 className="display text-2xl tracking-wider">Nuevo reto</h2>
+      <h2 className="display text-2xl tracking-wider">
+        {editing ? `Editar ${MONTHS[challenge!.month - 1]} ${challenge!.year}` : 'Nuevo reto'}
+      </h2>
+      {editing && challenge!.status === 'ACTIVE' && (
+        <p className="text-sm text-warn bg-warn/10 border border-warn/30 rounded-md px-4 py-2.5">
+          El reto está activo: los cambios de puntaje y de días recalculan el ranking en curso.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2">
-          <label className="label">Nombre</label>
+          <label className="label" htmlFor="challenge-name">Nombre</label>
           <input
+            id="challenge-name"
             className="input"
             required
             value={name}
@@ -236,29 +303,58 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
             maxLength={3}
           />
         </div>
-        <div>
-          <label className="label">Mes</label>
-          <select
-            className="input"
-            value={month}
-            onChange={(e) => setMonth(parseInt(e.target.value, 10))}
-          >
-            {MONTHS.map((m, i) => (
-              <option key={i} value={i + 1}>{m}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">Año</label>
-          <input
-            type="number"
-            min={2024}
-            max={2100}
-            className="input"
-            value={year}
-            onChange={(e) => setYear(parseInt(e.target.value, 10))}
-          />
-        </div>
+        {editing ? (
+          <>
+            <div>
+              <label className="label" htmlFor="challenge-start">Inicio</label>
+              <input
+                id="challenge-start"
+                type="date"
+                className="input"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="challenge-end">Fin</label>
+              <input
+                id="challenge-end"
+                type="date"
+                className="input"
+                required
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="label">Mes</label>
+              <select
+                className="input"
+                value={month}
+                onChange={(e) => setMonth(parseInt(e.target.value, 10))}
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={i} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Año</label>
+              <input
+                type="number"
+                min={2024}
+                max={2100}
+                className="input"
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value, 10))}
+              />
+            </div>
+          </>
+        )}
         <div>
           <label className="label">Min FC (minutos, 0 = sin regla)</label>
           <input
@@ -270,8 +366,9 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
           />
         </div>
         <div>
-          <label className="label">Cuota / persona</label>
+          <label className="label" htmlFor="challenge-fee">Cuota / persona</label>
           <input
+            id="challenge-fee"
             type="number"
             min={0}
             className="input"
@@ -393,14 +490,14 @@ function NewChallengeForm({ onDone }: { onDone: () => void }) {
       </div>
 
       {err && (
-        <div className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5">
+        <div role="alert" className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5">
           {err}
         </div>
       )}
 
       <div className="flex gap-2">
-        <button type="submit" disabled={create.isPending} className="btn-primary">
-          {create.isPending ? 'Creando…' : 'Crear reto'}
+        <button type="submit" disabled={save.isPending} className="btn-primary">
+          {save.isPending ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear reto'}
         </button>
         <button type="button" onClick={onDone} className="btn-ghost">
           Cancelar

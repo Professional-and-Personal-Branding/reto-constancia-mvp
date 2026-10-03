@@ -205,10 +205,11 @@ Pasos:
 - Gitflow y convención de commits: ver `docs/gitflow.md`.
 - Seguridad / OWASP: ver `docs/security-owasp.md`.
 - Casos de prueba (entorno y recorridos guiados): ver `docs/test-cases.md`.
-- Catálogo de casos validado (100 casos con sus pruebas) y último reporte: `docs/qa/test-cases.md`, `docs/qa/validation-report.md`; se regeneran con `node scripts/validate-test-cases.mjs`.
+- Catálogo de casos validado (102 casos con sus pruebas) y último reporte: `docs/qa/test-cases.md`, `docs/qa/validation-report.md`; se regeneran con `node scripts/validate-test-cases.mjs`.
 - Batería automatizada y cómo correrla (`node scripts/run-tests.mjs`): ver `docs/testing.md`.
 - Pruebas de UI con Playwright (configuración y ejecución): ver `docs/e2e-playwright.md`.
 - Guía interactiva de uso con todas las funciones en orden y capturas de pantalla (abrir en el navegador): `docs/guia-plataforma.html`.
+- Runbook de despliegue (orden, controles, prueba de humo, reversión y diagnóstico): `docs/runbook-despliegue.md`.
 - Historial de versiones: ver `CHANGELOG.md`.
 - Sesiones paralelas (admin+participante): `node scripts/parallel-session-test.mjs`.
 - Documentación técnica + diagramas: ver `docs/architecture.md`.

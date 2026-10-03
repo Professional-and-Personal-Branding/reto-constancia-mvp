@@ -212,3 +212,44 @@ describe('ChallengesService.markPayment', () => {
     expect(data.paidAt).toBeNull();
   });
 });
+
+describe('ChallengesService.update: retos cerrados y período', () => {
+  const withPeriod = (r: ChallengeRow, start: string, end: string) => ({
+    ...r,
+    startDate: new Date(start),
+    endDate: new Date(end),
+  });
+
+  it('un reto cerrado no admite cambios de reglas', async () => {
+    const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
+    const svc = new ChallengesService(prisma);
+    await expect(svc.update('a', { pointsPerKm: 5 })).rejects.toThrow('No se puede modificar un reto cerrado');
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('un reto cerrado no vuelve a borrador', async () => {
+    const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
+    const svc = new ChallengesService(prisma);
+    await expect(svc.update('a', { status: ChallengeStatus.DRAFT })).rejects.toBeInstanceOf(BadRequestException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('cerrar un reto ya cerrado es idempotente (no escribe ni falla)', async () => {
+    const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
+    const svc = new ChallengesService(prisma);
+    const result = await svc.update('a', { status: ChallengeStatus.COMPLETED });
+    expect(result.status).toBe(ChallengeStatus.COMPLETED);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('valida el período combinando los valores nuevos con los guardados', async () => {
+    const draft = withPeriod(row('a', ChallengeStatus.DRAFT, '2025-05-01'), '2025-05-01', '2025-05-31');
+    const { prisma, update } = buildPrisma([draft as ChallengeRow]);
+    const svc = new ChallengesService(prisma);
+    await expect(svc.update('a', { endDate: '2025-04-15' })).rejects.toThrow('startDate debe ser menor que endDate');
+    expect(update).not.toHaveBeenCalled();
+
+    await svc.update('a', { startDate: '2025-05-10' });
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+});

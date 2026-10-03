@@ -3,6 +3,39 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.3.0] — 2026-10-02
+
+Backend sin avisos de seguridad (NestJS 11), tres acciones que solo existían por API ahora en
+la web, y retos cerrados definitivos. Sin migraciones. **Antes de desplegar:** el build necesita
+acceso a `cdn.sheetjs.com` y `JWT_*_EXPIRES_IN` deben ser duraciones válidas (ver el runbook).
+
+### Añadido
+
+- **Acciones que solo existían por API, ahora en la web** (spec `web-api-only-actions`):
+  editar las reglas de un reto en borrador o activo (mismo formulario, mes y año fijos, solo se
+  envía lo que cambió), registrar un pago parcial indicando el monto recibido, y retirar una
+  actividad pendiente desde "Mis actividades" con confirmación. Resuelve la observación OBS-02.
+
+### Seguridad
+
+- **Backend sin avisos de dependencias** (antes 12, cinco altos). NestJS 10 → 11.2.7 (Express 5,
+  multer 2.4), `js-yaml` 5.4.2 por `overrides` y `xlsx` 0.20.3 desde el CDN oficial de SheetJS.
+  La CI ahora falla ante cualquier aviso moderado o mayor.
+
+### Cambiado
+
+- `JWT_ACCESS_EXPIRES_IN` y `JWT_REFRESH_EXPIRES_IN` deben ser duraciones válidas (`900`, `15m`,
+  `7d`): un valor mal escrito hace fallar el arranque con un mensaje claro.
+- Instalar las dependencias del backend requiere acceso a `cdn.sheetjs.com`.
+- **Un reto cerrado es definitivo:** la API rechaza (400) cualquier cambio a un reto cerrado,
+  incluido devolverlo a borrador; registrar su premiación sigue permitido y volver a cerrarlo no
+  es un error. Resuelve la observación OBS-03. Las herramientas de prueba borran sus retos de
+  prueba en la base local (`scripts/lib/test-db.mjs`) en vez de reabrirlos.
+
+### Corregido
+
+- Editar un reto no comprobaba que el inicio fuera anterior al fin, como sí lo hace al crearlo.
+
 ## [1.2.0] — 2026-10-02
 
 Los resultados de los retos cerrados se consultan en la web y el encabezado funciona en el

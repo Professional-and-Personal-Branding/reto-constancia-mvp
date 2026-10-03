@@ -260,18 +260,20 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.2.0 · 2 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.3.0 · 2 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 100 de 100 casos aprobados con 333 pruebas</span>
+      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 102 de 102 casos aprobados con 353 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>Desde la web ya se puede editar un reto (2.3), registrar un pago parcial (3.3) y retirar una actividad pendiente (4.5): nada de eso requiere la API.</li>
+        <li>Un reto cerrado es definitivo: no se edita ni vuelve a borrador (6.3).</li>
         <li>El encabezado entra completo también en el celular: el nombre del reto ya no se corta y las secciones van en una fila propia que se desplaza.</li>
         <li>Los retos cerrados se consultan en el Ranking: ganadores y premio final, con dirección para compartir (paso 6.5).</li>
         <li>Nuevo modo claro con interruptor en el encabezado; por defecto sigue el tema de tu dispositivo (paso 1.4).</li>
@@ -379,7 +381,7 @@
           why: 'Las secciones de administración solo aparecen para el rol administrador, y la API las protege igual.',
           actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.'],
           expect: 'Un participante que intenta una acción de administración por la API recibe 403.',
-          refs: ['TC-UI-01', 'TC-UI-02', 'TC-AUTH-07', 'TC-SEC-01']
+          refs: ['TC-UI-01', 'TC-UI-02', 'TC-UI-10', 'TC-AUTH-07', 'TC-SEC-01']
         },
         {
           id: '1.4', role: 'participante', title: 'Elegir modo claro u oscuro', route: '/dashboard',
@@ -419,13 +421,12 @@
           refs: ['TC-CHAL-04']
         },
         {
-          id: '2.3', role: 'admin', title: 'Ajustar las reglas de un reto existente', via: 'API',
-          route: 'PATCH /challenges/:id',
-          why: 'La web crea y activa retos; la edición posterior de reglas se hace por la API.',
-          actions: ['En Swagger, usa <code>PATCH /challenges/{id}</code> con los campos a cambiar, por ejemplo <code>minHeartRateMinutes</code> o <code>maxWinners</code>.'],
-          expect: 'El reto guarda los nuevos valores. El ranking se recalcula al instante con las reglas nuevas.',
-          note: 'Cambiar reglas a mitad de mes afecta a todo el ranking, porque se calcula en cada lectura.',
-          refs: ['TC-CHAL-05']
+          id: '2.3', role: 'admin', title: 'Ajustar las reglas de un reto existente', route: '/dashboard/admin/challenges',
+          why: 'Para corregir fechas, días válidos, cuota, premio o puntaje después de crear el reto.',
+          actions: ['En <span class="ui">Retos</span>, pulsa <span class="ui">Editar</span> en un reto en borrador o activo.', 'El formulario viene con los valores actuales; el mes y el año quedan fijos. Cambia lo necesario y pulsa <span class="ui">Guardar cambios</span>.'],
+          expect: 'El reto guarda solo lo que cambiaste y el ranking se recalcula al instante. Si el fin queda antes del inicio, el formulario muestra el error y no cambia nada.',
+          note: 'Un reto cerrado no se edita: su resultado es definitivo. Si el reto está activo, el formulario avisa que los cambios de puntaje y de días recalculan el ranking en curso.',
+          refs: ['TC-CHAL-05', 'TC-CHAL-13']
         },
         {
           id: '2.4', role: 'participante', title: 'Trabajar con varios retos activos a la vez', route: '/dashboard',
@@ -458,8 +459,9 @@
         {
           id: '3.3', role: 'admin', title: 'Registrar los pagos', route: '/dashboard/admin/participants',
           why: 'El sistema concilia la cuota con lo cobrado.',
-          actions: ['Pulsa <span class="ui">Marcar pagado</span>: se registra la cuota completa como monto.', 'Pulsa <span class="ui">Marcar impago</span> para revertirlo; se borran el monto y la fecha.', 'Para un pago parcial, envía <code>amountPaid</code> menor a la cuota por la API.'],
-          expect: 'El chip pasa a "Pagado". Un pago menor a la cuota se muestra como "Parcial" con lo que falta.',
+          actions: ['Pulsa <span class="ui">Marcar pagado</span>: aparece <span class="ui">Monto recibido</span> con la cuota completa.', 'Si pagó una parte, escribe el monto; luego pulsa <span class="ui">Guardar pago</span>.', 'Pulsa <span class="ui">Marcar impago</span> para revertirlo; se borran el monto y la fecha.'],
+          expect: 'Con la cuota completa el chip pasa a "Pagado"; con menos, a "Parcial" con lo que falta, y el resumen financiero se actualiza al instante. Un monto en cero no se guarda.',
+          note: 'Solo cuenta como recaudado lo que el administrador registra; un comprobante subido no suma por sí solo.',
           refs: ['TC-PART-04', 'TC-FIN-01']
         },
         {
@@ -513,11 +515,11 @@
           refs: ['TC-ACT-10']
         },
         {
-          id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente', via: 'API',
-          route: 'DELETE /activities/:id',
+          id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente', route: '/dashboard',
           why: 'Para corregir un registro antes de que lo validen.',
-          actions: ['Llama a <code>DELETE /activities/{id}</code> con tu sesión.'],
-          expect: 'Se borra. Solo puedes retirar las tuyas y solo mientras estén pendientes; el administrador puede borrar cualquiera.',
+          actions: ['En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Retirar</span> en una actividad pendiente.', 'Confirma con <span class="ui">Sí, retirar</span> (o <span class="ui">No</span> para dejarla).'],
+          expect: 'La actividad desaparece, el contador de pendientes baja y, si era la de hoy, vuelve a aparecer "Subir actividad de hoy".',
+          note: 'Solo se retiran las propias y solo mientras están pendientes; las validadas o rechazadas no muestran el botón. El administrador puede borrar cualquiera por la API.',
           refs: ['TC-ACT-12']
         }
       ]
@@ -573,8 +575,8 @@
           why: 'Al cerrar, el ranking pasa a ser definitivo.',
           actions: ['Pulsa <span class="ui">Cerrar reto</span> y confirma.'],
           expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores. No se puede volver a activar.',
-          note: 'Después de cerrarlo, cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
-          refs: ['TC-CHAL-11', 'TC-PART-06']
+          note: 'Un reto cerrado es definitivo: no se puede editar ni volver a borrador, pero sí registrar su premiación (paso 6.4). Cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
+          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-PART-06']
         },
         {
           id: '6.4', role: 'admin', title: 'Registrar la premiación', route: '/dashboard/results',
@@ -644,7 +646,7 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 100 casos del catálogo',
+          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 102 casos del catálogo',
           expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },
@@ -652,7 +654,7 @@
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '38 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '43 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
@@ -661,13 +663,13 @@
           actions: ['Define <code>NODE_ENV=production</code>, secretos JWT distintos, <code>CORS_ORIGIN</code> con la URL de la web y las tres variables de Cloudinary.', 'Corre el seed una vez con <code>SEED_ADMIN_PASSWORD</code> y cambia esa contraseña tras el primer ingreso.', 'Detrás del proxy del hosting, deja <code>TRUST_PROXY=1</code> (valor por defecto en producción) para que el límite de 100 peticiones por minuto se aplique por usuario y no a todos juntos.', 'Repasa el checklist de once puntos de <code>docs/deploy-seenode.md</code>.'],
           expect: 'La API arranca con <code>npm run start:prod</code> y aplica las migraciones sola.',
           note: 'Sin Cloudinary, en producción la subida de archivos queda deshabilitada a propósito.',
-          refs: ['TC-SEC-02', 'TC-SEC-03', 'TC-SEC-04', 'TC-UP-03', 'deploy-seenode.md', 'security-owasp.md']
+          refs: ['TC-SEC-02', 'TC-SEC-03', 'TC-SEC-04', 'TC-SEC-05', 'TC-UP-03', 'deploy-seenode.md', 'security-owasp.md']
         },
         {
           id: '8.5', role: 'tecnico', title: 'Validar el catálogo de casos de prueba',
           why: 'Cada caso del catálogo está enlazado a las pruebas que lo demuestran; el validador dice cuáles pasan hoy.',
           cmd: 'cd backend && npx prisma migrate reset --force   # datos limpios del seed\ncd .. && node scripts/validate-test-cases.mjs\nnode scripts/validate-test-cases.mjs --only=ui        # una sola suite\nnode scripts/validate-test-cases.mjs --reuse          # regenera los documentos sin volver a correr',
-          expect: 'Los 100 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
+          expect: 'Los 102 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
           note: 'Uno de los casos (TC-SEC-04, el seed en producción) es una verificación manual registrada; los demás se validan con pruebas automatizadas.',
           refs: ['qa/validation-report.md', 'qa/catalog.mjs']
         },
@@ -693,10 +695,10 @@
     ['Crear reto con período, días válidos, cuota, presupuesto y premio', '2.1', 'auto'],
     ['Reglas de puntaje configurables', '2.1', 'auto'],
     ['Activar reto (transición explícita, sin reactivar cerrados)', '2.2', 'auto'],
-    ['Editar reglas de un reto (API)', '2.3', 'auto'],
+    ['Editar las reglas de un reto en borrador o activo', '2.3', 'auto'],
     ['Varios retos activos y selector de reto', '2.4', 'auto'],
     ['Inscribir y quitar participantes', '3.1', 'auto'],
-    ['Marcar pago, impago y pago parcial', '3.3', 'auto'],
+    ['Marcar pago, impago y pago parcial con el monto recibido', '3.3', 'auto'],
     ['Resumen financiero y cobertura del presupuesto', '3.4', 'auto'],
     ['Panel personal con cuenta regresiva y posición', '4.1', 'auto'],
     ['Comprobante de pago del participante', '4.2', 'auto'],
@@ -705,7 +707,7 @@
     ['Una actividad por día por reto', '4.3', 'auto'],
     ['Fechas sin desfase de zona horaria', '4.3', 'auto'],
     ['Estado y motivo de rechazo de cada actividad', '4.4', 'auto'],
-    ['Retirar una actividad pendiente (API)', '4.5', 'auto'],
+    ['Retirar una actividad pendiente', '4.5', 'auto'],
     ['Validación con chip de cumplimiento de FC', '5.1', 'auto'],
     ['Validar con nota de excepción', '5.2', 'auto'],
     ['Rechazar con motivo', '5.3', 'auto'],
@@ -714,6 +716,7 @@
     ['Premio por ganador proyectado y final', '6.1', 'auto'],
     ['Empates y reglas de desempate', '6.2', 'auto'],
     ['Cerrar reto', '6.3', 'auto'],
+    ['Reto cerrado definitivo (sin edición ni reapertura)', '6.3', 'auto'],
     ['Ranking de retos cerrados, con dirección para compartir', '6.5', 'auto'],
     ['Premiación manual que prevalece', '6.4', 'auto'],
     ['Premiación con ganadores sugeridos por las reglas', '6.4', 'auto'],
@@ -734,7 +737,7 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
@@ -746,6 +749,9 @@
     '2.1': [['06-reto-formulario.jpg', 'Formulario de nuevo reto con período, días válidos, cuota, premio y reglas de puntaje.']],
     '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],
     '2.4': [['07-selector-reto.jpg', 'Con varios retos activos, el selector de la cabecera elige con cuál trabajar.']],
+    '2.3': [['24-editar-reto.jpg', 'Edición de un reto activo: valores actuales, mes y año fijos, y el aviso de que el ranking se recalcula.']],
+    '3.3': [['25-pago-parcial.jpg', 'Pago parcial: el monto viene con la cuota y se corrige antes de guardar.']],
+    '4.5': [['26-retirar-actividad.jpg', 'Retirar pide confirmación en la misma fila; las validadas y rechazadas no tienen el botón.']],
     '3.4': [['08-participantes-finanzas.jpg', 'Inscritos, estado de pago y resumen financiero: recaudado, pendiente y cobertura del presupuesto.']],
     '4.1': [['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.']],
     '4.2': [['09-comprobante.jpg', 'El comprobante subido queda visible para el participante y el administrador.']],

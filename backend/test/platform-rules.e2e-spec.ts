@@ -139,6 +139,18 @@ describe('Reglas de la plataforma (e2e)', () => {
     await request(http).patch(`/api/challenges/${challengeId}`).set(auth(token.admin)).send({ minHeartRateMinutes: 0, maxWinners: 2 });
   });
 
+  it('CHAL: editar solo la fecha de fin antes del inicio se rechaza (400) y no cambia el reto', async () => {
+    const before = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.admin));
+    const res = await request(http)
+      .patch(`/api/challenges/${challengeId}`)
+      .set(auth(token.admin))
+      .send({ endDate: `${YEAR - 1}-12-15T00:00:00.000Z` });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/startDate debe ser menor que endDate/);
+    const after = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.admin));
+    expect(after.body.endDate).toBe(before.body.endDate);
+  });
+
   // ---------------- Participantes ----------------
 
   it('PART: inscribir dos veces a la misma persona devuelve 409', async () => {
@@ -310,6 +322,36 @@ describe('Reglas de la plataforma (e2e)', () => {
     const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(friday));
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/no está activo/);
+  });
+
+  it('CHAL: un reto cerrado no admite cambios de reglas (400) y conserva su resultado', async () => {
+    const before = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    const res = await request(http).patch(`/api/challenges/${challengeId}`).set(auth(token.admin)).send({ pointsPerKm: 5, maxWinners: 3 });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/No se puede modificar un reto cerrado/);
+    const read = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.admin));
+    expect(Number(read.body.pointsPerKm)).toBe(0);
+    const after = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    expect(after.body.winners).toEqual(before.body.winners);
+  });
+
+  it('CHAL: un reto cerrado no vuelve a borrador (400) y cerrarlo de nuevo no cambia nada', async () => {
+    const draft = await request(http).patch(`/api/challenges/${challengeId}`).set(auth(token.admin)).send({ status: 'DRAFT' });
+    expect(draft.status).toBe(400);
+    const close = await request(http).post(`/api/challenges/${challengeId}/close`).set(auth(token.admin));
+    expect(close.status).toBe(201);
+    expect(close.body.status).toBe('COMPLETED');
+  });
+
+  it('RES: la premiación de un reto cerrado se puede registrar después del cierre', async () => {
+    const award = await request(http)
+      .post(`/api/challenges/${challengeId}/awards`)
+      .set(auth(token.admin))
+      .send({ userIds: [id.ana], notes: 'Sorteo presencial repetido ante el grupo' });
+    expect(award.status).toBe(201);
+    const results = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    expect(results.body.status).toBe('COMPLETED');
+    expect(results.body.winners.map((w: { userId: string }) => w.userId)).toEqual([id.ana]);
   });
 
   // ---------------- Sesión ----------------

@@ -1,32 +1,32 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-02 07:28 (UTC)
-- **Código:** rama `release/1.2.0`, commit `33b372a`
+- **Fecha:** 2026-10-02 21:05 (UTC)
+- **Código:** rama `release/1.3.0`, commit `d0ceea6`
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs --reuse`
 
 ## Resultado
 
-**100 de 100 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
+**102 de 102 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
 
-Se ejecutaron **333 pruebas** automatizadas: 333 pasaron y 0 fallaron.
+Se ejecutaron **353 pruebas** automatizadas: 353 pasaron y 0 fallaron.
 
 ## Suites ejecutadas
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 121 | 121 | 0 | 14.7 s | 2026-10-02 07:25 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 12 | 12 | 0 | 1.2 s | 2026-10-02 07:26 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 81 | 81 | 0 | 23.9 s | 2026-10-02 07:26 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 39 | 39 | 0 | 67.8 s | 2026-10-02 07:27 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 16 | 16 | 0 | 34.2 s | 2026-10-02 07:28 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 64 | 64 | 0 | 1.2 s | 2026-10-02 07:28 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 128 | 128 | 0 | 14.2 s | 2026-10-02 21:04 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 12 | 12 | 0 | 364 ms | 2026-10-02 21:04 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 85 | 85 | 0 | 8.4 s | 2026-10-02 21:04 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 44 | 44 | 0 | 34.6 s | 2026-10-02 21:05 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 19 | 19 | 0 | 22.4 s | 2026-10-02 21:05 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 65 | 65 | 0 | 988 ms | 2026-10-02 21:05 |
 
 ## Casos por prioridad
 
 | Prioridad | Casos | Aprobados | Fallidos |
 |---|---:|---:|---:|
-| Alta | 62 | 62 | 0 |
+| Alta | 64 | 64 | 0 |
 | Media | 37 | 37 | 0 |
 | Baja | 1 | 1 | 0 |
 
@@ -35,7 +35,7 @@ Se ejecutaron **333 pruebas** automatizadas: 333 pasaron y 0 fallaron.
 | Tipo | Casos |
 |---|---:|
 | Funcional | 46 |
-| Seguridad | 19 |
+| Seguridad | 21 |
 | Negativo | 15 |
 | Regresión | 7 |
 | UI | 9 |
@@ -65,7 +65,8 @@ Ninguna.
 | ID | Estado | Observación | Casos |
 |---|---|---|---|
 | OBS-01 | Resuelta | **El ranking de un reto cerrado no se podía consultar en la web.** El selector de reto solo lista retos activos, así que el resultado final de un reto cerrado solo se veía por GET /api/challenges/:id/results. Resuelta con el cambio closed-challenge-results: el Ranking ofrece los retos cerrados, con dirección para compartir y en solo lectura. | TC-CHAL-12 |
-| OBS-02 | Abierta | **Funciones disponibles solo por API.** Editar las reglas de un reto, retirar una actividad pendiente y registrar un pago parcial no tienen botón en la web; la guía los documenta por API. | TC-CHAL-05, TC-ACT-12, TC-FIN-01 |
+| OBS-02 | Resuelta | **Funciones disponibles solo por API.** Editar las reglas de un reto, retirar una actividad pendiente y registrar un pago parcial no tenían botón en la web. Resuelta con el cambio web-api-only-actions: los tres tienen su control en la web. | TC-CHAL-05, TC-ACT-12, TC-FIN-01 |
+| OBS-03 | Resuelta | **La API permitía editar o reabrir un reto cerrado.** PATCH aceptaba cambiar las reglas de un reto cerrado (reescribiendo su ranking y ganadores) y devolverlo a borrador. Resuelta con el cambio web-api-only-actions: un reto cerrado es definitivo (400) salvo registrar su premiación; las herramientas de prueba borran sus retos de prueba en la base local en vez de reabrirlos. | TC-CHAL-13 |
 
 ## Pruebas sin caso asociado
 

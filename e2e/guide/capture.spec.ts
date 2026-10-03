@@ -98,10 +98,15 @@ test.beforeAll(async () => {
     tiebreakRule: 'TOTAL_KM',
   };
   let challenge = list.body.find((c) => c.month === MONTH && c.year === YEAR);
+  // Un reto cerrado es definitivo: si una corrida anterior lo cerró, se borra y se crea de nuevo
+  if (challenge?.status === 'COMPLETED') {
+    const { deleteTestChallenges } = await import('../../scripts/lib/test-db.mjs');
+    await deleteTestChallenges([{ month: MONTH, year: YEAR }]);
+    challenge = undefined;
+  }
   if (challenge) {
     const acts = await api<{ id: string }[]>('GET', `/activities?challengeId=${challenge.id}`, { token: admin });
     for (const a of acts.body) await api('DELETE', `/activities/${a.id}`, { token: admin });
-    if (challenge.status === 'COMPLETED') await api('PATCH', `/challenges/${challenge.id}`, { token: admin, body: { status: 'DRAFT' } });
     await api('PATCH', `/challenges/${challenge.id}`, { token: admin, body: rules });
   } else {
     const created = await api<{ id: string }>('POST', '/challenges', { token: admin, body: { ...rules, month: MONTH, year: YEAR } });
@@ -208,6 +213,16 @@ test.describe('Participante', () => {
     await expect(list).toContainText('La captura no muestra los minutos');
     await page.getByText('Mis actividades').scrollIntoViewIfNeeded();
     await shot(page, '12-mis-actividades.jpg');
+  });
+
+  test('retirar una actividad pendiente pide confirmación', async ({ page }) => {
+    await pick(page, '/dashboard');
+    const list = page.getByLabel('Mis actividades');
+    await list.getByRole('button', { name: 'Retirar' }).first().click();
+    await expect(page.getByRole('button', { name: 'Sí, retirar' })).toBeVisible();
+    // Solo se fotografía la confirmación: no se retira nada de los datos de demostración
+    await shot(page, '26-retirar-actividad.jpg', list);
+    await page.getByRole('button', { name: 'No' }).click();
   });
 
   test('formulario de subida bloqueado y listo', async ({ page }) => {
@@ -339,6 +354,27 @@ test.describe('Administrador', () => {
     await expect(page.locator('main')).toContainText('Parcial');
     await expect(page.locator('main')).toContainText('Ver comprobante de pago');
     await shot(page, '08-participantes-finanzas.jpg');
+  });
+
+  test('registrar un pago parcial', async ({ page }) => {
+    await pick(page, '/dashboard/admin/participants');
+    const row = page.getByLabel('Participante Diego Sin Excusas');
+    await row.getByRole('button', { name: 'Marcar pagado' }).click();
+    await expect(row.getByLabel('Monto recibido')).toHaveValue('150');
+    await row.getByLabel('Monto recibido').fill('75');
+    // Se fotografía el formulario sin guardar, para no cambiar los pagos de la demostración
+    await shot(page, '25-pago-parcial.jpg', row);
+    await row.getByRole('button', { name: 'Cancelar' }).click();
+  });
+
+  test('editar un reto activo', async ({ page }) => {
+    await page.goto('/dashboard/admin/challenges');
+    await page.getByLabel(`Reto ${NAME}`, { exact: true }).getByRole('button', { name: 'Editar' }).click();
+    const form = page.getByRole('form', { name: `Editar ${NAME}` });
+    await expect(form).toContainText('El reto está activo');
+    await expect(form.getByLabel('Cuota / persona')).toHaveValue('150');
+    await shot(page, '24-editar-reto.jpg', form);
+    await form.getByRole('button', { name: 'Cancelar' }).click();
   });
 
   test('validaciones: chips, override y rechazo', async ({ page }) => {
