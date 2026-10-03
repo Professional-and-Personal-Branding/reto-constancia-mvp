@@ -3,6 +3,34 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.4.0] — 2026-10-03
+
+El premio se reparte con lo recaudado, el presupuesto se calcula solo con las cuotas y un reto
+cerrado ya no acepta pagos. **Antes de desplegar: esta versión trae una migración** (la primera
+desde la 1.0.0); tomar el respaldo de la base que indica el runbook. Volver a la 1.3.0 exige
+restaurar ese respaldo.
+
+### Cambiado
+
+- **El premio se reparte con lo recaudado** (spec `challenge-finance`, cambio `pot-from-collected`):
+  el pote de los resultados es la suma de los pagos confirmados, no el presupuesto. El premio es
+  monetario cuando el reto cobra cuota; un reto con cuota y sin pagos muestra "aún no hay pagos
+  registrados". Quien no pagó puede ganar igual.
+- **Presupuesto automático:** por defecto es cuota × inscritos y se recalcula al inscribir o quitar
+  personas o cambiar la cuota; el admin puede fijar otro monto y volver a automático. El resumen
+  financiero informa `budgetMode` (`auto` o `manual`).
+- **Un reto cerrado no acepta pagos ni comprobantes** (400): el pago tardío se registra en el reto
+  siguiente, y el premio de un reto cerrado queda fijo.
+- **Migración de base de datos** (la primera desde la 1.0.0): `Challenge.budgetTotal` pasa a ser
+  opcional. Los presupuestos en 0 o iguales a cuota × inscritos se vuelven automáticos; el resto se
+  conserva como monto fijado. Tomar respaldo antes de desplegar (ver el runbook).
+
+### Corregido
+
+- El panel de premiación no actualizaba los ganadores sugeridos si cambiaban sin que cambiara
+  el puntaje tope. Ahora la preselección sigue a la sugerencia y se conserva lo que el
+  administrador marcó mientras la sugerencia no cambie. El frontend queda sin avisos de lint.
+
 ## [1.3.0] — 2026-10-02
 
 Backend sin avisos de seguridad (NestJS 11), tres acciones que solo existían por API ahora en

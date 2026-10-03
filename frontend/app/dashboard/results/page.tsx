@@ -151,14 +151,18 @@ function Results() {
         )}
         {results.payout && (
           <p className="text-sm text-ink-dim mt-2" aria-label="Premio por ganador">
+            {/* El pote es lo recaudado; mientras el reto sigue abierto puede crecer con más pagos */}
             {!results.payout.monetary
-              ? 'Premio no monetario (presupuesto 0).'
-              : results.payout.winnersCount === 0
-                ? `Pote ${results.payout.pot} ${challenge.currency} · aún sin ganador.`
-                : `Premio: ${results.payout.perWinner} ${challenge.currency} por ganador` +
-                  (results.payout.winnersCount > 1 ? ` (${results.payout.winnersCount})` : '') +
-                  ` · pote ${results.payout.pot} ${challenge.currency}` +
-                  (results.status === 'COMPLETED' ? '' : ' · proyectado')}
+              ? 'Premio no monetario (el reto no cobra cuota).'
+              : results.payout.pot === 0
+                ? `Pote 0 ${challenge.currency} · aún no hay pagos registrados.`
+                : results.payout.winnersCount === 0
+                  ? `Pote ${results.payout.pot} ${challenge.currency} recaudado · aún sin ganador` +
+                    (results.status === 'COMPLETED' ? '.' : ' · proyectado')
+                  : `Premio: ${results.payout.perWinner} ${challenge.currency} por ganador` +
+                    (results.payout.winnersCount > 1 ? ` (${results.payout.winnersCount})` : '') +
+                    ` · pote ${results.payout.pot} ${challenge.currency} recaudado` +
+                    (results.status === 'COMPLETED' ? '' : ' · proyectado')}
           </p>
         )}
       </div>
@@ -316,9 +320,12 @@ function AwardPanel({
   const [selectedIds, setSelectedIds] = useState<string[]>(suggestedIds);
   const [notes, setNotes] = useState('');
 
+  // La selección se reinicia cuando cambia la sugerencia (otro reto, otra premiación u otros
+  // ganadores), y no en cada recarga de los resultados: así no se pierde lo que marcó el admin.
+  const suggestedKey = suggestedIds.join(',');
   useEffect(() => {
-    setSelectedIds(suggestedIds);
-  }, [results.challengeId, results.topScore, results.awards.length]);
+    setSelectedIds(suggestedKey ? suggestedKey.split(',') : []);
+  }, [suggestedKey]);
 
   function toggle(userId: string) {
     setSelectedIds((current) =>

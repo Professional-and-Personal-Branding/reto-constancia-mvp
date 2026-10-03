@@ -61,7 +61,8 @@ model Challenge {
   validDays           Int[]           @default([1, 2, 3, 4, 5, 6]) // 0=Dom .. 6=Sáb
   minHeartRateMinutes Int             @default(20)
   feePerParticipant   Decimal         @default(0) @db.Decimal(10, 2)
-  budgetTotal         Decimal         @default(0) @db.Decimal(10, 2)
+  /// Presupuesto fijado a mano. NULL = automático (cuota × inscritos), ver finance.service.ts
+  budgetTotal         Decimal?        @db.Decimal(10, 2)
   currency            String          @default("BOB")
   prizeDescription    String?
   status              ChallengeStatus @default(DRAFT)

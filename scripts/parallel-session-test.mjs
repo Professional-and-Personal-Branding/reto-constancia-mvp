@@ -154,7 +154,9 @@ async function main() {
   const finAna = await req('GET', `/challenges/${challengeId}/finance`, { token: anaTok });
   check('Ana NO puede ver finanzas (403)', finAna.status === 403, `status=${finAna.status}`);
   const payout = results.json?.payout;
-  check('Results incluye payout con pote = presupuesto', !!payout && payout.pot === f.budgetTotal && typeof payout.perWinner === 'number' && payout.monetary === (f.budgetTotal > 0), JSON.stringify(payout));
+  // El pote del premio es lo recaudado; el presupuesto es la meta (automático = cuota × inscritos)
+  check('Results incluye payout con pote = recaudado', !!payout && payout.pot === f.collectedTotal && typeof payout.perWinner === 'number' && payout.monetary === (f.feePerParticipant > 0), JSON.stringify(payout));
+  check('Presupuesto del seed automático = cuota × inscritos', f.budgetMode === 'auto' && f.budgetTotal === f.expectedTotal, `${f.budgetMode} ${f.budgetTotal} vs ${f.expectedTotal}`);
 
   // ---- 5c. Reglas de puntaje configurables (OpenSpec: challenge-scoring) ----
   section('5c. Reglas de puntaje configurables');

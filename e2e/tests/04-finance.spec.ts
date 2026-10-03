@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { closeChallenge, enroll, setupChallenge, STATE, tokens } from '../fixtures/api';
+import { closeChallenge, enroll, markPaid, setupChallenge, STATE, tokens } from '../fixtures/api';
 import { selectChallenge } from '../fixtures/ui';
 
 /**
@@ -16,7 +16,6 @@ test.beforeAll(async () => {
     month: MONTH,
     name: 'E2E Playwright · finanzas',
     feePerParticipant: 120,
-    budgetTotal: 600,
   });
   await enroll(challenge.id, tokens().participantId);
   process.env.E2E_FINANCE_CHALLENGE = challenge.id;
@@ -43,7 +42,9 @@ test('el resumen financiero refleja los pagos al instante', async ({ page }) => 
 
   await expect(summary).toContainText('1 pagados');
   await expect(row).toContainText('Pagado');
-  await expect(summary).toContainText('Faltan 480 BOB'); // 600 de presupuesto - 120 recaudados
+  // Presupuesto automático: 1 inscrito × 120, cubierto con el pago
+  await expect(summary).toContainText('Cubierto');
+  await expect(summary).toContainText('120 BOB · automático');
 
   await page.getByRole('button', { name: 'Marcar impago' }).first().click();
   await expect(summary).toContainText('1 sin pagar');
@@ -51,8 +52,41 @@ test('el resumen financiero refleja los pagos al instante', async ({ page }) => 
 });
 
 test('el ranking muestra el premio por ganador', async ({ page }) => {
-  await selectChallenge(page, process.env.E2E_FINANCE_CHALLENGE!, '/dashboard/results');
-
+  const challengeId = process.env.E2E_FINANCE_CHALLENGE!;
+  // Sin pagos, el pote (lo recaudado) es 0
+  await markPaid(challengeId, tokens().participantId, false);
+  await selectChallenge(page, challengeId, '/dashboard/results');
   const payout = page.getByLabel('Premio por ganador');
-  await expect(payout).toContainText('600 BOB');
+  await expect(payout).toContainText('aún no hay pagos registrados');
+
+  // Con la cuota pagada, el pote es lo recaudado y no el presupuesto
+  await markPaid(challengeId, tokens().participantId, true);
+  await page.reload();
+  await expect(payout).toContainText('120 BOB recaudado');
+  await expect(payout).toContainText('proyectado');
+});
+
+test('el presupuesto es automático y se puede fijar a mano y volver a automático', async ({ page }) => {
+  const challengeId = process.env.E2E_FINANCE_CHALLENGE!;
+  const name = 'E2E Playwright · finanzas';
+  const summary = page.getByLabel('Resumen financiero');
+  const editForm = page.getByRole('form', { name: `Editar ${name}` });
+
+  await page.goto('/dashboard/admin/challenges');
+  await page.getByLabel(`Reto ${name}`, { exact: true }).getByRole('button', { name: 'Editar' }).click();
+  await expect(editForm.getByLabel('Presupuesto automático (cuota × inscritos)')).toBeChecked();
+  await editForm.getByLabel('Presupuesto automático (cuota × inscritos)').uncheck();
+  await editForm.getByLabel('Presupuesto fijado').fill('800');
+  await editForm.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(editForm).toHaveCount(0);
+  await selectChallenge(page, challengeId, '/dashboard/admin/participants');
+  await expect(summary).toContainText('800 BOB · ajustado');
+
+  await page.goto('/dashboard/admin/challenges');
+  await page.getByLabel(`Reto ${name}`, { exact: true }).getByRole('button', { name: 'Editar' }).click();
+  await editForm.getByLabel('Presupuesto automático (cuota × inscritos)').check();
+  await editForm.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(editForm).toHaveCount(0);
+  await selectChallenge(page, challengeId, '/dashboard/admin/participants');
+  await expect(summary).toContainText('120 BOB · automático');
 });

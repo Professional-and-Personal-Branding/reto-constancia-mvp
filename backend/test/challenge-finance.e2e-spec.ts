@@ -171,7 +171,7 @@ describe('Finanzas del reto: resumen, estados de pago y payout (e2e)', () => {
     expect(missing.status).toBe(404);
   });
 
-  it('results incluye payout: pote 600 para un ganador', async () => {
+  it('results incluye payout: el pote es lo recaudado para un ganador', async () => {
     await prisma.dailyActivity.create({
       data: {
         challengeId: challenge.id,
@@ -187,10 +187,15 @@ describe('Finanzas del reto: resumen, estados de pago y payout (e2e)', () => {
       .set(auth(participantToken));
     expect(res.status).toBe(200);
     expect(res.body.winners).toHaveLength(1);
-    expect(res.body.payout).toEqual({ pot: 600, winnersCount: 1, perWinner: 600, monetary: true });
+    // El pote no es el presupuesto (600): es lo cobrado hasta ahora
+    const finance = await request(http).get(`/api/challenges/${challenge.id}/finance`).set(auth(adminToken));
+    const collected = finance.body.collectedTotal;
+    expect(collected).toBeGreaterThan(0);
+    expect(collected).toBeLessThan(600);
+    expect(res.body.payout).toEqual({ pot: collected, winnersCount: 1, perWinner: collected, monetary: true });
   });
 
-  it('un reto con presupuesto 0 reporta premio no monetario', async () => {
+  it('un reto sin cuota reporta premio no monetario', async () => {
     const res = await request(http)
       .post('/api/challenges')
       .set(auth(adminToken))
@@ -201,7 +206,6 @@ describe('Finanzas del reto: resumen, estados de pago y payout (e2e)', () => {
         startDate: `${YEAR}-02-01T00:00:00.000Z`,
         endDate: `${YEAR}-02-28T23:59:59.000Z`,
         feePerParticipant: 0,
-        budgetTotal: 0,
       });
     expect(res.status).toBe(201);
     freeChallenge = res.body;

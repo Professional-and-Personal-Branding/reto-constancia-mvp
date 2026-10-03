@@ -253,3 +253,52 @@ describe('ChallengesService.update: retos cerrados y período', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ChallengesService: pagos y presupuesto', () => {
+  function paymentsPrisma(status: ChallengeStatus) {
+    const participantUpdate = jest.fn((args: unknown) => Promise.resolve(args));
+    const create = jest.fn(({ data }: { data: unknown }) => Promise.resolve(data));
+    const prisma = {
+      challenge: {
+        findUnique: jest.fn(() => Promise.resolve({ id: 'c', status, feePerParticipant: '120.00' })),
+        create,
+      },
+      challengeParticipant: { update: participantUpdate },
+    } as unknown as PrismaService;
+    return { prisma, participantUpdate, create };
+  }
+
+  it('un reto cerrado no admite registrar ni borrar pagos', async () => {
+    const { prisma, participantUpdate } = paymentsPrisma(ChallengeStatus.COMPLETED);
+    const svc = new ChallengesService(prisma);
+    await expect(svc.markPayment('c', 'u', { paid: true })).rejects.toThrow('No se puede modificar un reto cerrado');
+    await expect(svc.markPayment('c', 'u', { paid: false })).rejects.toBeInstanceOf(BadRequestException);
+    expect(participantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('un reto cerrado no admite subir comprobantes de pago', async () => {
+    const { prisma, participantUpdate } = paymentsPrisma(ChallengeStatus.COMPLETED);
+    const svc = new ChallengesService(prisma);
+    await expect(
+      svc.uploadPaymentProof('c', 'u', { paymentProofUrl: 'https://x/p.png', paymentProofCloudinaryId: 'p' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(participantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('en un reto activo, pagar sin monto registra la cuota', async () => {
+    const { prisma, participantUpdate } = paymentsPrisma(ChallengeStatus.ACTIVE);
+    await new ChallengesService(prisma).markPayment('c', 'u', { paid: true });
+    expect(participantUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ paid: true, amountPaid: 120 }) }),
+    );
+  });
+
+  it('crear un reto sin presupuesto lo deja automático (NULL)', async () => {
+    const { prisma, create } = paymentsPrisma(ChallengeStatus.DRAFT);
+    (prisma.challenge.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    await new ChallengesService(prisma).create({
+      name: 'Auto', month: 7, year: 2031, startDate: '2031-07-01', endDate: '2031-07-31',
+    } as never);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ budgetTotal: null }) }));
+  });
+});

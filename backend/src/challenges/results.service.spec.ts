@@ -19,7 +19,8 @@ const baseChallenge = {
   startDate: new Date('2026-05-01T00:00:00Z'),
   endDate: new Date('2026-05-31T00:00:00Z'),
   validDays: [1, 2, 3, 4, 5, 6],
-  budgetTotal: '600.00',
+  feePerParticipant: '300.00',
+  budgetTotal: null,
   // Reglas de puntaje por defecto (= comportamiento histórico)
   pointsPerValidatedDay: 1,
   pointsPerKm: '0.00',
@@ -27,8 +28,9 @@ const baseChallenge = {
   maxWinners: 2,
   tiebreakRule: TiebreakRule.DRAW,
   participants: [
-    { userId: 'u1', paid: true, user: { id: 'u1', name: 'Ana', email: 'a@x' } },
-    { userId: 'u2', paid: true, user: { id: 'u2', name: 'Bruno', email: 'b@x' } },
+    // Dos cuotas de 300 pagadas: lo recaudado (el pote) es 600
+    { userId: 'u1', paid: true, amountPaid: '300.00', user: { id: 'u1', name: 'Ana', email: 'a@x' } },
+    { userId: 'u2', paid: true, amountPaid: '300.00', user: { id: 'u2', name: 'Bruno', email: 'b@x' } },
   ],
   awards: [] as unknown[],
 };
@@ -98,14 +100,41 @@ describe('ResultsService.getResults', () => {
     expect(r.payout.perWinner).toBe(600);
   });
 
-  it('presupuesto 0 -> premio no monetario', async () => {
+  it('reto sin cuota -> premio no monetario', async () => {
     const acts = [{ userId: 'u1', status: 'VALIDATED', distanceKm: 5 }];
-    const svc = new ResultsService(
-      buildPrismaMock({ ...baseChallenge, budgetTotal: '0.00' }, acts),
-    );
+    const free = {
+      ...baseChallenge,
+      feePerParticipant: '0.00',
+      participants: baseChallenge.participants.map((p) => ({ ...p, paid: false, amountPaid: null })),
+    };
+    const svc = new ResultsService(buildPrismaMock(free, acts));
     const r = await svc.getResults('c1');
     expect(r.payout.monetary).toBe(false);
     expect(r.payout.perWinner).toBe(0);
+  });
+
+  it('el pote es lo recaudado y no depende del presupuesto', async () => {
+    const acts = [{ userId: 'u1', status: 'VALIDATED', distanceKm: 5 }];
+    // Solo Ana pagó: el pote es 300 tenga el reto presupuesto automático o 900 fijado a mano
+    const participants = [baseChallenge.participants[0], { ...baseChallenge.participants[1], paid: false, amountPaid: null }];
+    for (const budgetTotal of [null, '900.00']) {
+      const svc = new ResultsService(buildPrismaMock({ ...baseChallenge, budgetTotal, participants }, acts));
+      const r = await svc.getResults('c1');
+      expect(r.payout).toEqual({ pot: 300, winnersCount: 1, perWinner: 300, monetary: true });
+    }
+  });
+
+  it('quien no pagó puede ganar y cobra como cualquier ganador', async () => {
+    const acts = [
+      { userId: 'u1', status: 'VALIDATED', distanceKm: 5 },
+      { userId: 'u1', status: 'VALIDATED', distanceKm: 5 },
+      { userId: 'u2', status: 'VALIDATED', distanceKm: 5 },
+    ];
+    const participants = [{ ...baseChallenge.participants[0], paid: false, amountPaid: null }, baseChallenge.participants[1]];
+    const svc = new ResultsService(buildPrismaMock({ ...baseChallenge, participants }, acts));
+    const r = await svc.getResults('c1');
+    expect(r.winners.map((w) => w.userId)).toEqual(['u1']);
+    expect(r.payout).toEqual({ pot: 300, winnersCount: 1, perWinner: 300, monetary: true });
   });
 });
 

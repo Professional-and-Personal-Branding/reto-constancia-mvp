@@ -5,8 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 /**
  * Finanzas del reto (spec: challenge-finance).
  * Funciones puras reutilizadas por el endpoint /finance y por los resultados (payout).
+ *
+ * - Presupuesto: cuota × inscritos salvo que el admin fije un monto (budgetTotal no nulo).
+ * - Pote del premio: lo recaudado (pagos confirmados), no el presupuesto.
  */
 export type PaymentState = 'paid' | 'partial' | 'unpaid';
+export type BudgetMode = 'auto' | 'manual';
 
 export interface ParticipantFinance {
   userId: string;
@@ -22,7 +26,9 @@ export interface ChallengeFinance {
   challengeName: string;
   currency: string;
   feePerParticipant: number;
+  /** Presupuesto efectivo: el fijado a mano o, si no hay, cuota × inscritos */
   budgetTotal: number;
+  budgetMode: BudgetMode;
   participantsTotal: number;
   counts: { paid: number; partial: number; unpaid: number };
   expectedTotal: number;
@@ -74,12 +80,31 @@ export interface FinanceParticipantInput {
   user: { name: string; email: string };
 }
 
+/**
+ * Presupuesto efectivo del reto. NULL en la base = automático: se recalcula en cada lectura,
+ * así sigue a las inscripciones y a la cuota sin guardar una copia que pueda quedar vieja.
+ */
+export function effectiveBudget(
+  challenge: Pick<FinanceChallengeInput, 'feePerParticipant' | 'budgetTotal'>,
+  participantsCount: number,
+): { budget: number; mode: BudgetMode } {
+  if (challenge.budgetTotal === null || challenge.budgetTotal === undefined) {
+    return { budget: round2(toMoney(challenge.feePerParticipant) * participantsCount), mode: 'auto' };
+  }
+  return { budget: round2(toMoney(challenge.budgetTotal)), mode: 'manual' };
+}
+
+/** Lo recaudado: solo lo confirmado por el admin (paid = true); un comprobante sin confirmar no suma. */
+export function collectedTotal(participants: Pick<FinanceParticipantInput, 'paid' | 'amountPaid'>[]): number {
+  return round2(participants.reduce((sum, p) => sum + (p.paid ? toMoney(p.amountPaid) : 0), 0));
+}
+
 export function computeFinance(
   challenge: FinanceChallengeInput,
   participants: FinanceParticipantInput[],
 ): ChallengeFinance {
   const fee = toMoney(challenge.feePerParticipant);
-  const budget = toMoney(challenge.budgetTotal);
+  const { budget, mode } = effectiveBudget(challenge, participants.length);
 
   const rows: ParticipantFinance[] = participants.map((p) => {
     const amount = p.paid ? toMoney(p.amountPaid) : 0;
@@ -97,36 +122,37 @@ export function computeFinance(
   for (const r of rows) counts[r.state]++;
 
   const expectedTotal = round2(fee * rows.length);
-  // Solo cuenta lo confirmado por el admin (paid = true); un comprobante sin confirmar no suma
-  const collectedTotal = round2(
-    participants.reduce((sum, p) => sum + (p.paid ? toMoney(p.amountPaid) : 0), 0),
-  );
-  const pendingTotal = round2(Math.max(0, expectedTotal - collectedTotal));
-  const budgetDelta = round2(collectedTotal - budget);
+  const collected = collectedTotal(participants);
+  const pendingTotal = round2(Math.max(0, expectedTotal - collected));
+  const budgetDelta = round2(collected - budget);
 
   return {
     challengeId: challenge.id,
     challengeName: challenge.name,
     currency: challenge.currency,
     feePerParticipant: round2(fee),
-    budgetTotal: round2(budget),
+    budgetTotal: budget,
+    budgetMode: mode,
     participantsTotal: rows.length,
     counts,
     expectedTotal,
-    collectedTotal,
+    collectedTotal: collected,
     pendingTotal,
-    budgetCovered: collectedTotal >= budget,
+    budgetCovered: collected >= budget,
     budgetDelta,
     participants: rows,
   };
 }
 
-/** Reparto del pote (presupuesto del reto) entre los ganadores; nunca supera el pote. */
-export function computePayout(budgetTotal: MoneyLike, winnersCount: number): ChallengePayout {
-  const pot = round2(toMoney(budgetTotal));
+/**
+ * Reparto del pote entre los ganadores; nunca supera el pote. El pote es lo recaudado, y el
+ * premio es monetario cuando el reto cobra cuota (un reto con cuota y sin pagos tiene pote 0).
+ */
+export function computePayout(collected: MoneyLike, winnersCount: number, fee: MoneyLike): ChallengePayout {
+  const pot = round2(toMoney(collected));
   const count = Number.isInteger(winnersCount) && winnersCount > 0 ? winnersCount : 0;
   const perWinner = pot > 0 && count > 0 ? Math.floor((pot / count) * 100) / 100 : 0;
-  return { pot, winnersCount: count, perWinner, monetary: pot > 0 };
+  return { pot, winnersCount: count, perWinner, monetary: toMoney(fee) > 0 };
 }
 
 @Injectable()

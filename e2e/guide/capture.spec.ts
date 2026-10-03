@@ -10,7 +10,7 @@ import { pngFile } from '../fixtures/ui';
  * Capturas de la guía de uso y evidencia visual de los casos de UI del catálogo.
  *
  * Datos de demostración: "Reto Octubre 2026" (período 1 sep – 31 oct 2026, lunes a sábado,
- * 20 min de FC, cuota 150 BOB, presupuesto 900 BOB, 10 puntos por día + 1 por km, mínimo 5
+ * 20 min de FC, cuota 150 BOB, presupuesto automático (5 × 150), 10 puntos por día + 1 por km, mínimo 5
  * días, 1 ganador, desempate por km) con los cinco participantes del seed. Convive con el
  * reto de mayo del seed, así que el selector de reto aparece.
  */
@@ -88,7 +88,7 @@ test.beforeAll(async () => {
     validDays: [1, 2, 3, 4, 5, 6],
     minHeartRateMinutes: 20,
     feePerParticipant: 150,
-    budgetTotal: 900,
+    budgetTotal: null,
     currency: 'BOB',
     prizeDescription: 'Inscripción a la carrera de fin de año para quien gane',
     pointsPerValidatedDay: 10,
@@ -247,7 +247,8 @@ test.describe('Participante', () => {
     await expect(page.getByLabel('Regla de puntaje')).toContainText('10 por día validado');
     await expect(page.locator('table thead')).toContainText('PUNTOS', { ignoreCase: true });
     await expect(page.locator('table')).toContainText('no califica');
-    await expect(page.getByLabel('Premio por ganador')).toContainText('900 BOB');
+    // El pote es lo recaudado (150 + 150 + 75), no el presupuesto
+    await expect(page.getByLabel('Premio por ganador')).toContainText('375 BOB por ganador');
     await expect(page.locator('main')).toContainText('top actual: 96 puntos');
     await shot(page, '16-ranking.jpg');
   });
@@ -283,7 +284,7 @@ async function closedDemoChallenge(): Promise<string> {
       body: {
         name: CLOSED_NAME, month: 8, year: YEAR,
         startDate: `${YEAR}-08-01T00:00:00.000Z`, endDate: `${YEAR}-08-31T23:59:59.000Z`,
-        validDays: [1, 2, 3, 4, 5, 6], minHeartRateMinutes: 20, feePerParticipant: 150, budgetTotal: 600,
+        validDays: [1, 2, 3, 4, 5, 6], minHeartRateMinutes: 20, feePerParticipant: 150,
         currency: 'BOB', prizeDescription: 'Zapatillas de running para quien gane',
       },
     });
@@ -306,6 +307,10 @@ async function closedDemoChallenge(): Promise<string> {
   const participants = await api<{ userId: string; user: { email: string } }[]>('GET', `/challenges/${id}/participants`, { token: admin });
   const carla = participants.body.find((p) => p.user.email === 'carla@reto.local');
   if (!carla) throw new Error('Carla no quedó inscrita en el reto cerrado');
+  // Los tres pagaron su cuota antes del cierre: el pote del premio es 450
+  for (const p of participants.body) {
+    await api('PATCH', `/challenges/${id}/participants/${p.userId}/payment`, { token: admin, body: { paid: true } });
+  }
   await api('POST', `/challenges/${id}/awards`, {
     token: admin,
     body: { userIds: [carla.userId], notes: 'Zapatillas entregadas en la reunión de septiembre' },

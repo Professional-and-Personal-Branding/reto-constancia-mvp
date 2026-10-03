@@ -1,49 +1,4 @@
-# challenge-finance Specification
-
-## Purpose
-Defines the financial view of a challenge: how fees and payments are reconciled into expected, collected and pending totals with a per-participant payment state, how the prize pot is split among winners, and how payment marking keeps amounts consistent.
-
-## Requirements
-
-### Requirement: Payment state per participant
-The system SHALL derive a payment state for each participant of a challenge: `paid` when `paid` is true and the recorded amount is greater than or equal to `feePerParticipant`; `partial` when `paid` is true and the recorded amount is lower than the fee; `unpaid` otherwise. When `feePerParticipant` is `0` every participant is `paid`.
-
-#### Scenario: Full payment
-- **GIVEN** a challenge with `feePerParticipant = 120`
-- **WHEN** a participant is marked paid with `amountPaid = 120`
-- **THEN** their payment state is `paid`
-
-#### Scenario: Partial payment
-- **GIVEN** a challenge with `feePerParticipant = 120`
-- **WHEN** a participant is marked paid with `amountPaid = 60`
-- **THEN** their payment state is `partial`
-
-#### Scenario: No payment
-- **GIVEN** a challenge with `feePerParticipant = 120`
-- **WHEN** a participant has not been marked paid
-- **THEN** their payment state is `unpaid`
-
-#### Scenario: Free challenge
-- **GIVEN** a challenge with `feePerParticipant = 0`
-- **WHEN** a participant has not been marked paid
-- **THEN** their payment state is `paid`
-
-### Requirement: Marking a payment records a consistent amount
-When an admin marks a participant as paid without an amount, the system SHALL record `feePerParticipant` as `amountPaid`. When an admin marks a participant as unpaid, the system SHALL clear `amountPaid` and `paidAt`.
-
-#### Scenario: Paid without amount
-- **GIVEN** a challenge with `feePerParticipant = 120`
-- **WHEN** the admin marks a participant as paid without `amountPaid`
-- **THEN** the participant has `amountPaid = 120` and a `paidAt` timestamp
-
-#### Scenario: Paid with explicit amount
-- **WHEN** the admin marks a participant as paid with `amountPaid = 150`
-- **THEN** the participant has `amountPaid = 150`
-
-#### Scenario: Marked unpaid
-- **GIVEN** a participant marked paid
-- **WHEN** the admin marks them as unpaid
-- **THEN** `paid` is false, `amountPaid` is null and `paidAt` is null
+## MODIFIED Requirements
 
 ### Requirement: Financial summary of a challenge
 The system SHALL expose to admins a financial summary of a challenge with: `currency`, `feePerParticipant`, `budgetTotal` (the effective budget), `budgetMode` (`auto` or `manual`), `participantsTotal`, counts per payment state, `expectedTotal` (fee x participants), `collectedTotal` (sum of `amountPaid` of participants marked paid), `pendingTotal` (max(0, expected - collected)), `budgetCovered` (collected >= effective budget) and `budgetDelta` (collected - effective budget), plus the list of participants with their state and amount. The effective budget SHALL be the manual budget when the admin set one, otherwise `expectedTotal`. Amounts SHALL be reported with two decimals.
@@ -140,25 +95,7 @@ The admin participants page SHALL show the financial summary (expected, collecte
 - **WHEN** a participant opens the results page
 - **THEN** it says the pot is 0 because no payments have been recorded yet
 
-### Requirement: Admins record partial payments from the web
-The admin participants page SHALL let the admin enter the amount received when marking a
-participant as paid, pre-filled with the challenge fee. The amount MUST be greater than zero.
-Saving MUST record it as `amountPaid`; an amount below the fee MUST show the participant as
-partial with the amount still owed, and the financial summary MUST update immediately.
-
-#### Scenario: Partial payment
-- **GIVEN** a challenge with a fee of 120 and an unpaid participant
-- **WHEN** the admin records a payment of 60
-- **THEN** the participant shows as partial, owing 60
-- **AND** the collected total increases by 60
-
-#### Scenario: Full payment by default
-- **WHEN** the admin records a payment without changing the pre-filled amount
-- **THEN** the participant shows as paid in full
-
-#### Scenario: Invalid amount
-- **WHEN** the admin enters 0 or leaves the amount empty
-- **THEN** the payment cannot be saved and the form explains why
+## ADDED Requirements
 
 ### Requirement: Budget follows the participants' fees unless set manually
 A challenge's budget SHALL be automatic unless the admin sets a manual amount: creating a
