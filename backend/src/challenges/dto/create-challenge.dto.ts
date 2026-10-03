@@ -63,10 +63,17 @@ export class CreateChallengeDto {
   @Type(() => Number)
   feePerParticipant?: number;
 
-  @ApiPropertyOptional({ example: 600 })
+  @ApiPropertyOptional({
+    example: 600,
+    nullable: true,
+    description:
+      'Presupuesto fijado a mano. Sin enviar (o null en una edición) = automático: cuota × inscritos.',
+  })
   @IsOptional()
   @Type(() => Number)
-  budgetTotal?: number;
+  @IsNumber()
+  @Min(0)
+  budgetTotal?: number | null;
 
   @ApiPropertyOptional({ example: 'BOB' })
   @IsOptional()

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ActivityStatus, ChallengeStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { ChallengePayout, computePayout } from './finance.service';
+import { ChallengePayout, collectedTotal, computePayout } from './finance.service';
 import { computeScore, describeScoring, isQualified, selectWinners } from './scoring';
 
 export interface ParticipantRanking {
@@ -160,9 +160,11 @@ export class ResultsService {
           ? ['Premiación registrada por el administrador.']
           : computed.notes),
       ],
+      // El pote es lo recaudado (pagos confirmados); quien no pagó puede ganar igual
       payout: computePayout(
-        challenge.budgetTotal,
+        collectedTotal(challenge.participants),
         awards.length > 0 ? awards.length : winners.length,
+        challenge.feePerParticipant,
       ),
     };
   }

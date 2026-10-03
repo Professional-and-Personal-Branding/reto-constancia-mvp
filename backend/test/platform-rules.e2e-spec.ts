@@ -151,6 +151,32 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(after.body.endDate).toBe(before.body.endDate);
   });
 
+  it('FIN: el presupuesto automático sigue a los inscritos y a la cuota; uno manual se mantiene', async () => {
+    const finance = () => request(http).get(`/api/challenges/${challengeId}/finance`).set(auth(token.admin));
+    const patchChallenge = (body: object) => request(http).patch(`/api/challenges/${challengeId}`).set(auth(token.admin)).send(body);
+
+    expect((await finance()).body).toMatchObject({ budgetTotal: 300, budgetMode: 'manual' });
+
+    // null lo vuelve automático: cuota (100) × inscritos (2)
+    expect((await patchChallenge({ budgetTotal: null })).status).toBe(200);
+    expect((await finance()).body).toMatchObject({ budgetTotal: 200, budgetMode: 'auto' });
+
+    // Sigue a los inscritos y a la cuota
+    await request(http).post(`/api/challenges/${challengeId}/participants`).set(auth(token.admin)).send({ userId: id.outsider });
+    expect((await finance()).body.budgetTotal).toBe(300);
+    await patchChallenge({ feePerParticipant: 150 });
+    expect((await finance()).body.budgetTotal).toBe(450);
+
+    // Un monto manual no cambia solo
+    await patchChallenge({ budgetTotal: 800 });
+    await request(http).delete(`/api/challenges/${challengeId}/participants/${id.outsider}`).set(auth(token.admin));
+    expect((await finance()).body).toMatchObject({ budgetTotal: 800, budgetMode: 'manual' });
+
+    // Deja el reto como estaba para las pruebas siguientes
+    await patchChallenge({ feePerParticipant: 100, budgetTotal: 300 });
+    expect((await finance()).body).toMatchObject({ budgetTotal: 300, budgetMode: 'manual', participantsTotal: 2 });
+  });
+
   // ---------------- Participantes ----------------
 
   it('PART: inscribir dos veces a la misma persona devuelve 409', async () => {
@@ -297,6 +323,10 @@ describe('Reglas de la plataforma (e2e)', () => {
     const before = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
     expect(before.body.winners.map((w: { userId: string }) => w.userId)).toEqual([id.ana]);
 
+    // Bruno pagó su cuota completa y Ana la mitad: lo recaudado es 150
+    await request(http).patch(`/api/challenges/${challengeId}/participants/${id.bruno}/payment`).set(auth(token.admin)).send({ paid: true });
+    await request(http).patch(`/api/challenges/${challengeId}/participants/${id.ana}/payment`).set(auth(token.admin)).send({ paid: true, amountPaid: 50 });
+
     const award = await request(http)
       .post(`/api/challenges/${challengeId}/awards`)
       .set(auth(token.admin))
@@ -307,7 +337,8 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(after.body.status).toBe('COMPLETED');
     expect(after.body.winners.map((w: { userId: string }) => w.userId)).toEqual([id.bruno]);
     expect(after.body.awards[0]).toMatchObject({ userId: id.bruno, notes: 'Sorteo presencial' });
-    expect(after.body.payout).toMatchObject({ pot: 300, winnersCount: 1, perWinner: 300 });
+    // El pote es lo recaudado (150), no el presupuesto de 300
+    expect(after.body.payout).toMatchObject({ pot: 150, winnersCount: 1, perWinner: 150 });
   });
 
   it('PART: en un reto cerrado no se inscribe ni se quita a nadie (400)', async () => {
@@ -341,6 +372,22 @@ describe('Reglas de la plataforma (e2e)', () => {
     const close = await request(http).post(`/api/challenges/${challengeId}/close`).set(auth(token.admin));
     expect(close.status).toBe(201);
     expect(close.body.status).toBe('COMPLETED');
+  });
+
+  it('FIN: un reto cerrado no admite pagos ni comprobantes y su pote no cambia', async () => {
+    const before = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    const unpay = await request(http).patch(`/api/challenges/${challengeId}/participants/${id.bruno}/payment`).set(auth(token.admin)).send({ paid: false });
+    expect(unpay.status).toBe(400);
+    expect(unpay.body.message).toMatch(/No se puede modificar un reto cerrado/);
+    const pay = await request(http).patch(`/api/challenges/${challengeId}/participants/${id.ana}/payment`).set(auth(token.admin)).send({ paid: true, amountPaid: 100 });
+    expect(pay.status).toBe(400);
+    const proof = await request(http)
+      .patch(`/api/challenges/${challengeId}/participants/me/payment-proof`)
+      .set(auth(token.ana))
+      .send({ paymentProofUrl: 'https://example.com/e2e/tarde.pdf', paymentProofCloudinaryId: 'e2e/tarde' });
+    expect(proof.status).toBe(400);
+    const after = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    expect(after.body.payout.pot).toBe(before.body.payout.pot);
   });
 
   it('RES: la premiación de un reto cerrado se puede registrar después del cierre', async () => {
