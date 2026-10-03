@@ -3,7 +3,12 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.4.0] — 2026-10-03
+
+El premio se reparte con lo recaudado, el presupuesto se calcula solo con las cuotas y un reto
+cerrado ya no acepta pagos. **Antes de desplegar: esta versión trae una migración** (la primera
+desde la 1.0.0); tomar el respaldo de la base que indica el runbook. Volver a la 1.3.0 exige
+restaurar ese respaldo.
 
 ### Cambiado
 
