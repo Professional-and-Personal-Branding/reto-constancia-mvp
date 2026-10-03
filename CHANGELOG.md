@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Corregido
+
+- El panel de premiación no actualizaba los ganadores sugeridos si cambiaban sin que cambiara
+  el puntaje tope. Ahora la preselección sigue a la sugerencia y se conserva lo que el
+  administrador marcó mientras la sugerencia no cambie. El frontend queda sin avisos de lint.
+
 ## [1.3.0] — 2026-10-02
 
 Backend sin avisos de seguridad (NestJS 11), tres acciones que solo existían por API ahora en

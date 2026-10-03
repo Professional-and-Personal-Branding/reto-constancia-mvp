@@ -316,9 +316,12 @@ function AwardPanel({
   const [selectedIds, setSelectedIds] = useState<string[]>(suggestedIds);
   const [notes, setNotes] = useState('');
 
+  // La selección se reinicia cuando cambia la sugerencia (otro reto, otra premiación u otros
+  // ganadores), y no en cada recarga de los resultados: así no se pierde lo que marcó el admin.
+  const suggestedKey = suggestedIds.join(',');
   useEffect(() => {
-    setSelectedIds(suggestedIds);
-  }, [results.challengeId, results.topScore, results.awards.length]);
+    setSelectedIds(suggestedKey ? suggestedKey.split(',') : []);
+  }, [suggestedKey]);
 
   function toggle(userId: string) {
     setSelectedIds((current) =>
