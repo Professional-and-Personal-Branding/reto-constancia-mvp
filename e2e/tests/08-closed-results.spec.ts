@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { api, createActivity, e2eDate, enroll, setupChallenge, STATE, tokens } from '../fixtures/api';
+import { api, createActivity, e2eDate, enroll, markPaid, setupChallenge, STATE, tokens } from '../fixtures/api';
 
 /**
  * Resultados de retos cerrados en el Ranking (spec challenge-lifecycle, closed-challenge-results).
@@ -13,9 +13,11 @@ let challengeId = '';
 
 test.beforeAll(async () => {
   const { admin, participantId } = tokens();
-  const challenge = await setupChallenge({ month: MONTH, name: NAME, budgetTotal: 300 });
+  const challenge = await setupChallenge({ month: MONTH, name: NAME, feePerParticipant: 300 });
   challengeId = challenge.id;
   await enroll(challengeId, participantId);
+  // Ana paga su cuota: lo recaudado (el pote del premio) es 300. Después del cierre ya no se puede.
+  await markPaid(challengeId, participantId, true);
 
   // Una actividad validada de Ana y la premiación, que cierra el reto
   const activity = await createActivity(challengeId, e2eDate(MONTH, 3), { distanceKm: 8 });

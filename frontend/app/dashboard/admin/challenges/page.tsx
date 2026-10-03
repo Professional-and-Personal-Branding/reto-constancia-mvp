@@ -107,7 +107,8 @@ export default function ChallengesPage() {
                 </p>
                 <p className="text-xs text-ink-mute mt-1">
                   {c._count.participants} participantes · {c._count.activities} actividades
-                  · {c.budgetTotal} {c.currency}
+                  · presupuesto{' '}
+                  {c.budgetTotal === null ? 'automático' : `${c.budgetTotal} ${c.currency}`}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -178,7 +179,8 @@ function ChallengeForm({ challenge, onDone }: { challenge?: ChallengeRow; onDone
     validDays: challenge?.validDays ?? [1, 2, 3, 4, 5, 6],
     minHeartRateMinutes: challenge?.minHeartRateMinutes ?? 20,
     feePerParticipant: challenge ? Number(challenge.feePerParticipant) : 120,
-    budgetTotal: challenge ? Number(challenge.budgetTotal) : 600,
+    // null = automático (cuota × inscritos); un número = fijado a mano
+    budgetTotal: challenge && challenge.budgetTotal !== null ? Number(challenge.budgetTotal) : null,
     currency: challenge?.currency ?? 'BOB',
     prizeDescription: challenge?.prizeDescription ?? 'Suplemento para gym al ganador (o sorteo en caso de empate)',
     // Reglas de puntaje (defaults = comportamiento histórico)
@@ -197,7 +199,8 @@ function ChallengeForm({ challenge, onDone }: { challenge?: ChallengeRow; onDone
   const [validDays, setValidDays] = useState<number[]>(initial.validDays);
   const [minHr, setMinHr] = useState(initial.minHeartRateMinutes);
   const [fee, setFee] = useState(initial.feePerParticipant);
-  const [budget, setBudget] = useState(initial.budgetTotal);
+  const [budgetAuto, setBudgetAuto] = useState(initial.budgetTotal === null);
+  const [budget, setBudget] = useState(initial.budgetTotal ?? initial.feePerParticipant * (challenge?._count?.participants ?? 0));
   const [currency, setCurrency] = useState(initial.currency);
   const [prize, setPrize] = useState(initial.prizeDescription);
   const [pointsPerValidatedDay, setPointsPerValidatedDay] = useState(initial.pointsPerValidatedDay);
@@ -216,7 +219,7 @@ function ChallengeForm({ challenge, onDone }: { challenge?: ChallengeRow; onDone
         validDays,
         minHeartRateMinutes: minHr,
         feePerParticipant: fee,
-        budgetTotal: budget,
+        budgetTotal: budgetAuto ? null : budget,
         currency,
         prizeDescription: prize,
         pointsPerValidatedDay,
@@ -377,14 +380,33 @@ function ChallengeForm({ challenge, onDone }: { challenge?: ChallengeRow; onDone
           />
         </div>
         <div>
-          <label className="label">Presupuesto total</label>
-          <input
-            type="number"
-            min={0}
-            className="input"
-            value={budget}
-            onChange={(e) => setBudget(parseFloat(e.target.value))}
-          />
+          <label className="label" htmlFor="challenge-budget">Presupuesto total</label>
+          <label className="flex items-center gap-2 text-sm text-ink-dim mb-2">
+            <input
+              type="checkbox"
+              className="w-4 h-4 accent-accent"
+              checked={budgetAuto}
+              onChange={(e) => setBudgetAuto(e.target.checked)}
+            />
+            Presupuesto automático (cuota × inscritos)
+          </label>
+          {budgetAuto ? (
+            <p className="text-xs text-ink-mute">
+              {editing
+                ? `Hoy: ${fee} × ${challenge!._count?.participants ?? 0} inscritos = ${fee * (challenge!._count?.participants ?? 0)} ${currency}. Se recalcula al inscribir o quitar personas o cambiar la cuota.`
+                : 'Se calcula con la cuota y los inscritos, y se recalcula solo.'}
+            </p>
+          ) : (
+            <input
+              id="challenge-budget"
+              type="number"
+              min={0}
+              className="input"
+              value={budget}
+              onChange={(e) => setBudget(parseFloat(e.target.value))}
+              aria-label="Presupuesto fijado"
+            />
+          )}
         </div>
       </div>
 

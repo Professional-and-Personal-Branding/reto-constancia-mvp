@@ -45,7 +45,8 @@ export interface Challenge {
   validDays: number[];
   minHeartRateMinutes: number;
   feePerParticipant: string;
-  budgetTotal: string;
+  /** Presupuesto fijado a mano; null = automático (cuota × inscritos) */
+  budgetTotal: string | null;
   currency: string;
   prizeDescription: string | null;
   status: ChallengeStatus;
@@ -166,7 +167,9 @@ export interface ChallengeFinance {
   challengeName: string;
   currency: string;
   feePerParticipant: number;
+  /** Presupuesto efectivo (el fijado a mano o cuota × inscritos) */
   budgetTotal: number;
+  budgetMode: 'auto' | 'manual';
   participantsTotal: number;
   counts: { paid: number; partial: number; unpaid: number };
   expectedTotal: number;

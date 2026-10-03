@@ -38,7 +38,8 @@ export class ChallengesService {
         validDays: dto.validDays ?? [1, 2, 3, 4, 5, 6],
         minHeartRateMinutes: dto.minHeartRateMinutes ?? 20,
         feePerParticipant: dto.feePerParticipant ?? 0,
-        budgetTotal: dto.budgetTotal ?? 0,
+        // Sin monto = presupuesto automático (cuota × inscritos), ver effectiveBudget
+        budgetTotal: dto.budgetTotal ?? null,
         currency: dto.currency ?? 'BOB',
         prizeDescription: dto.prizeDescription,
         // Reglas de puntaje: undefined deja el default del modelo (spec challenge-scoring)
@@ -220,18 +221,11 @@ export class ChallengesService {
     userId: string,
     dto: MarkPaymentDto,
   ) {
+    const challenge = await this.openForPayments(challengeId);
     // Pagado sin monto explícito: se registra la cuota del reto (spec challenge-finance)
     let amountPaid: number | null = null;
     if (dto.paid) {
-      if (dto.amountPaid !== undefined) {
-        amountPaid = dto.amountPaid;
-      } else {
-        const challenge = await this.prisma.challenge.findUnique({
-          where: { id: challengeId },
-          select: { feePerParticipant: true },
-        });
-        amountPaid = challenge ? Number(challenge.feePerParticipant) : 0;
-      }
+      amountPaid = dto.amountPaid !== undefined ? dto.amountPaid : Number(challenge.feePerParticipant);
     }
     return this.prisma.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId } },
@@ -252,6 +246,7 @@ export class ChallengesService {
     userId: string,
     dto: PaymentProofDto,
   ) {
+    await this.openForPayments(challengeId);
     return this.prisma.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId } },
       data: {
@@ -261,6 +256,22 @@ export class ChallengesService {
       },
       include: { user: { select: { id: true, name: true, email: true } } },
     });
+  }
+
+  /**
+   * Los pagos se cierran con el reto: un reto cerrado no admite pagos ni comprobantes, así lo
+   * recaudado (el pote del premio) queda fijo. Un pago tardío se registra en el reto siguiente.
+   */
+  private async openForPayments(challengeId: string) {
+    const challenge = await this.prisma.challenge.findUnique({
+      where: { id: challengeId },
+      select: { id: true, status: true, feePerParticipant: true },
+    });
+    if (!challenge) throw new NotFoundException('Reto no encontrado');
+    if (challenge.status === ChallengeStatus.COMPLETED) {
+      throw new BadRequestException('No se puede modificar un reto cerrado');
+    }
+    return challenge;
   }
 
   async award(challengeId: string, userIds: string[], notes?: string) {

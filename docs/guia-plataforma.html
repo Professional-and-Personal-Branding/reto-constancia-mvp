@@ -265,13 +265,15 @@
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 102 de 102 casos aprobados con 353 pruebas</span>
+      <span class="verified">Verificado el 2 oct 2026: batería 11 de 11 · 104 de 104 casos aprobados con 368 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>El premio se reparte con lo recaudado y el presupuesto se calcula solo con las cuotas (cuota × inscritos), con ajuste manual opcional (pasos 2.1, 3.4 y 6.1).</li>
+        <li>Un reto cerrado ya no acepta pagos: el pago tardío va al reto siguiente (3.3 y 6.3).</li>
         <li>Desde la web ya se puede editar un reto (2.3), registrar un pago parcial (3.3) y retirar una actividad pendiente (4.5): nada de eso requiere la API.</li>
         <li>Un reto cerrado es definitivo: no se edita ni vuelve a borrador (6.3).</li>
         <li>El encabezado entra completo también en el celular: el nombre del reto ya no se corta y las secciones van en una fila propia que se desplaza.</li>
@@ -404,7 +406,7 @@
             'Pulsa <span class="ui">+ Nuevo reto</span>.',
             'Completa nombre, moneda, mes y año. El período va del primer al último día del mes.',
             'Fija <span class="ui">Min FC (minutos)</span>: los minutos de registro de frecuencia cardíaca exigidos por actividad. Con 0 la regla no aplica.',
-            'Indica la cuota por persona, el presupuesto total del premio y la descripción del premio.',
+            'Indica la cuota por persona y la descripción del premio. El presupuesto queda en <span class="ui">Presupuesto automático (cuota × inscritos)</span>; desmárcalo solo si quieres fijar otro monto, por ejemplo con un aporte extra.',
             'Marca los <span class="ui">Días válidos</span> (por defecto de lunes a sábado).',
             'Revisa el bloque <span class="ui">Reglas de puntaje</span>: puntos por día validado, puntos por km, mínimo de días para calificar, máximo de ganadores y qué hacer si empatan más que los cupos.',
             'Pulsa <span class="ui">Crear reto</span>.'
@@ -425,8 +427,8 @@
           why: 'Para corregir fechas, días válidos, cuota, premio o puntaje después de crear el reto.',
           actions: ['En <span class="ui">Retos</span>, pulsa <span class="ui">Editar</span> en un reto en borrador o activo.', 'El formulario viene con los valores actuales; el mes y el año quedan fijos. Cambia lo necesario y pulsa <span class="ui">Guardar cambios</span>.'],
           expect: 'El reto guarda solo lo que cambiaste y el ranking se recalcula al instante. Si el fin queda antes del inicio, el formulario muestra el error y no cambia nada.',
-          note: 'Un reto cerrado no se edita: su resultado es definitivo. Si el reto está activo, el formulario avisa que los cambios de puntaje y de días recalculan el ranking en curso.',
-          refs: ['TC-CHAL-05', 'TC-CHAL-13']
+          note: 'Un reto cerrado no se edita: su resultado es definitivo. Si el reto está activo, el formulario avisa que los cambios de puntaje y de días recalculan el ranking en curso. Para volver a calcular el presupuesto con las cuotas, marca otra vez <span class="ui">Presupuesto automático</span>.',
+          refs: ['TC-CHAL-05', 'TC-CHAL-13', 'TC-FIN-06']
         },
         {
           id: '2.4', role: 'participante', title: 'Trabajar con varios retos activos a la vez', route: '/dashboard',
@@ -461,15 +463,15 @@
           why: 'El sistema concilia la cuota con lo cobrado.',
           actions: ['Pulsa <span class="ui">Marcar pagado</span>: aparece <span class="ui">Monto recibido</span> con la cuota completa.', 'Si pagó una parte, escribe el monto; luego pulsa <span class="ui">Guardar pago</span>.', 'Pulsa <span class="ui">Marcar impago</span> para revertirlo; se borran el monto y la fecha.'],
           expect: 'Con la cuota completa el chip pasa a "Pagado"; con menos, a "Parcial" con lo que falta, y el resumen financiero se actualiza al instante. Un monto en cero no se guarda.',
-          note: 'Solo cuenta como recaudado lo que el administrador registra; un comprobante subido no suma por sí solo.',
-          refs: ['TC-PART-04', 'TC-FIN-01']
+          note: 'Solo cuenta como recaudado lo que el administrador registra; un comprobante subido no suma por sí solo. Con el reto cerrado ya no se registran pagos: un pago tardío va al reto siguiente.',
+          refs: ['TC-PART-04', 'TC-FIN-01', 'TC-FIN-07']
         },
         {
           id: '3.4', role: 'admin', title: 'Leer el resumen financiero', route: '/dashboard/admin/participants',
-          why: 'Saber de un vistazo si el presupuesto del premio está cubierto.',
+          why: 'Saber de un vistazo cuánto se cobró frente a la meta del reto.',
           actions: ['Revisa las cuatro tarjetas: <span class="ui">Esperado</span> (cuota por inscritos), <span class="ui">Recaudado</span>, <span class="ui">Pendiente</span> y <span class="ui">Presupuesto</span>.'],
-          expect: 'Las tarjetas se actualizan al marcar o desmarcar un pago. Presupuesto dice "Cubierto" o cuánto falta.',
-          note: 'Solo cuenta como recaudado lo que el administrador marcó como pagado; un comprobante subido no suma por sí solo.',
+          expect: 'Las tarjetas se actualizan al marcar o desmarcar un pago. Presupuesto dice "Cubierto" o cuánto falta, y si es automático (cuota × inscritos, se recalcula solo) o ajustado a mano.',
+          note: 'Solo cuenta como recaudado lo que el administrador marcó como pagado; un comprobante subido no suma por sí solo. Lo recaudado es lo que se reparte como premio; el presupuesto es la meta.',
           refs: ['TC-FIN-02', 'TC-FIN-03', 'TC-FIN-05']
         }
       ]
@@ -560,7 +562,8 @@
           id: '6.1', role: 'participante', title: 'Leer el ranking', route: '/dashboard/results',
           why: 'Es el marcador del reto, visible para todos.',
           actions: ['Revisa los días válidos del período y el tope actual, en días o en puntos según las reglas del reto.', 'Si el reto tiene reglas propias, una línea explica el puntaje y aparece la columna <span class="ui">Puntos</span>.', 'Quien no llega al mínimo de días aparece marcado "no califica".'],
-          expect: 'Se ordena por puntaje y, a igual puntaje, por kilómetros. Debajo del título se ve el premio por ganador, marcado "proyectado" mientras el reto sigue activo.',
+          expect: 'Se ordena por puntaje y, a igual puntaje, por kilómetros. Debajo del título se ve el premio por ganador: se reparte lo recaudado (no el presupuesto), marcado "proyectado" mientras el reto sigue activo. Si aún no hay pagos, lo dice.',
+          note: 'Quien no pagó la cuota puede ganar igual: el pago no cambia el ranking ni los ganadores.',
           refs: ['TC-RES-01', 'TC-SCORE-01', 'TC-SCORE-02', 'TC-SCORE-05', 'TC-SCORE-07', 'TC-FIN-04', 'TC-SCORE-06']
         },
         {
@@ -575,8 +578,8 @@
           why: 'Al cerrar, el ranking pasa a ser definitivo.',
           actions: ['Pulsa <span class="ui">Cerrar reto</span> y confirma.'],
           expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores. No se puede volver a activar.',
-          note: 'Un reto cerrado es definitivo: no se puede editar ni volver a borrador, pero sí registrar su premiación (paso 6.4). Cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
-          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-PART-06']
+          note: 'Un reto cerrado es definitivo: no se puede editar, volver a borrador ni registrar pagos (el premio queda fijo), pero sí registrar su premiación (paso 6.4). Cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
+          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-PART-06', 'TC-FIN-07']
         },
         {
           id: '6.4', role: 'admin', title: 'Registrar la premiación', route: '/dashboard/results',
@@ -646,7 +649,7 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 102 casos del catálogo',
+          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 104 casos del catálogo',
           expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },
@@ -654,7 +657,7 @@
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '43 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '44 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
@@ -669,7 +672,7 @@
           id: '8.5', role: 'tecnico', title: 'Validar el catálogo de casos de prueba',
           why: 'Cada caso del catálogo está enlazado a las pruebas que lo demuestran; el validador dice cuáles pasan hoy.',
           cmd: 'cd backend && npx prisma migrate reset --force   # datos limpios del seed\ncd .. && node scripts/validate-test-cases.mjs\nnode scripts/validate-test-cases.mjs --only=ui        # una sola suite\nnode scripts/validate-test-cases.mjs --reuse          # regenera los documentos sin volver a correr',
-          expect: 'Los 102 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
+          expect: 'Los 104 casos aprobados y ninguna prueba sin caso. Se regeneran <code>docs/qa/test-cases.md</code>, <code>test-cases.csv</code> y <code>validation-report.md</code>; el comando falla si un caso falla o si una prueba cambió de nombre.',
           note: 'Uno de los casos (TC-SEC-04, el seed en producción) es una verificación manual registrada; los demás se validan con pruebas automatizadas.',
           refs: ['qa/validation-report.md', 'qa/catalog.mjs']
         },
@@ -700,6 +703,7 @@
     ['Inscribir y quitar participantes', '3.1', 'auto'],
     ['Marcar pago, impago y pago parcial con el monto recibido', '3.3', 'auto'],
     ['Resumen financiero y cobertura del presupuesto', '3.4', 'auto'],
+    ['Presupuesto automático (cuota × inscritos) o ajustado a mano', '2.1', 'auto'],
     ['Panel personal con cuenta regresiva y posición', '4.1', 'auto'],
     ['Comprobante de pago del participante', '4.2', 'auto'],
     ['Registro de actividad con fotos', '4.3', 'auto'],
@@ -713,10 +717,10 @@
     ['Rechazar con motivo', '5.3', 'auto'],
     ['Ranking por puntaje, calificación y columna de puntos', '6.1', 'auto'],
     ['Tope del ranking en la unidad del reto (puntos o días)', '6.1', 'auto'],
-    ['Premio por ganador proyectado y final', '6.1', 'auto'],
+    ['Premio por ganador repartido con lo recaudado', '6.1', 'auto'],
     ['Empates y reglas de desempate', '6.2', 'auto'],
     ['Cerrar reto', '6.3', 'auto'],
-    ['Reto cerrado definitivo (sin edición ni reapertura)', '6.3', 'auto'],
+    ['Reto cerrado definitivo (sin edición, reapertura ni pagos)', '6.3', 'auto'],
     ['Ranking de retos cerrados, con dirección para compartir', '6.5', 'auto'],
     ['Premiación manual que prevalece', '6.4', 'auto'],
     ['Premiación con ganadores sugeridos por las reglas', '6.4', 'auto'],

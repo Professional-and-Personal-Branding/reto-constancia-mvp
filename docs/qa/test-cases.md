@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-02** · rama `release/1.3.0` · commit `d0ceea6`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-03** · rama `feature/pot-from-collected` · commit `2ed5136` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**102 casos** · 102 aprobados · 0 fallidos · 0 con limitación conocida · 101 automatizados.
+**104 casos** · 104 aprobados · 0 fallidos · 0 con limitación conocida · 103 automatizados.
 
 ## Cómo leer cada caso
 
@@ -24,7 +24,7 @@
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
-| [Finanzas](#fin) | 5 | 5 | 0 |
+| [Finanzas](#fin) | 7 | 7 | 0 |
 | [Carga de archivos](#up) | 3 | 3 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
 | [Interfaz y navegación](#ui) | 10 | 10 | 0 |
@@ -1258,6 +1258,7 @@
 | ✅ | Unitaria | `challenges.service.spec.ts` | pagado sin monto registra la cuota del reto |
 | ✅ | Unitaria | `challenges.service.spec.ts` | pagado con monto explícito respeta el monto |
 | ✅ | Unitaria | `challenges.service.spec.ts` | impago limpia monto y fecha |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en un reto activo, pagar sin monto registra la cuota |
 | ✅ | API e2e | `challenge-finance.e2e-spec.ts` | marcar pagado sin monto registra la cuota; con monto lo respeta |
 
 <a id="tc-part-05"></a>
@@ -2077,7 +2078,7 @@
 **Resultado esperado**
 
 - El reto pasa a COMPLETED.
-- winners = premiados aunque el cálculo diga otra cosa; payout reparte entre ellos (300 a 1 premiado con pote 300).
+- winners = premiados aunque el cálculo diga otra cosa; payout reparte lo recaudado entre ellos (Bruno pagó 100 y Ana 50: pote 150 para 1 premiado, aunque el presupuesto sea 300).
 - Nota "Premiación registrada por el administrador".
 
 **Validación automatizada**
@@ -2409,8 +2410,10 @@
 | [TC-FIN-01](#tc-fin-01) | Estados de pago | Alta | Funcional | ✅ Aprobado |
 | [TC-FIN-02](#tc-fin-02) | Resumen financiero | Alta | Funcional | ✅ Aprobado |
 | [TC-FIN-03](#tc-fin-03) | Finanzas solo para el admin | Alta | Seguridad | ✅ Aprobado |
-| [TC-FIN-04](#tc-fin-04) | Premio por ganador en los resultados | Alta | Funcional | ✅ Aprobado |
+| [TC-FIN-04](#tc-fin-04) | El premio se reparte con lo recaudado | Alta | Funcional | ✅ Aprobado |
 | [TC-FIN-05](#tc-fin-05) | Finanzas en la web | Media | UI | ✅ Aprobado |
+| [TC-FIN-06](#tc-fin-06) | Presupuesto automático o fijado a mano | Alta | Funcional | ✅ Aprobado |
+| [TC-FIN-07](#tc-fin-07) | Los pagos se cierran con el reto | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-fin-01"></a>
 
@@ -2470,7 +2473,7 @@
 **Resultado esperado**
 
 - expectedTotal 600, collectedTotal 420, pendingTotal 180.
-- budgetCovered false y budgetDelta -180.
+- budgetTotal (efectivo) 600 con su budgetMode; budgetCovered false y budgetDelta -180.
 - counts { paid 3, partial 1, unpaid 1 } y el state de cada participante.
 
 **Validación automatizada**
@@ -2522,7 +2525,7 @@
 
 <a id="tc-fin-04"></a>
 
-### TC-FIN-04 · Premio por ganador en los resultados
+### TC-FIN-04 · El premio se reparte con lo recaudado
 
 | Módulo | Prioridad | Tipo | Paso de la guía | Estado |
 |---|---|---|---|---|
@@ -2530,9 +2533,9 @@
 
 **Precondiciones**
 
-- Presupuesto 600.
+- Retos con cuota y pagos registrados; un reto sin cuota.
 
-**Datos de prueba:** 1 ganador; 2 empatados; 3 premiados; presupuesto 0
+**Datos de prueba:** Recaudado 600 con 1 ganador, 2 empatados y 3 premiados; reto con cuota sin pagos; reto sin cuota; mismo recaudado con presupuesto automático y con 900 fijado
 
 **Pasos**
 
@@ -2540,8 +2543,10 @@
 
 **Resultado esperado**
 
-- perWinner 600, 300 y 200.
-- Presupuesto 0: monetary false y perWinner 0.
+- El pote es lo recaudado (pagos confirmados), no el presupuesto: perWinner 600, 300 y 200.
+- Un reto con cuota y sin pagos: pote 0, monetary true. Un reto sin cuota: monetary false y perWinner 0.
+- Mismo recaudado y distinto presupuesto: mismo pote.
+- Quien no pagó puede ganar y cobra como cualquier ganador.
 - El reparto nunca supera el pote (redondeo hacia abajo); sin ganadores perWinner 0.
 
 **Validación automatizada**
@@ -2551,13 +2556,17 @@
 | ✅ | Unitaria | `finance.service.spec.ts` | un ganador se lleva el pote |
 | ✅ | Unitaria | `finance.service.spec.ts` | dos ganadores reparten |
 | ✅ | Unitaria | `finance.service.spec.ts` | tres premiados |
-| ✅ | Unitaria | `finance.service.spec.ts` | pote 0 -> premio no monetario |
+| ✅ | Unitaria | `finance.service.spec.ts` | reto sin cuota -> premio no monetario |
+| ✅ | Unitaria | `finance.service.spec.ts` | reto con cuota y sin pagos todavía -> pote 0 pero monetario |
 | ✅ | Unitaria | `finance.service.spec.ts` | sin ganadores -> perWinner 0 |
 | ✅ | Unitaria | `finance.service.spec.ts` | el reparto nunca supera el pote (redondeo hacia abajo) |
-| ✅ | Unitaria | `results.service.spec.ts` | presupuesto 0 -> premio no monetario |
-| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | results incluye payout: pote 600 para un ganador |
-| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | un reto con presupuesto 0 reporta premio no monetario |
-| ✅ | Sesiones | `parallel-session-test.mjs` | Results incluye payout con pote = presupuesto |
+| ✅ | Unitaria | `finance.service.spec.ts` | lo recaudado suma solo los pagos confirmados |
+| ✅ | Unitaria | `results.service.spec.ts` | reto sin cuota -> premio no monetario |
+| ✅ | Unitaria | `results.service.spec.ts` | el pote es lo recaudado y no depende del presupuesto |
+| ✅ | Unitaria | `results.service.spec.ts` | quien no pagó puede ganar y cobra como cualquier ganador |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | results incluye payout: el pote es lo recaudado para un ganador |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | un reto sin cuota reporta premio no monetario |
+| ✅ | Sesiones | `parallel-session-test.mjs` | Results incluye payout con pote = recaudado |
 
 <a id="tc-fin-05"></a>
 
@@ -2580,9 +2589,9 @@
 
 **Resultado esperado**
 
-- Tarjetas Esperado 750, Recaudado 375, Pendiente y Presupuesto, actualizadas al instante.
+- Tarjetas Esperado 750, Recaudado 375, Pendiente y Presupuesto (con "automático" o "ajustado"), actualizadas al instante.
 - Chip Parcial con el monto.
-- Ranking: "Premio: X BOB por ganador", marcado proyectado.
+- Ranking: sin pagos dice "aún no hay pagos registrados"; con pagos, el pote recaudado marcado como proyectado.
 
 **Validación automatizada**
 
@@ -2591,6 +2600,80 @@
 | ✅ | UI | `04-finance.spec.ts` | el resumen financiero refleja los pagos al instante |
 | ✅ | UI | `04-finance.spec.ts` | el ranking muestra el premio por ganador |
 | ✅ | Guía | `capture.spec.ts` | participantes con resumen financiero |
+
+<a id="tc-fin-06"></a>
+
+### TC-FIN-06 · Presupuesto automático o fijado a mano
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Finanzas | Alta | Funcional | 2.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto con cuota 100 y 2 inscritos.
+- Web: reto de finanzas de prueba con cuota 120 y 1 inscrito.
+
+**Datos de prueba:** budgetTotal null, 800 y otra vez null; inscribir y quitar; cambiar la cuota a 150
+
+**Pasos**
+
+1. Crear un reto sin presupuesto.
+2. Inscribir a alguien y cambiar la cuota.
+3. Fijar 800 a mano y volver a cambiar inscritos y cuota.
+4. Volver a automático (web: marcar la casilla; API: budgetTotal null).
+
+**Resultado esperado**
+
+- Sin monto, el presupuesto es automático: cuota × inscritos (2 × 100 = 200), y se recalcula al inscribir (300) o cambiar la cuota (450).
+- Un monto fijado (800) queda "ajustado" y no cambia solo.
+- Al volver a automático vale otra vez cuota × inscritos; la tarjeta de finanzas dice "automático".
+- El reto de mayo del seed queda automático después de la migración.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `finance.service.spec.ts` | sin monto fijado es cuota × inscritos |
+| ✅ | Unitaria | `finance.service.spec.ts` | el automático sigue a los inscritos y a la cuota |
+| ✅ | Unitaria | `finance.service.spec.ts` | un monto fijado a mano no cambia con los inscritos ni con la cuota |
+| ✅ | Unitaria | `challenges.service.spec.ts` | crear un reto sin presupuesto lo deja automático (NULL) |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FIN: el presupuesto automático sigue a los inscritos y a la cuota; uno manual se mantiene |
+| ✅ | UI | `04-finance.spec.ts` | el presupuesto es automático y se puede fijar a mano y volver a automático |
+| ✅ | Sesiones | `parallel-session-test.mjs` | Presupuesto del seed automático |
+
+<a id="tc-fin-07"></a>
+
+### TC-FIN-07 · Los pagos se cierran con el reto
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Finanzas | Alta | Seguridad | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto cerrado con pagos registrados.
+
+**Datos de prueba:** Marcar impago a Bruno; marcar pagada a Ana con 100; subir un comprobante como Ana
+
+**Pasos**
+
+1. Intentar cambiar pagos del reto cerrado.
+2. Intentar subir un comprobante.
+3. Consultar el pote.
+
+**Resultado esperado**
+
+- Las tres acciones responden 400 "No se puede modificar un reto cerrado".
+- Lo recaudado y el pote del premio no cambian. Un pago tardío se registra en el reto siguiente.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | un reto cerrado no admite registrar ni borrar pagos |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un reto cerrado no admite subir comprobantes de pago |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FIN: un reto cerrado no admite pagos ni comprobantes y su pote no cambia |
 
 <a id="up"></a>
 
@@ -3521,4 +3604,4 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (65) |
+| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (66) |

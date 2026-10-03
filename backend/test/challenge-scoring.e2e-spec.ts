@@ -96,7 +96,7 @@ describe('Reglas de puntaje configurables (e2e)', () => {
     const res = await request(http).post('/api/challenges').set(auth(adminToken)).send({
       name: 'E2E puntaje', month: 1, year: YEAR,
       startDate: `${YEAR}-01-01T00:00:00.000Z`, endDate: `${YEAR}-01-31T23:59:59.000Z`,
-      validDays: [0, 1, 2, 3, 4, 5, 6], minHeartRateMinutes: 0, budgetTotal: 600,
+      validDays: [0, 1, 2, 3, 4, 5, 6], minHeartRateMinutes: 0, feePerParticipant: 200,
       pointsPerValidatedDay: 10, pointsPerKm: 1, minValidatedDaysToQualify: 2,
       maxWinners: 1, tiebreakRule: 'TOTAL_KM',
     });
@@ -114,6 +114,8 @@ describe('Reglas de puntaje configurables (e2e)', () => {
     for (const userId of ids) {
       const add = await request(http).post(`/api/challenges/${custom.id}/participants`).set(auth(adminToken)).send({ userId });
       expect(add.status).toBe(201);
+      // Cada uno paga su cuota de 200: lo recaudado (el pote) es 600
+      await request(http).patch(`/api/challenges/${custom.id}/participants/${userId}/payment`).set(auth(adminToken)).send({ paid: true });
     }
     // p1: 3 días + 10 km = 40 · p2: 2 días + 20 km = 40 · p3: 1 día + 50 km = 60 pero no califica
     await seedActivities(custom.id, ids[0], 3, 10);
@@ -149,7 +151,7 @@ describe('Reglas de puntaje configurables (e2e)', () => {
     const res = await request(http).post('/api/challenges').set(auth(adminToken)).send({
       name: 'E2E compartido', month: 2, year: YEAR,
       startDate: `${YEAR}-01-01T00:00:00.000Z`, endDate: `${YEAR}-01-31T23:59:59.000Z`,
-      validDays: [0, 1, 2, 3, 4, 5, 6], minHeartRateMinutes: 0, budgetTotal: 500,
+      validDays: [0, 1, 2, 3, 4, 5, 6], minHeartRateMinutes: 0, feePerParticipant: 250,
       maxWinners: 1, tiebreakRule: 'SHARE_ALL',
     });
     expect(res.status).toBe(201);
@@ -157,6 +159,7 @@ describe('Reglas de puntaje configurables (e2e)', () => {
     await request(http).post(`/api/challenges/${shared.id}/activate`).set(auth(adminToken));
     for (const userId of [ids[0], ids[1]]) {
       await request(http).post(`/api/challenges/${shared.id}/participants`).set(auth(adminToken)).send({ userId });
+      await request(http).patch(`/api/challenges/${shared.id}/participants/${userId}/payment`).set(auth(adminToken)).send({ paid: true });
       await seedActivities(shared.id, userId, 1, 5);
     }
 

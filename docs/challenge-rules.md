@@ -119,7 +119,7 @@ describen la regla aplicada.
 > resultados se computan en cada lectura, no se congelan al cerrar el reto.
 
 **Fuera de alcance (requerirían su propio cambio):** bonus por rachas, pesos por
-tipo de ejercicio, cuotas semanales, elegibilidad por pago.
+tipo de ejercicio, cuotas semanales (la elegibilidad por pago se descartó: ver decisión 4).
 
 **Gap #4 — Cuota/presupuesto conciliados con los pagos. RESUELTO** (cambio
 OpenSpec `budget-payout-reconciliation`, spec `challenge-finance`).
@@ -129,16 +129,27 @@ OpenSpec `budget-payout-reconciliation`, spec `challenge-finance`).
   Con cuota 0 todos cuentan como pagados.
 - **Resumen financiero** (`GET /challenges/:id/finance`, solo admin): esperado
   (cuota × inscritos), recaudado (suma de montos confirmados por el admin),
-  pendiente, cobertura del presupuesto (`budgetCovered`, `budgetDelta`) y la lista
+  pendiente, presupuesto efectivo con su modo (`budgetMode`: automático o
+  ajustado), cobertura del presupuesto (`budgetCovered`, `budgetDelta`) y la lista
   con el estado de cada participante. La página de participantes lo muestra en
   tarjetas.
-- **Payout** en `GET /challenges/:id/results`: el pote es el `budgetTotal` del reto
-  y se reparte entre los premiados manuales si existen, si no entre los ganadores
-  calculados (redondeo hacia abajo a 2 decimales). Presupuesto 0 = premio no
-  monetario. No altera el ranking ni los ganadores.
 - Marcar pagado sin monto registra la cuota; marcar impago limpia monto y fecha.
-- **Pendiente de negocio (no implementado):** excluir morosos del premio o usar
-  lo recaudado como pote. Ambas cosas requieren una decisión explícita.
+
+**Decisiones de negocio (2026-10-03, cambio OpenSpec `pot-from-collected`):**
+
+1. **El premio se reparte con lo recaudado.** El pote de `GET /challenges/:id/results`
+   es la suma de los pagos confirmados, no el presupuesto. Se reparte entre los
+   premiados manuales si existen, si no entre los ganadores calculados (redondeo
+   hacia abajo a 2 decimales). El premio es monetario cuando el reto cobra cuota; un
+   reto con cuota y sin pagos tiene pote 0. Mientras el reto está activo el monto se
+   muestra como proyectado.
+2. **El presupuesto sale de las cuotas.** Por defecto es cuota × inscritos y se
+   recalcula al inscribir o quitar personas o cambiar la cuota. El admin puede fijar
+   otro monto (por ejemplo, un aporte extra) y volver a automático. Es una meta: no
+   define el premio.
+3. **Un reto cerrado no acepta pagos ni comprobantes.** Un pago tardío se registra en
+   el reto siguiente. Así lo recaudado, y el premio, de un reto cerrado queda fijo.
+4. **Quien no pagó puede ganar.** El pago no afecta el ranking ni los ganadores.
 
 ## 4. Plantilla para comparar reglas de dos meses
 
