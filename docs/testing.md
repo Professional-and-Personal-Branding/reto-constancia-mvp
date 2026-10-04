@@ -116,6 +116,7 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
+| Avisos en dependencias de desarrollo | **Riesgo aceptado en el frontend:** 7 avisos altos de `braces` ≤ 3.0.3 (GHSA-vfj7-8cjw-p6xm) que llegan por Tailwind 3 (`chokidar`, `fast-glob`) y por `@next/eslint-plugin-next` (fija `fast-glob` 3.3.1 incluso en su última versión). No existe `braces` corregido, solo corre en máquinas de desarrollo y en la CI contra los patrones del propio repositorio, y producción tiene 0 avisos. Revisar cuando se publique un `braces` corregido, cuando el plugin de Next deje `fast-glob` o al migrar a Tailwind 4 junto con Next 16. Backend y e2e: 0 avisos |
 
 Si en el futuro se agregan pruebas de componentes aislados, el lugar natural es Vitest más
 Testing Library, y el corredor ya tiene dónde enchufarlas.
@@ -124,6 +125,21 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-04 · rama `chore/upgrade-dev-tooling` (herramientas de desarrollo)
+
+Jest 29 → 30, `@types/jest` 30, ts-jest 29.4, typescript-eslint 7 → 8 (sigue ESLint 8) y
+ts-loader 9.6 en el backend; en el frontend solo `npm audit fix` sin saltos mayores. Base
+reiniciada con `npx prisma migrate reset --force`. **Batería:** 11 de 11 pasos en verde, sin
+ajustes de código ni de lint. **Catálogo:** 104 de 104 casos aprobados con 368 pruebas y 0
+fallidas.
+
+| `npm audit` | Antes | Después |
+|---|---:|---:|
+| backend (completo) | 37 altos | **0** |
+| frontend (completo) | 8 altos | 7 altos (riesgo aceptado, ver §5) |
+| e2e | 0 | 0 |
+| producción (`--omit=dev`), los tres | 0 | 0 |
 
 ### 2026-10-03 · v1.4.0 (rama `release/1.4.0`)
 
