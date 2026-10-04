@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.4.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.4.1` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -29,7 +29,10 @@ Sin estos puntos en verde **no se despliega**.
   cd .. && node scripts/run-tests.mjs              # todos los pasos OK
   node scripts/validate-test-cases.mjs              # todos los casos aprobados
   ```
-- [ ] `npm audit --omit=dev` sin avisos en `backend/` y `frontend/`.
+- [ ] `npm audit --omit=dev` sin avisos en `backend/` y `frontend/`. Es el único audit que
+      bloquea: `npm audit` completo en `frontend/` muestra avisos conocidos de herramientas de
+      desarrollo (`braces` por Tailwind 3 y el plugin de ESLint de Next.js) que no llegan al
+      servidor; están registrados en `docs/testing.md` §5.
 - [ ] Leída la sección de la versión en `CHANGELOG.md`, en especial **Cambiado** y
       **Antes de desplegar** del PR de release: variables nuevas, migraciones, cambios de
       comportamiento.
@@ -187,7 +190,8 @@ Las versiones 1.0.0 → 1.3.0 no tienen migraciones nuevas entre sí, así que r
 ellas es solo volver a desplegar el código. **La 1.4.0 trae una migración** (presupuesto
 automático: `budgetTotal` pasa a ser opcional): toma el respaldo de §5.1 antes de desplegarla.
 Para volver de la 1.4.0 a la 1.3.0 hay que restaurar ese respaldo, porque la 1.3.0 no entiende
-un presupuesto vacío.
+un presupuesto vacío. La 1.4.1 no trae migraciones: volver de la 1.4.1 a la 1.4.0 es solo
+volver a desplegar el código.
 
 ---
 
