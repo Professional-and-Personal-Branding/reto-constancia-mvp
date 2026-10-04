@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Cambiado
+
+- **Herramientas de desarrollo del backend al día** (cambio `upgrade-dev-tooling`): Jest 30,
+  typescript-eslint 8 y ts-loader 9.6. Con esto el advisory de `braces` ≤ 3.0.3
+  (GHSA-vfj7-8cjw-p6xm), que no tiene versión corregida, deja de aparecer en el backend: `npm audit`
+  pasa de 37 avisos altos a 0. En el frontend solo se aplicaron las correcciones menores; quedan 7
+  avisos de la misma cadena en Tailwind 3 y en el plugin de ESLint de Next.js, aceptados porque
+  ninguna versión actual los resuelve. Producción sigue sin avisos y no cambia nada de la
+  aplicación.
+
 ## [1.4.0] — 2026-10-03
 
 El premio se reparte con lo recaudado, el presupuesto se calcula solo con las cuotas y un reto
