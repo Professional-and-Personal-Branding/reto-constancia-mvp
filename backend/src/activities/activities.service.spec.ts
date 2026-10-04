@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
-import { ActivityStatus, ChallengeStatus, ExerciseType, PhotoType } from '@prisma/client';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ActivityStatus, ChallengeStatus, ExerciseType, PhotoType, UserRole } from '@prisma/client';
 
 import { ActivitiesService } from './activities.service';
 import { assessHeartRate } from './heart-rate-rule';
@@ -195,5 +195,44 @@ describe('ActivitiesService.findPending (heartRateCompliant derivado)', () => {
     });
     const list = await service(prisma).findPending('c1');
     expect(list.map((a) => a.heartRateCompliant)).toEqual([true, false]);
+  });
+});
+
+describe('ActivitiesService.findOneForViewer (solo el dueño o un admin)', () => {
+  const owned = {
+    id: 'act1',
+    userId: 'ana',
+    status: ActivityStatus.PENDING,
+    heartRateMinutes: 25,
+    hasHeartRateProof: true,
+    photos: [],
+    challenge,
+  };
+
+  it('el dueño recibe su actividad con heartRateCompliant', async () => {
+    const { prisma } = buildPrisma({ activity: owned });
+    const a = await service(prisma).findOneForViewer('act1', 'ana', UserRole.PARTICIPANT);
+    expect(a.id).toBe('act1');
+    expect(a.heartRateCompliant).toBe(true);
+  });
+
+  it('otro participante recibe 403 con el mensaje exacto', async () => {
+    const { prisma } = buildPrisma({ activity: owned });
+    await expect(
+      service(prisma).findOneForViewer('act1', 'bruno', UserRole.PARTICIPANT),
+    ).rejects.toThrow(new ForbiddenException('No puedes ver esta actividad'));
+  });
+
+  it('un admin recibe cualquier actividad', async () => {
+    const { prisma } = buildPrisma({ activity: owned });
+    const a = await service(prisma).findOneForViewer('act1', 'admin', UserRole.ADMIN);
+    expect(a.userId).toBe('ana');
+  });
+
+  it('una actividad inexistente da 404 a cualquier rol', async () => {
+    const { prisma } = buildPrisma();
+    await expect(
+      service(prisma).findOneForViewer('nope', 'ana', UserRole.PARTICIPANT),
+    ).rejects.toThrow(NotFoundException);
   });
 });

@@ -12,6 +12,18 @@ import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
 
+/** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
+export const participantsInclude = {
+  participants: {
+    include: { user: { select: { id: true, name: true, email: true } } },
+  },
+} satisfies Prisma.ChallengeInclude;
+
+/** Reto con sus inscritos completos (datos de pago incluidos): vista interna y de admin. */
+export type ChallengeWithParticipants = Prisma.ChallengeGetPayload<{
+  include: typeof participantsInclude;
+}>;
+
 @Injectable()
 export class ChallengesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -67,11 +79,7 @@ export class ChallengesService {
     const list = await this.prisma.challenge.findMany({
       where: { status: ChallengeStatus.ACTIVE },
       orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }],
-      include: {
-        participants: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
-      },
+      include: participantsInclude,
     });
     return list.map((challenge) => ({
       ...challenge,
@@ -113,11 +121,7 @@ export class ChallengesService {
   async findOne(id: string) {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id },
-      include: {
-        participants: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-        },
-      },
+      include: participantsInclude,
     });
     if (!challenge) throw new NotFoundException('Reto no encontrado');
     return challenge;

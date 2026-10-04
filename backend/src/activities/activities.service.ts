@@ -177,6 +177,15 @@ export class ActivitiesService {
     return this.withCompliance(activity);
   }
 
+  /** Detalle para quien consulta: solo el dueño o un admin (spec challenge-lifecycle). */
+  async findOneForViewer(id: string, userId: string, role: UserRole) {
+    const activity = await this.findOne(id);
+    if (role !== UserRole.ADMIN && activity.userId !== userId) {
+      throw new ForbiddenException('No puedes ver esta actividad');
+    }
+    return activity;
+  }
+
   async validate(id: string, validatorId: string, dto: ValidateActivityDto = {}) {
     const activity = await this.findOne(id);
     if (activity.status === ActivityStatus.VALIDATED) return activity;
