@@ -20,4 +20,4 @@
 - [x] 4.1 `docs/testing.md`: before/after audit table and the accepted frontend residual with the condition to revisit
 - [x] 4.2 `docs/runbook-despliegue.md`: dependency note (production 0, dev residual) and republish the runbook page
 - [x] 4.3 `CHANGELOG.md` Unreleased: "Changed" entry for the dev tooling upgrade
-- [ ] 4.4 Open the PR to `develop`; after merge, archive the change
+- [x] 4.4 Open the PR to `develop`; after merge, archive the change
