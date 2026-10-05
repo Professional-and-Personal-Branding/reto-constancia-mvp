@@ -9,7 +9,7 @@ automatizada, los recorridos manuales paso a paso, y el catálogo completo de ca
   antes de un despliegue o al validar un cambio grande. Seis de ellos están automatizados
   con Playwright (`cd e2e && npm test`, ver [`e2e-playwright.md`](./e2e-playwright.md));
   la versión manual sigue sirviendo para revisar la app desplegada.
-- **Parte 3 — Catálogo de casos**: vive en [`qa/test-cases.md`](./qa/test-cases.md): 110 casos
+- **Parte 3 — Catálogo de casos**: vive en [`qa/test-cases.md`](./qa/test-cases.md): 119 casos
   con precondiciones, datos, pasos, resultado esperado y las pruebas que validan cada uno,
   con su estado en la última validación.
 
@@ -103,7 +103,7 @@ recorrido de sesiones paralelas y los recorridos de UI con Playwright. Solo nece
 de datos: si la API no está arriba, el corredor la levanta. Variantes y detalle de cada
 suite: [`testing.md`](./testing.md) y [`e2e-playwright.md`](./e2e-playwright.md).
 
-**Qué casos están automatizados:** 109 de los 110 casos del catálogo se validan con pruebas
+**Qué casos están automatizados:** 118 de los 119 casos del catálogo se validan con pruebas
 automatizadas; el otro es una verificación manual registrada (TC-SEC-04). Para correr las
 suites y ver el estado de cada caso:
 

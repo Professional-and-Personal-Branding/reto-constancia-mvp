@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.4.2` (tag sobre `main`) |
+| **Versión de referencia** | `v1.5.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -47,7 +47,9 @@ Sin estos puntos en verde **no se despliega**.
 ### 1.1 Cuentas y secretos
 
 - [ ] Cuenta de Seenode con GitHub autorizado sobre el repositorio.
-- [ ] Cuenta de Cloudinary: `cloud name`, `api key`, `api secret`.
+- [ ] Cuenta de Cloudinary: `cloud name`, `api key`, `api secret`. En **Settings → Security**
+      activa **"Allow delivery of PDF and ZIP files"**: las cuentas nuevas la traen apagada y sin
+      ella un comprobante en PDF responde 401 al abrirlo.
 - [ ] Dos secretos JWT **distintos**, generados al azar:
   ```bash
   node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
@@ -71,14 +73,15 @@ Sin estos puntos en verde **no se despliega**.
 | Root Directory | `backend` |
 | Node | 20 o 22 (el proyecto exige `>=20 <23`) |
 | Build Command | `npm install && npx prisma generate && npm run build` |
-| Start Command | `npx prisma migrate deploy && node dist/main.js` |
+| Start Command | `npx prisma migrate deploy && exec node dist/main.js` |
 | Port | `3000` |
-| Health check | `/api/health` |
+| Health check | `/api/health` (no `/api/health/db`: reiniciar no arregla una base caída) |
 
 Variables (ver la referencia completa en §7):
 
 - **Obligatorias:** `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN=15m`, `JWT_REFRESH_EXPIRES_IN=7d`, `API_PREFIX=api`, `PORT=3000`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER=reto-constancia`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`.
-- **`CORS_ORIGIN`:** se completa en 1.5, cuando exista la URL de la web.
+- **`CORS_ORIGIN`:** se completa en el paso §1.5 (Conectar web y API), cuando exista la URL de la web.
+- **`SWAGGER_ENABLED`:** se deja sin definir (Swagger apagado en producción).
 
 **Controles:**
 
@@ -87,7 +90,11 @@ Variables (ver la referencia completa en §7):
 - [ ] Los logs del arranque muestran `migrate deploy` sin migraciones pendientes y luego la
       API escuchando.
 - [ ] `https://<api>/api/health` responde `{"status":"ok",…}`.
-- [ ] `https://<api>/api/health/db` responde `"db":"up"`.
+- [ ] `https://<api>/api/health/db` responde 200 con `"db":"up"` (con la base caída responde 503).
+- [ ] Un monitor externo gratuito (UptimeRobot, Better Stack o similar) consulta
+      `https://<api>/api/health/db` cada 5 minutos: espera 200 y avisa con 503.
+- [ ] `exec` en el Start Command: al redesplegar, los Logs muestran "Conexión a la base cerrada".
+      Que el proceso anterior termine con código 143 (SIGTERM) es normal.
 
 ### 1.4 Web (Web Service `frontend`)
 
@@ -121,6 +128,23 @@ Haz la prueba de humo de §3 completa y además:
 - [ ] Ningún usuario de demo en la base: `SELECT email FROM "User";` no trae `@reto.local`.
 - [ ] Subir una foto desde "Subir actividad": si Cloudinary falta, la subida queda
       deshabilitada a propósito.
+- [ ] **Verificaciones de subidas en la cuenta real (V1 a V5).** Condicionan abrir la URL a los
+      participantes, no la fusión del código. Con un participante inscrito en un reto activo:
+  - **V1:** la foto de actividad acepta JPG, PNG, WEBP y HEIC, y rechaza PDF y GIF con
+        "Formato no permitido…".
+  - **V2:** una foto `.jpeg` se sube y su URL termina en `.jpg`. Si no, agregar `jpeg` a los
+        formatos (`backend/src/upload/upload-policy.ts`).
+  - **V3:** un comprobante en PDF se sube y se abre desde Admin → Participantes. Si no se abre
+        con la entrega de PDF activada, aplicar el plan B del cambio `upload-guardrails`
+        (comprobantes solo como imagen).
+  - **V4:** alterar `allowed_formats` o `folder` en la subida (DevTools) responde
+        "Invalid Signature".
+  - **V5:** en Cloudinary → Media Library, el `public_id` de lo subido empieza con
+        `reto-constancia/<reto>/<usuario>/activity/` (o `payment-proof/`). Si la cuenta usa
+        *dynamic folders* y el prefijo no aparece, aplicar el fallback del diseño
+        (`asset_folder` con `use_asset_folder_as_public_id_prefix`).
+- [ ] Dos usuarios desde redes distintas no comparten el límite de firmas: si uno llega al 429
+      de `/api/upload/sign` y el otro también, revisar `TRUST_PROXY`.
 - [ ] Recorridos 1, 3, 4 y 5 de la Parte 2 de `docs/test-cases.md` contra el entorno real.
 
 ---
@@ -163,7 +187,8 @@ En la web, con el administrador:
 - [ ] Retos, Participantes, Validar e Importar abren sin errores.
 - [ ] El interruptor de modo claro/oscuro cambia el tema.
 - [ ] La consola del navegador no muestra errores de CORS.
-- [ ] Swagger en `https://<api>/api/docs` muestra la versión desplegada.
+- [ ] `https://<api>/api/docs` responde 404 (Swagger apagado en producción) y las respuestas traen
+      la cabecera `X-Request-Id`.
 
 Con la sesión de un participante (privacidad, desde la 1.4.2):
 
@@ -200,7 +225,9 @@ automático: `budgetTotal` pasa a ser opcional): toma el respaldo de §5.1 antes
 Para volver de la 1.4.0 a la 1.3.0 hay que restaurar ese respaldo, porque la 1.3.0 no entiende
 un presupuesto vacío. La 1.4.1 y la 1.4.2 no traen migraciones: volver entre ellas y la 1.4.0
 es solo volver a desplegar el código (API y web juntas, porque la 1.4.2 cambia lo que la API
-entrega a los participantes).
+entrega a los participantes). La 1.5.0 tampoco trae migraciones; para volver a la 1.4.2 se
+despliegan API y web juntas, porque cambia el contrato de subida, y el Start Command con `exec`
+sigue sirviendo.
 
 ---
 
@@ -234,19 +261,27 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | El build de la API falla instalando `xlsx` | Sin salida a `cdn.sheetjs.com` | Permitir el dominio en el build; reintentar |
 | La API no arranca: "`JWT_…_EXPIRES_IN` no es una duración válida" | Valor mal escrito | Usar `900`, `15m`, `12h` o `7d` y redeploy |
 | La API no arranca: error de Prisma o `migrate deploy` | `DATABASE_URL` mal o base caída | Revisar la cadena (red privada) y `/api/health/db` |
-| `/api/health` ok pero `/api/health/db` no | Base caída o sin red privada | Estado de la base en Seenode; reintentar conexión |
+| `/api/health` ok pero `/api/health/db` responde 503 | Base caída o sin red privada | Estado de la base en Seenode; reintentar conexión. La línea `ERROR [HTTP]` de los Logs trae la hora exacta |
+| Un usuario reporta un error con un código | Error inesperado en la API (500) | Buscar el código en Logs: la línea `ERROR [HTTP]` con ese `requestId` trae la ruta y el detalle |
+| `/api/docs` responde 404 | Swagger apagado en producción (por diseño) | `SWAGGER_ENABLED=true` solo mientras se necesite, y redeploy |
 | La web carga pero toda llamada falla con CORS | `CORS_ORIGIN` distinto a la URL exacta de la web | Corregir (sin barra final) y redeploy de la API |
 | La web llama a una API equivocada | `NEXT_PUBLIC_API_URL` mal en el **build** | Corregir y **recompilar** la web |
 | Muchos usuarios reciben 429 a la vez | La API no ve la IP real: todos comparten el cupo | `TRUST_PROXY=1` (por defecto en producción); si hay dos proxies, `2` |
 | "Subir actividad" deshabilitado | Faltan variables `CLOUDINARY_*` | Cargarlas y redeploy |
+| Subir responde "No participas en este reto" | El usuario no está inscrito en el reto seleccionado | Inscribirlo en Participantes; solo los inscritos pueden subir |
+| Subir responde "Formato no permitido…" | Formato fuera de la lista (actividad: JPG, PNG, WEBP, HEIC; comprobante: además PDF) | Esperado; convertir el archivo |
+| El comprobante en PDF responde 401 al abrirlo | Entrega de PDF apagada en Cloudinary | Settings → Security → "Allow delivery of PDF and ZIP files" |
+| Muchos 429 al subir fotos | Límite de firmas por minuto o `TRUST_PROXY` mal configurado | Revisar `TRUST_PROXY`; subir `UPLOAD_SIGN_LIMIT` si hace falta |
 | Editar un reto responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: su resultado es definitivo | Esperado desde 1.3: no se edita ni se reabre; la premiación sí se puede registrar |
 | Registrar un pago responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: no acepta pagos ni comprobantes | Esperado: el pago tardío se registra en el reto siguiente |
 | Login responde 429 | 5 intentos por minuto por IP (protección anti fuerza bruta) | Esperar un minuto |
 | La sesión se cierra sola | Refresh token rechazado (secretos JWT rotados) | Esperado tras rotar secretos: volver a iniciar sesión |
 | Importar desde Google Sheets dice "no configurado" | Faltan `GOOGLE_*` | Opcional: ver `docs/import-template.md` |
 
-Logs: panel de Seenode → servicio → Logs. Los errores 5xx de la API quedan registrados con
-la ruta.
+Logs: panel de Seenode → servicio → Logs. Cada petición deja una línea `[HTTP]` en JSON con
+`requestId`, método, ruta, estado, duración y usuario (nunca contraseñas ni tokens). Cada error
+5xx deja además una línea `ERROR [HTTP]` con el mismo `requestId`; las alertas se configuran
+sobre `ERROR`. La respuesta de toda petición trae el código en la cabecera `X-Request-Id`.
 
 ---
 
@@ -271,6 +306,10 @@ la ruta.
 | `TRUST_PROXY` | No | `1` | Por defecto 1 en producción; `false` si no hay proxy |
 | `THROTTLE_LIMIT` / `THROTTLE_TTL_MS` | No | `100` / `60000` | Límite global por usuario |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEETS_DEFAULT_RANGE` | No | | Importación desde Google Sheets |
+| `SWAGGER_ENABLED` | No | `false` | Sin definir: apagado en producción; `true` publica `/api/docs` |
+| `PUBLIC_URL` | No | `https://reto-api.seenode.app` | URL pública de los archivos en el modo local de subidas (sin Cloudinary) |
+| `UPLOAD_SIGN_LIMIT` | No | `30` | Firmas de subida por cliente y minuto |
+| `UPLOAD_MAX_BYTES` | No | `10485760` | Tamaño máximo que la web valida antes de subir (10 MB) |
 
 ### Web
 

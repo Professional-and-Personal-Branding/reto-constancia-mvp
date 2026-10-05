@@ -7,7 +7,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import type {
   ChallengeParticipant,
   DailyActivity,
@@ -84,8 +84,7 @@ export default function DashboardPage() {
   const uploadPaymentMut = useMutation({
     mutationFn: async (file: File) => {
       if (!challenge) throw new Error('Sin reto activo');
-      const folder = `payments/${challenge.year}-${String(challenge.month).padStart(2, '0')}`;
-      const proof = await uploadToCloudinary(file, folder, 'auto');
+      const proof = await uploadToCloudinary(file, challenge.id, 'payment-proof');
 
       return api<ChallengeParticipant>(
         `/challenges/${challenge.id}/participants/me/payment-proof`,
@@ -219,7 +218,7 @@ export default function DashboardPage() {
               <input
                 ref={paymentInputRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept={ACCEPT['payment-proof']}
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];

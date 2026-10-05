@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -13,13 +13,6 @@ export class MarkPaymentDto {
   @IsNumber()
   amountPaid?: number;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  paymentProofUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  paymentProofCloudinaryId?: string;
+  // Sin campos de comprobante: lo sube el participante con su propia carpeta
+  // (spec challenge-finance). Enviarlos responde 400.
 }

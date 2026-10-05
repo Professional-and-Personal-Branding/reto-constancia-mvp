@@ -150,10 +150,22 @@ test.beforeAll(async () => {
   await pay('carla', { paid: true, amountPaid: 75 });
   await pay('diego', { paid: false });
   await pay('elena', { paid: false });
-  await api('PATCH', `/challenges/${challengeId}/participants/me/payment-proof`, {
+  // El comprobante se sube de verdad por la firma y el simulador local (spec upload-guardrails)
+  const sig = await api<{ uploadUrl: string; folder: string }>('POST', '/upload/sign', {
     token: tokens().participant,
-    body: { paymentProofUrl: 'https://placehold.co/600x800/0a0a0a/ff6b35.png?text=Comprobante%20150%20BOB', paymentProofCloudinaryId: 'demo/comprobante-ana' },
+    body: { challengeId, purpose: 'payment-proof' },
   });
+  const form = new FormData();
+  form.append('folder', sig.body.folder);
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  form.append('file', new Blob([png], { type: 'image/png' }), 'comprobante.png');
+  const uploaded = await fetch(sig.body.uploadUrl, { method: 'POST', headers: { Authorization: `Bearer ${tokens().participant}` }, body: form });
+  const proof = (await uploaded.json()) as { secure_url: string; public_id: string };
+  const saved = await api('PATCH', `/challenges/${challengeId}/participants/me/payment-proof`, {
+    token: tokens().participant,
+    body: { paymentProofUrl: proof.secure_url, paymentProofCloudinaryId: proof.public_id },
+  });
+  expect(saved.status).toBe(200);
   expect(ALL.every((who) => byEmail[who])).toBe(true);
 });
 

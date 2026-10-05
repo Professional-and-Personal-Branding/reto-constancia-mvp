@@ -1,10 +1,27 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { extname, join } from 'path';
-import { UploadResourceType } from './dto/sign-upload.dto';
+import {
+  ALLOWED_FORMATS,
+  allowedExtensions,
+  DEFAULT_MAX_BYTES,
+  folderFor,
+  FORMAT_MESSAGE,
+  isOwnedAsset,
+  normalizeBase,
+  parseFolder,
+  ParsedFolder,
+  UploadPurpose,
+} from './upload-policy';
 
 export interface CloudinarySignature {
   signature: string;
@@ -13,9 +30,24 @@ export interface CloudinarySignature {
   cloudName: string;
   folder: string;
   uploadUrl: string;
+  /** Formatos firmados: el cliente debe reenviarlos tal cual en `allowed_formats`. */
+  allowedFormats: string;
+  /** Tamaño máximo que el cliente valida antes de subir. */
+  maxBytes: number;
   /** true cuando el backend simula Cloudinary guardando en disco (modo local/dev). */
   local?: boolean;
 }
+
+export interface EvidenceOwner {
+  challengeId: string;
+  userId: string;
+  purpose: UploadPurpose;
+}
+
+const OWNERSHIP_MESSAGE: Record<UploadPurpose, string> = {
+  activity: 'La foto debe subirse desde la plataforma',
+  'payment-proof': 'El comprobante debe subirse desde la plataforma',
+};
 
 export interface LocalUploadResult {
   secure_url: string;
@@ -29,6 +61,8 @@ export class UploadService implements OnModuleInit {
   private localMode = false;
   private publicBaseUrl!: string;
   private apiPrefix!: string;
+  private cloudName?: string;
+  private maxBytes = DEFAULT_MAX_BYTES;
   /** Carpeta física donde se guardan los archivos en modo local. */
   private readonly uploadsDir = join(process.cwd(), 'uploads');
 
@@ -38,8 +72,11 @@ export class UploadService implements OnModuleInit {
     const cloud = this.config.get<string>('CLOUDINARY_CLOUD_NAME');
     const apiKey = this.config.get<string>('CLOUDINARY_API_KEY');
     const apiSecret = this.config.get<string>('CLOUDINARY_API_SECRET');
-    this.baseFolder =
-      this.config.get<string>('CLOUDINARY_FOLDER') ?? 'reto-constancia';
+    this.baseFolder = normalizeBase(
+      this.config.get<string>('CLOUDINARY_FOLDER') || 'reto-constancia',
+    );
+    const maxBytes = Number(this.config.get<string>('UPLOAD_MAX_BYTES'));
+    if (Number.isInteger(maxBytes) && maxBytes > 0) this.maxBytes = maxBytes;
     this.apiPrefix = this.config.get<string>('API_PREFIX', 'api');
     const port = this.config.get<number>('PORT', 3000);
     this.publicBaseUrl =
@@ -63,6 +100,7 @@ export class UploadService implements OnModuleInit {
       return;
     }
 
+    this.cloudName = cloud;
     cloudinary.config({
       cloud_name: cloud,
       api_key: apiKey,
@@ -76,19 +114,20 @@ export class UploadService implements OnModuleInit {
     return this.localMode;
   }
 
+  get maxUploadBytes(): number {
+    return this.maxBytes;
+  }
+
   /**
-   * Genera una firma para upload directo desde el cliente.
+   * Firma una subida directa para un reto, un participante y un propósito (spec
+   * upload-guardrails). La carpeta la decide el servidor y los formatos van firmados.
    * - Con Cloudinary configurado: firma real hacia la API de Cloudinary.
    * - Sin Cloudinary (dev): apunta al endpoint local que simula el upload.
    */
-  signUpload(
-    folder?: string,
-    resourceType: UploadResourceType = 'image',
-  ): CloudinarySignature {
+  signUpload(challengeId: string, userId: string, purpose: UploadPurpose): CloudinarySignature {
     const timestamp = Math.round(Date.now() / 1000);
-    const fullFolder = folder
-      ? `${this.baseFolder}/${folder}`
-      : this.baseFolder;
+    const folder = folderFor(this.baseFolder, challengeId, userId, purpose);
+    const allowedFormats = ALLOWED_FORMATS[purpose];
 
     if (this.localMode) {
       return {
@@ -96,8 +135,10 @@ export class UploadService implements OnModuleInit {
         timestamp,
         apiKey: 'local',
         cloudName: 'local',
-        folder: fullFolder,
+        folder,
         uploadUrl: `${this.publicBaseUrl}/${this.apiPrefix}/upload/local`,
+        allowedFormats,
+        maxBytes: this.maxBytes,
         local: true,
       };
     }
@@ -108,7 +149,7 @@ export class UploadService implements OnModuleInit {
 
     // Para firmar, los parámetros deben estar ordenados alfabéticamente.
     const signature = cloudinary.utils.api_sign_request(
-      { folder: fullFolder, timestamp },
+      { allowed_formats: allowedFormats, folder, timestamp },
       apiSecret,
     );
 
@@ -117,9 +158,36 @@ export class UploadService implements OnModuleInit {
       timestamp,
       apiKey,
       cloudName,
-      folder: fullFolder,
-      uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+      folder,
+      // Siempre image: un PDF subido así se guarda como imagen y lo protege allowed_formats
+      uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      allowedFormats,
+      maxBytes: this.maxBytes,
     };
+  }
+
+  /** Lanza 400 si la evidencia no es un archivo propio del participante (spec upload-guardrails). */
+  assertOwnedAsset(asset: { url: string; publicId: string }, owner: EvidenceOwner): void {
+    const owned = isOwnedAsset(asset, {
+      base: this.baseFolder,
+      ...owner,
+      cloudName: this.localMode ? undefined : this.cloudName,
+      publicBaseUrl: this.publicBaseUrl,
+    });
+    if (!owned) throw new BadRequestException(OWNERSHIP_MESSAGE[owner.purpose]);
+  }
+
+  /**
+   * Valida la carpeta de una subida local: solo carpetas derivadas y del propio usuario.
+   * La participación la verifica el controlador con la regla del propósito.
+   */
+  parseLocalFolder(folder: string | undefined, userId: string): ParsedFolder {
+    const parsed = folder ? parseFolder(this.baseFolder, folder) : null;
+    if (!parsed) throw new BadRequestException('Carpeta de subida no válida');
+    if (parsed.userId !== userId) {
+      throw new ForbiddenException('No puedes subir archivos a la carpeta de otro usuario');
+    }
+    return parsed;
   }
 
   /**
@@ -128,19 +196,26 @@ export class UploadService implements OnModuleInit {
    */
   async saveLocal(
     file: Express.Multer.File,
-    folder?: string,
+    folder: string,
+    purpose: UploadPurpose,
   ): Promise<LocalUploadResult> {
-    const safeFolder = (folder ?? this.baseFolder).replace(/[^a-zA-Z0-9/_-]/g, '_');
+    let ext = (extname(file.originalname) || this.extFromMime(file.mimetype)).toLowerCase();
+    // Igual que Cloudinary: los JPEG se guardan como jpg
+    if (ext === '.jpeg') ext = '.jpg';
+    if (!allowedExtensions(purpose).includes(ext.replace('.', ''))) {
+      throw new BadRequestException(FORMAT_MESSAGE);
+    }
+
+    const safeFolder = folder.replace(/[^a-zA-Z0-9/_-]/g, '_');
     const targetDir = join(this.uploadsDir, safeFolder);
     await fs.mkdir(targetDir, { recursive: true });
 
     const id = randomUUID();
-    const ext = extname(file.originalname) || this.extFromMime(file.mimetype);
     const fileName = `${id}${ext}`;
     await fs.writeFile(join(targetDir, fileName), file.buffer);
 
     const publicId = `${safeFolder}/${id}`;
-    const secureUrl = `${this.publicBaseUrl}/uploads/${safeFolder}/${fileName}`;
+    const secureUrl = `${this.publicBaseUrl.replace(/\/+$/, '')}/uploads/${safeFolder}/${fileName}`;
     return { secure_url: secureUrl, public_id: publicId };
   }
 
@@ -152,6 +227,8 @@ export class UploadService implements OnModuleInit {
         return '.jpg';
       case 'image/webp':
         return '.webp';
+      case 'image/heic':
+        return '.heic';
       case 'image/gif':
         return '.gif';
       case 'application/pdf':

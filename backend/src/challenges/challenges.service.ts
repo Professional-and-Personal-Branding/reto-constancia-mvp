@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
+import { UploadService } from '../upload/upload.service';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
 export const participantsInclude = {
@@ -26,7 +28,10 @@ export type ChallengeWithParticipants = Prisma.ChallengeGetPayload<{
 
 @Injectable()
 export class ChallengesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadService,
+  ) {}
 
   async create(dto: CreateChallengeDto): Promise<Challenge> {
     const exists = await this.prisma.challenge.findUnique({
@@ -236,10 +241,8 @@ export class ChallengesService {
       data: {
         paid: dto.paid,
         paidAt: dto.paid ? new Date() : null,
+        // El comprobante no se toca: lo sube el participante (spec challenge-finance)
         amountPaid,
-        paymentProofUrl: dto.paymentProofUrl,
-        paymentProofCloudinaryId: dto.paymentProofCloudinaryId,
-        paymentProofUploadedAt: dto.paymentProofUrl ? new Date() : undefined,
       },
       include: { user: { select: { id: true, name: true, email: true } } },
     });
@@ -250,7 +253,11 @@ export class ChallengesService {
     userId: string,
     dto: PaymentProofDto,
   ) {
-    await this.openForPayments(challengeId);
+    await this.assertPaymentParticipant(challengeId, userId);
+    this.uploads.assertOwnedAsset(
+      { url: dto.paymentProofUrl, publicId: dto.paymentProofCloudinaryId },
+      { challengeId, userId, purpose: 'payment-proof' },
+    );
     return this.prisma.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId } },
       data: {
@@ -260,6 +267,34 @@ export class ChallengesService {
       },
       include: { user: { select: { id: true, name: true, email: true } } },
     });
+  }
+
+  /**
+   * Para registrar actividad o firmar sus fotos: el reto existe, está activo y el usuario
+   * participa. Mismos mensajes y orden que tenía la creación de actividades.
+   */
+  async assertActiveParticipant(challengeId: string, userId: string) {
+    const challenge = await this.prisma.challenge.findUnique({ where: { id: challengeId } });
+    if (!challenge) throw new NotFoundException('Reto no encontrado');
+    if (challenge.status !== ChallengeStatus.ACTIVE) {
+      throw new BadRequestException('El reto no está activo');
+    }
+    await this.assertEnrolled(challengeId, userId);
+    return challenge;
+  }
+
+  /** Para subir un comprobante: el reto no está cerrado y el usuario participa. */
+  async assertPaymentParticipant(challengeId: string, userId: string) {
+    const challenge = await this.openForPayments(challengeId);
+    await this.assertEnrolled(challengeId, userId);
+    return challenge;
+  }
+
+  private async assertEnrolled(challengeId: string, userId: string) {
+    const participation = await this.prisma.challengeParticipant.findUnique({
+      where: { challengeId_userId: { challengeId, userId } },
+    });
+    if (!participation) throw new ForbiddenException('No participas en este reto');
   }
 
   /**

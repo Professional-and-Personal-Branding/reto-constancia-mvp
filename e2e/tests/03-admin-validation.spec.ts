@@ -13,11 +13,12 @@ import {
 
 /**
  * Recorrido 4 de docs/test-cases.md: validar y rechazar como admin.
- * Casos cubiertos: TC-ACT-08, TC-ACT-09, TC-ACT-15.
+ * Casos cubiertos: TC-ACT-08, TC-ACT-09, TC-ACT-15, TC-UI-11.
  */
 const MONTH = 4;
 const COMPLIANT_DATE = e2eDate(MONTH, 10);
 const NON_COMPLIANT_DATE = e2eDate(MONTH, 11);
+const ERROR_DATE = e2eDate(MONTH, 12);
 
 test.use({ storageState: STATE.admin });
 
@@ -35,6 +36,7 @@ test.beforeAll(async () => {
     withHeartRatePhoto: true,
   });
   await createActivity(challenge.id, NON_COMPLIANT_DATE, {});
+  await createActivity(challenge.id, ERROR_DATE, { heartRateMinutes: 30, withHeartRatePhoto: true });
   await api('PATCH', `/challenges/${challenge.id}`, {
     token: tokens().admin,
     body: { minHeartRateMinutes: 20 },
@@ -82,4 +84,31 @@ test('una actividad que no cumple la regla de FC exige nota de override', async 
   );
   const stored = activities.body.find((a) => a.date.startsWith(NON_COMPLIANT_DATE));
   expect(stored?.validationNote).toBe('Registro histórico verificado en persona');
+});
+
+test('un error inesperado al validar muestra el código para soporte', async ({ page }) => {
+  // El contrato del 500 genérico (spec platform-operations): el mensaje trae el requestId
+  const requestId = 'pw-req-1';
+  await page.route('**/api/activities/*/validate', (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      headers: { 'X-Request-Id': requestId },
+      body: JSON.stringify({
+        statusCode: 500,
+        message: `Ocurrió un error inesperado. Si el problema continúa, comparte este código con el administrador: ${requestId}`,
+        requestId,
+      }),
+    }),
+  );
+  await page.goto('/dashboard/admin/validations');
+  const card = page.locator('.card').filter({ hasText: '12 abr 2025' });
+  await card.getByRole('button', { name: /Validar/ }).click();
+
+  // Next.js agrega su propio anunciador con role=alert: se busca el del mensaje
+  const alert = page.getByRole('alert').filter({ hasText: 'comparte este código' });
+  await expect(alert).toContainText(requestId);
+  await expect(alert).toContainText('comparte este código');
+  await expect(card).toHaveCount(1);
+  await page.unroute('**/api/activities/*/validate');
 });

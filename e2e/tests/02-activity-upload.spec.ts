@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 import { closeChallenge, e2eDate, enroll, setupChallenge, STATE, tokens } from '../fixtures/api';
-import { pngFile, selectChallenge } from '../fixtures/ui';
+import { pdfFile, pngFile, selectChallenge } from '../fixtures/ui';
 
 /**
  * Recorrido 3 de docs/test-cases.md: registrar una actividad con la regla de FC.
- * Casos cubiertos: TC-ACT-01, TC-ACT-02, TC-ACT-05, TC-ACT-13, TC-ACT-14, TC-ACT-18, TC-UP-02.
+ * Casos cubiertos: TC-ACT-01, TC-ACT-02, TC-ACT-05, TC-ACT-13, TC-ACT-14, TC-ACT-18, TC-UP-02, TC-UP-04.
  *
  * Es el único lugar donde se ejercita la subida real de archivos de punta a punta:
  * formulario → /upload/sign → simulador local → registro de la actividad.
@@ -87,4 +87,29 @@ test('rechaza una segunda actividad para el mismo día', async ({ page }) => {
 
   await page.getByRole('button', { name: /Registrar actividad/ }).click();
   await expect(page.locator('main')).toContainText(/Ya registraste una actividad/i);
+});
+
+test('una foto de actividad en PDF muestra el aviso de formato y no se registra', async ({ page }) => {
+  await selectChallenge(page, process.env.E2E_UPLOAD_CHALLENGE!, '/dashboard/upload');
+
+  await page.getByLabel('Fecha').fill(e2eDate(MONTH, 11));
+  await page.getByLabel('Duración (min)').fill('40');
+  await page.getByLabel('Minutos con FC').fill('30');
+  const inputs = page.locator('input[type="file"]');
+  await inputs.nth(0).setInputFiles(pdfFile('entrenamiento.pdf'));
+  await inputs.nth(1).setInputFiles(pngFile('frecuencia.png'));
+
+  await page.getByRole('button', { name: /Registrar actividad/ }).click();
+  await expect(page.locator('main')).toContainText('Formato no permitido. Usa JPG, PNG, WEBP o HEIC');
+  await expect(page).toHaveURL(/\/dashboard\/upload/);
+});
+
+test('el comprobante de pago se puede subir en PDF desde el inicio', async ({ page }) => {
+  await selectChallenge(page, process.env.E2E_UPLOAD_CHALLENGE!, '/dashboard');
+
+  const proofSection = page.locator('section').filter({ hasText: 'Comprobante de pago' });
+  await proofSection.locator('input[type="file"]').setInputFiles(pdfFile('comprobante.pdf'));
+  const link = proofSection.getByRole('link', { name: 'Ver comprobante cargado' });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', /\/payment-proof\/[0-9a-f-]+\.pdf$/);
 });

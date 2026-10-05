@@ -1,5 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { ApiOperation, ApiServiceUnavailableResponse, ApiTags } from '@nestjs/swagger';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -16,12 +16,18 @@ export class HealthController {
 
   @Get('db')
   @ApiOperation({ summary: 'Readiness probe (verifica conexión a Postgres)' })
+  @ApiServiceUnavailableResponse({ description: 'La base de datos no responde' })
   async checkDb() {
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', db: 'up', timestamp: new Date().toISOString() };
+      await this.prisma.ping();
     } catch {
-      return { status: 'error', db: 'down', timestamp: new Date().toISOString() };
+      // 503 para que un monitor que mira el código de estado detecte la caída
+      throw new ServiceUnavailableException({
+        status: 'error',
+        db: 'down',
+        timestamp: new Date().toISOString(),
+      });
     }
+    return { status: 'ok', db: 'up', timestamp: new Date().toISOString() };
   }
 }

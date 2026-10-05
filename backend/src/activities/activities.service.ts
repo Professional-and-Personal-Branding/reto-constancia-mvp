@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import {
   ActivityStatus,
-  ChallengeStatus,
   PhotoType,
   Prisma,
   UserRole,
@@ -15,6 +14,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengesService } from '../challenges/challenges.service';
+import { UploadService } from '../upload/upload.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
 import { ValidateActivityDto } from './dto/validate-activity.dto';
@@ -30,6 +30,7 @@ export class ActivitiesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly challenges: ChallengesService,
+    private readonly uploads: UploadService,
   ) {}
 
   /** Regla de FC del reto (pura). Ver heart-rate-rule.ts y la spec activity-heart-rate-compliance. */
@@ -52,20 +53,19 @@ export class ActivitiesService {
   }
 
   async create(userId: string, dto: CreateActivityDto) {
-    const challenge = await this.prisma.challenge.findUnique({
-      where: { id: dto.challengeId },
-    });
-    if (!challenge) throw new NotFoundException('Reto no encontrado');
-    if (challenge.status !== ChallengeStatus.ACTIVE) {
-      throw new BadRequestException('El reto no está activo');
-    }
+    const challenge = await this.challenges.assertActiveParticipant(dto.challengeId, userId);
 
-    // Verifica que el usuario sea participante
-    const participation = await this.prisma.challengeParticipant.findUnique({
-      where: { challengeId_userId: { challengeId: dto.challengeId, userId } },
-    });
-    if (!participation) {
-      throw new ForbiddenException('No participas en este reto');
+    // Cada foto (actividad, FC o métricas) debe ser un archivo propio subido al reto
+    // (spec upload-guardrails). La importación del admin no pasa por aquí.
+    const ids = dto.photos.map((p) => p.cloudinaryId);
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('La misma foto no puede adjuntarse dos veces');
+    }
+    for (const photo of dto.photos) {
+      this.uploads.assertOwnedAsset(
+        { url: photo.url, publicId: photo.cloudinaryId },
+        { challengeId: dto.challengeId, userId, purpose: 'activity' },
+      );
     }
 
     const activityDate = new Date(dto.date);

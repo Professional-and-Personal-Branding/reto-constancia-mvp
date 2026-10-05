@@ -188,16 +188,12 @@ export async function createActivity(
   isoDate: string,
   options: { distanceKm?: number; heartRateMinutes?: number; withHeartRatePhoto?: boolean } = {},
 ): Promise<{ id: string; status: string }> {
-  const { participant } = tokens();
+  const { participant, participantId } = tokens();
   const photos: { url: string; cloudinaryId: string; type: string }[] = [
-    { url: 'https://example.com/e2e/activity.png', cloudinaryId: `e2e/${isoDate}/act`, type: 'ACTIVITY' },
+    { ...ownedAsset(challengeId, participantId, `act-${isoDate}`), type: 'ACTIVITY' },
   ];
   if (options.withHeartRatePhoto) {
-    photos.push({
-      url: 'https://example.com/e2e/hr.png',
-      cloudinaryId: `e2e/${isoDate}/hr`,
-      type: 'HEART_RATE',
-    });
+    photos.push({ ...ownedAsset(challengeId, participantId, `hr-${isoDate}`), type: 'HEART_RATE' });
   }
   const res = await api<{ id: string; status: string }>('POST', '/activities', {
     token: participant,
@@ -215,6 +211,24 @@ export async function createActivity(
     throw new Error(`No se pudo crear la actividad: ${res.status} ${JSON.stringify(res.body)}`);
   }
   return res.body;
+}
+
+/** Carpeta base de las subidas en la API de pruebas (CLOUDINARY_FOLDER). */
+export const UPLOAD_BASE = process.env.E2E_UPLOAD_BASE ?? 'reto-constancia';
+
+/**
+ * Evidencia propia de un participante (spec upload-guardrails). La API de pruebas corre en modo
+ * local: la validación es por patrón, así que el archivo no necesita existir.
+ */
+export function ownedAsset(
+  challengeId: string,
+  userId: string,
+  name: string,
+  purpose: 'activity' | 'payment-proof' = 'activity',
+  ext = 'png',
+): { url: string; cloudinaryId: string } {
+  const cloudinaryId = `${UPLOAD_BASE}/${challengeId}/${userId}/${purpose}/${name}`;
+  return { url: `${API_URL.replace(/\/api\/?$/, '')}/uploads/${cloudinaryId}.${ext}`, cloudinaryId };
 }
 
 /** Fecha válida dentro del reto de pruebas (día 1..28 del mes indicado). */

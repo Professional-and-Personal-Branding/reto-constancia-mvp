@@ -260,18 +260,20 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.4.2 · 4 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.5.0 · 5 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 4 oct 2026: batería 11 de 11 · 110 de 110 casos aprobados con 401 pruebas</span>
+      <span class="verified">Verificado el 5 oct 2026: batería 11 de 11 · 119 de 119 casos aprobados con 493 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>Subidas: solo los inscritos en un reto pueden subir fotos y comprobantes, cada archivo va a su carpeta y en formatos permitidos (JPG, PNG, WEBP, HEIC; PDF solo para comprobantes), y no se aceptan imágenes de otros sitios ni de otros participantes (pasos 4.2 y 4.3).</li>
+        <li>Operación: /api/health/db responde 503 si la base cae, cada respuesta trae un código X-Request-Id para rastrear errores, y Swagger queda apagado en producción (pasos 8.1 y 8.4).</li>
         <li>Privacidad: el ranking muestra nombres sin emails, y cada participante ve solo su propio estado de pago; el admin sigue viendo todo (paso 6.1).</li>
         <li>El premio se reparte con lo recaudado y el presupuesto se calcula solo con las cuotas (cuota × inscritos), con ajuste manual opcional (pasos 2.1, 3.4 y 6.1).</li>
         <li>Un reto cerrado ya no acepta pagos: el pago tardío va al reto siguiente (3.3 y 6.3).</li>
@@ -355,7 +357,8 @@
           route: API + '/docs',
           actions: ['Abre Swagger en <code>' + API + '/docs</code>.', 'Pulsa <span class="ui">Authorize</span> y pega el token que devuelve <code>POST /auth/login</code>.'],
           expect: 'Ves los grupos auth, challenges, activities, upload, import y health, con sus contratos.',
-          refs: ['architecture.md · Endpoints', 'TC-UI-05']
+          note: 'Swagger está encendido en desarrollo. En producción queda apagado salvo que se defina <code>SWAGGER_ENABLED=true</code> (paso 8.4).',
+          refs: ['architecture.md · Endpoints', 'TC-UI-05', 'TC-SEC-13']
         }
       ]
     },
@@ -492,9 +495,10 @@
         {
           id: '4.2', role: 'participante', title: 'Subir el comprobante de pago', route: '/dashboard',
           why: 'Para que el administrador confirme el pago de la cuota.',
-          actions: ['Pulsa <span class="ui">Subir comprobante</span> y elige una imagen o un PDF.', 'Para cambiarlo, pulsa <span class="ui">Reemplazar comprobante</span>.'],
+          actions: ['Pulsa <span class="ui">Subir comprobante</span> y elige una imagen (JPG, PNG, WEBP o HEIC) o un PDF, de hasta 10 MB.', 'Para cambiarlo, pulsa <span class="ui">Reemplazar comprobante</span>.'],
           expect: 'El administrador ve "Ver comprobante de pago" en tu fila de Participantes y marca el pago.',
-          refs: ['TC-PART-05']
+          note: 'Solo puedes subir el comprobante de un reto en el que estás inscrito, y se guarda en tu carpeta de ese reto. El administrador registra el pago pero no sube comprobantes por ti.',
+          refs: ['TC-PART-05', 'TC-UP-04', 'TC-UP-05']
         },
         {
           id: '4.3', role: 'participante', title: 'Registrar la actividad del día', route: '/dashboard/upload',
@@ -507,8 +511,8 @@
             'Pulsa <span class="ui">Registrar actividad</span>.'
           ],
           expect: 'La actividad queda Pendiente con la fecha exacta que elegiste.',
-          note: 'Mientras no cumplas la regla de frecuencia cardíaca, el botón queda bloqueado y un aviso dice qué falta. El servidor además exige reto activo, inscripción, fecha dentro del período, día válido y una sola actividad por día en cada reto.',
-          refs: ['TC-ACT-01', 'TC-ACT-02', 'TC-ACT-03', 'TC-ACT-04', 'TC-ACT-05', 'TC-ACT-06', 'TC-ACT-07', 'TC-ACT-13', 'TC-ACT-14', 'TC-ACT-18', 'TC-UP-01']
+          note: 'Mientras no cumplas la regla de frecuencia cardíaca, el botón queda bloqueado y un aviso dice qué falta. Las fotos van en JPG, PNG, WEBP o HEIC, de hasta 10 MB, y se suben a tu carpeta del reto: no se aceptan imágenes de otros sitios ni de otros participantes. El servidor además exige reto activo, inscripción, fecha dentro del período, día válido y una sola actividad por día en cada reto.',
+          refs: ['TC-ACT-01', 'TC-ACT-02', 'TC-ACT-03', 'TC-ACT-04', 'TC-ACT-05', 'TC-ACT-06', 'TC-ACT-07', 'TC-ACT-13', 'TC-ACT-14', 'TC-ACT-18', 'TC-UP-01', 'TC-UP-04', 'TC-UP-05']
         },
         {
           id: '4.4', role: 'participante', title: 'Seguir el estado de tus actividades', route: '/dashboard',
@@ -543,8 +547,8 @@
           why: 'Solo las validadas suman al ranking.',
           actions: ['Pulsa <span class="ui">✓ Validar</span>.', 'Si la actividad no cumple la regla de FC, se abre un campo de nota: explica por qué la aceptas (5 a 300 caracteres) y pulsa <span class="ui">Validar con nota</span>.'],
           expect: 'La tarjeta sale de la lista y el participante suma un día. La nota de excepción queda guardada.',
-          note: 'Esto es útil para registros históricos que no tienen captura.',
-          refs: ['TC-ACT-08', 'TC-ACT-15']
+          note: 'Esto es útil para registros históricos que no tienen captura. Si la API falla de forma inesperada, el aviso muestra un código: compártelo con el técnico para que lo busque en los logs.',
+          refs: ['TC-ACT-08', 'TC-ACT-15', 'TC-UI-11']
         },
         {
           id: '5.3', role: 'admin', title: 'Rechazar una actividad', route: '/dashboard/admin/validations',
@@ -642,15 +646,16 @@
         {
           id: '8.1', role: 'tecnico', title: 'Comprobar la salud del servicio',
           route: '/api/health · /api/health/db',
-          why: 'Los monitores del hosting consultan estos dos puntos.',
-          cmd: 'curl ' + API + '/health\ncurl ' + API + '/health/db',
-          expect: 'Ambos responden con estado "ok".',
-          refs: ['TC-HEALTH-01', 'TC-HEALTH-02']
+          why: 'El hosting consulta /health para saber si la API vive; un monitor externo consulta /health/db para saber si la base responde.',
+          cmd: 'curl ' + API + '/health\ncurl -i ' + API + '/health/db',
+          expect: 'Ambos responden 200 con estado "ok". Si la base está caída, /health/db responde 503 y /health sigue en 200. Toda respuesta trae la cabecera X-Request-Id: es el código que se busca en los logs cuando alguien reporta un error.',
+          note: 'Cada petición deja una línea [HTTP] en los logs, sin contraseñas ni tokens; cada error 5xx deja además una línea ERROR con el mismo código.',
+          refs: ['TC-HEALTH-01', 'TC-HEALTH-02', 'TC-HEALTH-03', 'TC-HEALTH-04', 'TC-HEALTH-05', 'TC-SEC-12']
         },
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los 104 casos del catálogo',
+          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los casos del catálogo',
           expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },
@@ -658,16 +663,16 @@
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '44 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '56 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
           id: '8.4', role: 'tecnico', title: 'Preparar el despliegue a producción',
           why: 'Hay variables sin las cuales la plataforma no funciona o queda expuesta.',
-          actions: ['Define <code>NODE_ENV=production</code>, secretos JWT distintos, <code>CORS_ORIGIN</code> con la URL de la web y las tres variables de Cloudinary.', 'Corre el seed una vez con <code>SEED_ADMIN_PASSWORD</code> y cambia esa contraseña tras el primer ingreso.', 'Detrás del proxy del hosting, deja <code>TRUST_PROXY=1</code> (valor por defecto en producción) para que el límite de 100 peticiones por minuto se aplique por usuario y no a todos juntos.', 'Repasa el checklist de once puntos de <code>docs/deploy-seenode.md</code>.'],
+          actions: ['Define <code>NODE_ENV=production</code>, secretos JWT distintos, <code>CORS_ORIGIN</code> con la URL de la web y las tres variables de Cloudinary.', 'Corre el seed una vez con <code>SEED_ADMIN_PASSWORD</code> y cambia esa contraseña tras el primer ingreso.', 'Detrás del proxy del hosting, deja <code>TRUST_PROXY=1</code> (valor por defecto en producción) para que el límite de 100 peticiones por minuto se aplique por usuario y no a todos juntos.', 'En Cloudinary activa la entrega de PDF (Settings → Security) y corre las verificaciones V1 a V5 del runbook antes de abrir la URL a los participantes.', 'Deja <code>SWAGGER_ENABLED</code> sin definir: en producción la documentación interactiva queda apagada y <code>/api/docs</code> responde 404.', 'Repasa el checklist de once puntos de <code>docs/deploy-seenode.md</code>.'],
           expect: 'La API arranca con <code>npm run start:prod</code> y aplica las migraciones sola.',
           note: 'Sin Cloudinary, en producción la subida de archivos queda deshabilitada a propósito.',
-          refs: ['TC-SEC-02', 'TC-SEC-03', 'TC-SEC-04', 'TC-SEC-05', 'TC-UP-03', 'deploy-seenode.md', 'security-owasp.md']
+          refs: ['TC-SEC-02', 'TC-SEC-03', 'TC-SEC-04', 'TC-SEC-05', 'TC-SEC-13', 'TC-UP-03', 'TC-UP-06', 'deploy-seenode.md', 'security-owasp.md']
         },
         {
           id: '8.5', role: 'tecnico', title: 'Validar el catálogo de casos de prueba',

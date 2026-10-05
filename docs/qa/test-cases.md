@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-05** · rama `release/1.4.2` · commit `c4d8fb4`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-05** · rama `release/1.5.0` · commit `533244f`. Detalle en [validation-report.md](validation-report.md).
 
-**110 casos** · 110 aprobados · 0 fallidos · 0 con limitación conocida · 109 automatizados.
+**119 casos** · 119 aprobados · 0 fallidos · 0 con limitación conocida · 118 automatizados.
 
 ## Cómo leer cada caso
 
@@ -18,17 +18,17 @@
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
-| [Seguridad y configuración](#sec) | 11 | 11 | 0 |
+| [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 13 | 13 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 7 | 7 | 0 |
-| [Carga de archivos](#up) | 3 | 3 | 0 |
+| [Carga de archivos](#up) | 6 | 6 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
-| [Interfaz y navegación](#ui) | 10 | 10 | 0 |
-| [Salud del servicio](#health) | 2 | 2 | 0 |
+| [Interfaz y navegación](#ui) | 11 | 11 | 0 |
+| [Salud del servicio](#health) | 5 | 5 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
 <a id="auth"></a>
@@ -497,6 +497,8 @@
 | [TC-SEC-09](#tc-sec-09) | El listado de inscritos es solo para admin | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-10](#tc-sec-10) | El detalle de una actividad ajena da 403 | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-11](#tc-sec-11) | El admin conserva emails y pagos en el ranking y en la lista de activos | Media | Seguridad | ✅ Aprobado |
+| [TC-SEC-12](#tc-sec-12) | Un error inesperado responde un 500 genérico con el código y sin detalles internos | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-13](#tc-sec-13) | Swagger apagado en producción salvo que se active | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-sec-01"></a>
 
@@ -867,6 +869,82 @@
 | ✅ | Unitaria | `privacy.spec.ts` | admin: la misma respuesta, sin copiar |
 | ✅ | UI | `11-privacy.spec.ts` | el admin conserva emails y pagos en el ranking y en la lista de activos |
 | ✅ | UI | `11-privacy.spec.ts` | el ranking muestra el email de cada participante |
+
+<a id="tc-sec-12"></a>
+
+### TC-SEC-12 · Un error inesperado responde un 500 genérico con el código y sin detalles internos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API en marcha.
+
+**Datos de prueba:** Un servicio que lanza Error("detalle interno")
+
+**Pasos**
+
+1. Provocar el error en GET /api/challenges.
+2. Revisar respuesta y logs.
+
+**Resultado esperado**
+
+- 500 con { statusCode, message, requestId }; el mensaje en español incluye el requestId de la cabecera.
+- La respuesta no contiene "detalle interno".
+- Una sola línea ERROR con el stack y el mismo requestId; los 4xx de negocio, el 413 y el 429 no cambian ni dejan líneas ERROR.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un error inesperado responde el 500 genérico sin el mensaje interno y con stack |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 409 sale intacto y sin línea ERROR |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 429 del limitador conserva su cuerpo |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | el JSON mal formado (BadRequestException) responde 400 sin línea ERROR |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 413 de http-errors se responde directo y sin línea ERROR |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | con las cabeceras ya enviadas termina la respuesta sin escribir |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | sin middleware toma el identificador de la cabecera y lo devuelve |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | sin middleware fija la cabecera también en los 4xx |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | solo acepta códigos enteros 4xx con mensaje |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | statusCode en texto va al 500 genérico |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | mensaje vacío va al 500 genérico |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | http-errors 5xx va al 500 genérico |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un valor que no es objeto va al 500 genérico |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: un error inesperado responde el 500 genérico con el identificador y sin el detalle interno |
+| ✅ | API e2e | `ops-throttle.e2e-spec.ts` | OPS: el sexto login fallido en un minuto responde 429 con el cuerpo del limitador y X-Request-Id |
+
+<a id="tc-sec-13"></a>
+
+### TC-SEC-13 · Swagger apagado en producción salvo que se active
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API compilada.
+
+**Datos de prueba:** NODE_ENV=production con y sin SWAGGER_ENABLED=true
+
+**Pasos**
+
+1. Arrancar en producción y abrir /api/docs.
+2. Repetir con SWAGGER_ENABLED=true.
+
+**Resultado esperado**
+
+- Sin la variable, /api/docs responde 404 (con X-Request-Id).
+- Con SWAGGER_ENABLED=true, Swagger se sirve; en desarrollo y pruebas está encendido por defecto.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `http.spec.ts` | sin configurar: apagado en producción, encendido en desarrollo y pruebas |
+| ✅ | Unitaria | `http.spec.ts` | SWAGGER_ENABLED manda en cualquier entorno |
 
 <a id="chal"></a>
 
@@ -2899,13 +2977,16 @@
 
 | ID | Caso | Prioridad | Tipo | Estado |
 |---|---|---|---|---|
-| [TC-UP-01](#tc-up-01) | Firma de subida | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-01](#tc-up-01) | Firma de subida ligada al reto, al participante y al propósito | Alta | Seguridad | ✅ Aprobado |
 | [TC-UP-02](#tc-up-02) | Simulador local de subidas en desarrollo | Media | Funcional | ✅ Aprobado |
 | [TC-UP-03](#tc-up-03) | Sin simulador local en producción | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-04](#tc-up-04) | Formatos permitidos por propósito | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-05](#tc-up-05) | Solo se acepta evidencia propia (fotos y comprobantes) | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-06](#tc-up-06) | Límite de firmas de subida por minuto | Media | Seguridad | ✅ Aprobado |
 
 <a id="tc-up-01"></a>
 
-### TC-UP-01 · Firma de subida
+### TC-UP-01 · Firma de subida ligada al reto, al participante y al propósito
 
 | Módulo | Prioridad | Tipo | Paso de la guía | Estado |
 |---|---|---|---|---|
@@ -2913,25 +2994,38 @@
 
 **Precondiciones**
 
-- Ninguna.
+- Ana inscrita en un reto activo; un usuario no inscrito; el admin sin inscribir.
 
-**Datos de prueba:** POST /api/upload/sign { folder, resourceType }
+**Datos de prueba:** POST /api/upload/sign { challengeId, purpose }
 
 **Pasos**
 
 1. Firmar sin sesión.
-2. Firmar con sesión.
+2. Firmar como Ana para activity y payment-proof.
+3. Enviar folder, resourceType, un propósito inválido o un id que no es UUID.
+4. Firmar como no inscrito, como admin y para un reto inexistente.
 
 **Resultado esperado**
 
 - Sin sesión: 401.
-- Con sesión: 201; en desarrollo { local: true, uploadUrl: .../api/upload/local }.
+- Ana recibe 201 con la carpeta <base>/<reto>/<Ana>/<propósito>, los formatos firmados y maxBytes; en desarrollo { local: true, uploadUrl: .../api/upload/local }.
+- Campos de más o valores inválidos: 400.
+- No inscrito y admin: 403 "No participas en este reto"; reto inexistente: 404.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Unitaria | `upload.service.spec.ts` | firma allowed_formats, folder y timestamp, y sube siempre como image |
+| ✅ | Unitaria | `upload.service.spec.ts` | el comprobante acepta PDF y respeta UPLOAD_MAX_BYTES |
+| ✅ | Unitaria | `upload-policy.spec.ts` | la carpeta incluye el reto, el usuario y el propósito |
+| ✅ | Unitaria | `upload-policy.spec.ts` | normalizeBase quita barras y rechaza caracteres que romperían las carpetas |
+| ✅ | Unitaria | `challenges.service.spec.ts` | assertActiveParticipant: inactivo 400 y no inscrito 403 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | assertPaymentParticipant: cerrado 400, no inscrito 403, borrador permitido |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: firmar una subida exige sesión (401) y con sesión devuelve la firma |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: la firma va al reto, al usuario y al propósito, con formatos firmados |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: la carpeta y el tipo de recurso no los elige el cliente (400) |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: solo firma un participante del reto (403), también para el admin |
 
 <a id="tc-up-02"></a>
 
@@ -2945,24 +3039,35 @@
 
 - Sin Cloudinary, NODE_ENV distinto de production.
 
-**Datos de prueba:** POST /api/upload/local (multipart file)
+**Datos de prueba:** POST /api/upload/local (multipart file y folder)
 
 **Pasos**
 
 1. Subir sin sesión.
-2. Comprobar que el simulador está activo.
+2. Subir a la carpeta propia un .jpeg, un .gif y un PDF de actividad.
+3. Subir a la carpeta de otro usuario y a una carpeta vieja (2094-01).
+4. Usar lo subido como foto de una actividad.
 
 **Resultado esperado**
 
 - Sin sesión: 401.
-- Sin Cloudinary en desarrollo el simulador queda activo.
+- El .jpeg se guarda como .jpg dentro de la carpeta propia; el .gif y el PDF de actividad responden 400 "Formato no permitido…".
+- Carpeta ajena: 403; carpeta no derivada: 400 "Carpeta de subida no válida".
+- Lo subido sirve como evidencia propia.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Unitaria | `upload.service.spec.ts` | sin Cloudinary en desarrollo activa el simulador local |
+| ✅ | Unitaria | `upload.service.spec.ts` | el simulador solo acepta carpetas derivadas del propio usuario |
+| ✅ | Unitaria | `upload.service.spec.ts` | rechaza un formato no permitido para el propósito |
+| ✅ | Unitaria | `upload.service.spec.ts` | guarda los JPEG como jpg, igual que Cloudinary |
+| ✅ | Unitaria | `upload.service.spec.ts` | el comprobante admite PDF |
+| ✅ | Unitaria | `upload-policy.spec.ts` | parseFolder reconoce solo carpetas derivadas |
+| ✅ | Unitaria | `upload-policy.spec.ts` | la carpeta derivada no cambia con el saneado del simulador |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: el simulador local de subidas exige sesión (401) |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: el simulador local guarda en la carpeta propia y aplica formatos y dueño |
 
 <a id="tc-up-03"></a>
 
@@ -2993,6 +3098,136 @@
 |---|---|---|---|
 | ✅ | Unitaria | `upload.service.spec.ts` | sin Cloudinary en producción NO activa el simulador local |
 | ✅ | Unitaria | `upload.service.spec.ts` | con Cloudinary configurado nunca usa el modo local |
+
+<a id="tc-up-04"></a>
+
+### TC-UP-04 · Formatos permitidos por propósito
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Seguridad | 4.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Ana inscrita en un reto activo.
+
+**Datos de prueba:** Actividad: heic, jpg, png, webp. Comprobante: además pdf
+
+**Pasos**
+
+1. Subir un PDF como foto de actividad desde el formulario.
+2. Subir un PDF como comprobante desde el inicio.
+3. Revisar los mensajes de error de formato y tamaño.
+
+**Resultado esperado**
+
+- El PDF de actividad muestra "Formato no permitido. Usa JPG, PNG, WEBP o HEIC (PDF solo para comprobantes)" y no se registra nada.
+- El comprobante en PDF se sube y queda el enlace "Ver comprobante cargado".
+- Un archivo mayor que maxBytes muestra "El archivo supera el tamaño máximo (10 MB)" sin subirse.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `upload-policy.spec.ts` | formatos exactos por propósito, en orden alfabético |
+| ✅ | Unitaria | `upload-policy.spec.ts` | un comprobante acepta PDF |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza un PDF en una actividad |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza la extensión jpeg |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | el tamaño máximo se muestra en MB |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | traduce los rechazos de formato de Cloudinary y del simulador |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | traduce los archivos demasiado grandes |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | muestra el mensaje en español del simulador y un texto genérico si no hay mensaje |
+| ✅ | UI | `02-activity-upload.spec.ts` | una foto de actividad en PDF muestra el aviso de formato y no se registra |
+| ✅ | UI | `02-activity-upload.spec.ts` | el comprobante de pago se puede subir en PDF desde el inicio |
+
+<a id="tc-up-05"></a>
+
+### TC-UP-05 · Solo se acepta evidencia propia (fotos y comprobantes)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Seguridad | 4.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Ana y Bruno inscritos en el mismo reto activo.
+
+**Datos de prueba:** Foto de example.com; foto y comprobante de Bruno; campos de comprobante en el pago del admin
+
+**Pasos**
+
+1. Ana registra una actividad con una foto externa y con una foto de Bruno.
+2. Ana envía como suyo el comprobante de Bruno; un no inscrito sube un comprobante.
+3. El admin marca un pago enviando campos de comprobante.
+
+**Resultado esperado**
+
+- Foto externa: 400 "La foto debe subirse desde la plataforma"; foto ajena: 400; no se crea la actividad.
+- Comprobante ajeno: 400 "El comprobante debe subirse desde la plataforma"; no inscrito: 403.
+- El admin recibe 400 y el registro no cambia; marcar o desmarcar un pago no toca el comprobante.
+- La captura de FC de la propia carpeta se acepta; la importación del admin no pasa por esta regla.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `upload-policy.spec.ts` | acepta el archivo propio con y sin versión |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza otro host |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza un host que solo empieza igual |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza otra cuenta |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza http |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza la URL de otro archivo |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza una query |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de otro reto |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de otro usuario |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de otro propósito |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de un id con .. |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de la carpeta sin archivo |
+| ✅ | Unitaria | `upload-policy.spec.ts` | acepta la URL local del archivo propio |
+| ✅ | Unitaria | `upload-policy.spec.ts` | respeta un PUBLIC_URL con path |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza otro origen |
+| ✅ | Unitaria | `activities.service.spec.ts` | acepta la foto de actividad y la captura de FC de la propia carpeta |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza una foto subida fuera de la plataforma |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza la foto de otro participante del mismo reto |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza un comprobante usado como foto de actividad |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza la misma foto adjunta dos veces |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un no inscrito no puede subir comprobante (403) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | rechaza el comprobante de otro participante o externo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | guarda el comprobante propio, también en PDF |
+| ✅ | Unitaria | `challenges.service.spec.ts` | marcar o desmarcar un pago no toca el comprobante guardado |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: una actividad con foto externa o ajena se rechaza (400) y no se crea |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: el comprobante ajeno se rechaza (400) y el admin no puede adjuntar comprobantes (400) |
+
+<a id="tc-up-06"></a>
+
+### TC-UP-06 · Límite de firmas de subida por minuto
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Media | Seguridad | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- UPLOAD_SIGN_LIMIT=3 (por defecto 30).
+
+**Datos de prueba:** POST /api/upload/sign repetido desde el mismo cliente
+
+**Pasos**
+
+1. Pedir 4 firmas en menos de un minuto.
+
+**Resultado esperado**
+
+- Las 3 primeras pasan el limitador (sin sesión responden 401); la cuarta responde 429.
+- El límite se lee en cada petición, así que también se puede definir en backend/.env.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `http.spec.ts` | usa 30 firmas por minuto por defecto y descarta valores inválidos |
+| ✅ | Unitaria | `upload.controller.spec.ts` | firma con límite configurable: 30 por minuto por defecto y UPLOAD_SIGN_LIMIT si está definido |
+| ✅ | API e2e | `ops-throttle.e2e-spec.ts` | UP: las firmas de subida tienen su propio límite por minuto (UPLOAD_SIGN_LIMIT) |
 
 <a id="imp"></a>
 
@@ -3396,6 +3631,7 @@
 | [TC-UI-04](#tc-ui-04) | Fechas sin desfase de zona horaria | Alta | Regresión | ✅ Aprobado |
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
 | [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
+| [TC-UI-11](#tc-ui-11) | Un error inesperado al validar muestra el código para soporte | Media | UI | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -3535,7 +3771,7 @@
 
 **Precondiciones**
 
-- API en marcha.
+- API en marcha en un entorno no productivo o con SWAGGER_ENABLED=true.
 
 **Datos de prueba:** /api/docs
 
@@ -3588,6 +3824,36 @@
 | ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del administrador no desborda la página |
 | ✅ | UI | `09-header-layout.spec.ts` | en escritorio el participante ve el nombre del reto completo y nada se desborda |
 | ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del participante no desborda la página |
+
+<a id="tc-ui-11"></a>
+
+### TC-UI-11 · Un error inesperado al validar muestra el código para soporte
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | UI | 5.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador con una actividad pendiente.
+- La API responde 500 al validar (simulado).
+
+**Datos de prueba:** Respuesta 500 con requestId "pw-req-1"
+
+**Pasos**
+
+1. Validar la actividad.
+
+**Resultado esperado**
+
+- El aviso de error muestra el mensaje con el código "pw-req-1" para compartir con el administrador.
+- La actividad sigue pendiente.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `03-admin-validation.spec.ts` | un error inesperado al validar muestra el código para soporte |
 
 <a id="tc-ui-06"></a>
 
@@ -3731,6 +3997,9 @@
 |---|---|---|---|---|
 | [TC-HEALTH-01](#tc-health-01) | Servicio vivo | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-02](#tc-health-02) | Base de datos accesible | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-03](#tc-health-03) | La readiness responde 503 con la base caída | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-04](#tc-health-04) | Toda respuesta lleva un X-Request-Id y una línea de acceso segura | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-05](#tc-health-05) | Apagado ordenado | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-health-01"></a>
 
@@ -3787,6 +4056,114 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `app.e2e-spec.ts` | GET /api/health/db verifica la conexión |
+
+<a id="tc-health-03"></a>
+
+### TC-HEALTH-03 · La readiness responde 503 con la base caída
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API en marcha.
+
+**Datos de prueba:** GET /api/health/db y GET /api/health con la base detenida y de nuevo en marcha
+
+**Pasos**
+
+1. Detener Postgres y consultar ambos endpoints.
+2. Levantar Postgres y consultar /api/health/db.
+
+**Resultado esperado**
+
+- /api/health/db responde 503 { status: "error", db: "down" } y deja una línea ERROR [HTTP] con su requestId.
+- /api/health sigue en 200.
+- Con la base de nuevo arriba, /api/health/db vuelve a 200.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 503 deja una sola línea ERROR sin stack y conserva el cuerpo |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: con la base caída /api/health/db responde 503 y /api/health sigue en 200 |
+
+<a id="tc-health-04"></a>
+
+### TC-HEALTH-04 · Toda respuesta lleva un X-Request-Id y una línea de acceso segura
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API en marcha.
+
+**Datos de prueba:** X-Request-Id válido e inválido; /api/no-existe, /fuera-del-prefijo, JSON mal formado; login con ?token=secreto
+
+**Pasos**
+
+1. Consultar con y sin X-Request-Id.
+2. Consultar rutas inexistentes y enviar JSON mal formado.
+3. Revisar las líneas [HTTP] de los logs.
+
+**Resultado esperado**
+
+- Un identificador válido se reutiliza; si falta o no es válido se genera un UUID.
+- Las rutas inexistentes y el JSON mal formado (400) también traen X-Request-Id.
+- Cada petición deja una sola línea [HTTP] con la plantilla de la ruta, sin contraseñas, tokens ni query; una petición abortada queda con 499.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `request-log.spec.ts` | reutiliza un identificador válido |
+| ✅ | Unitaria | `request-log.spec.ts` | genera un UUID v4 si falta o no es válido |
+| ✅ | Unitaria | `request-log.spec.ts` | usa la plantilla de la ruta si hubo handler |
+| ✅ | Unitaria | `request-log.spec.ts` | sin handler usa el path sin query |
+| ✅ | Unitaria | `request-log.spec.ts` | log por debajo de 400 y para 401 y 404; warn para el resto |
+| ✅ | Unitaria | `request-log.spec.ts` | arma la línea con lista blanca: nunca cuerpo, query ni cabeceras |
+| ✅ | Unitaria | `request-log.spec.ts` | incluye el usuario del JWT |
+| ✅ | Unitaria | `request-log.spec.ts` | una petición abortada queda con 499 y aborted |
+| ✅ | Unitaria | `request-context.spec.ts` | fija el identificador en la petición y en la cabecera, y sigue |
+| ✅ | Unitaria | `request-context.spec.ts` | una respuesta terminada deja exactamente una línea |
+| ✅ | Unitaria | `request-context.spec.ts` | una respuesta abortada deja una sola línea con 499 |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: X-Request-Id se reutiliza si es válido y si no se genera |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: la línea de acceso usa la plantilla de la ruta; las rutas inexistentes también llevan X-Request-Id |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: la línea de acceso no contiene contraseñas, tokens ni la query |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: el JSON mal formado responde 400 con X-Request-Id y sin línea ERROR |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: una petición abortada por el cliente deja una sola línea con 499 |
+
+<a id="tc-health-05"></a>
+
+### TC-HEALTH-05 · Apagado ordenado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Media | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API compilada en marcha.
+
+**Datos de prueba:** SIGTERM (Linux, Seenode) o cierre de la app
+
+**Pasos**
+
+1. Enviar SIGTERM al proceso, o redesplegar en Seenode.
+
+**Resultado esperado**
+
+- Los logs muestran "Conexión a la base cerrada" antes de que el proceso termine.
+- En Linux el proceso termina por la señal (código 143); es el cierre normal.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: al cerrar la app se cierra la conexión a la base y queda registrado |
 
 <a id="par"></a>
 
