@@ -568,6 +568,51 @@ export const CASES = [
       S('Un reto cerrado no vuelve a borrador'),
     ],
   },
+  {
+    id: 'TC-CHAL-14', title: 'Las actividades de un reto cerrado son definitivas', priority: 'Alta', type: 'Seguridad', guide: '6.3',
+    pre: ['Un reto en COMPLETED con una actividad pendiente y otra validada.'],
+    data: 'Validar, rechazar y borrar como admin; borrar como dueño y como extraño',
+    steps: ['Validar la pendiente y volver a validar la validada.', 'Rechazar la validada.', 'Borrar la pendiente como admin, como su dueño y como otro participante.'],
+    expected: [
+      'Todo responde 400 "El reto está cerrado; sus actividades son definitivas", también al admin, antes que los chequeos de dueño o de estado.',
+      'Las actividades y el ranking del reto no cambian.',
+      'En un reto activo, validar, rechazar y borrar siguen como antes (regla de FC y permisos).',
+    ],
+    auto: [
+      U('activities.service.spec.ts', 'validar, rechazar o borrar en un reto cerrado responde 400, también al admin'),
+      U('activities.service.spec.ts', 'el reto cerrado va antes que los chequeos de dueño y de estado'),
+      U('activities.service.spec.ts', 'en un reto activo, borrar sigue las reglas de siempre'),
+      U('activities.service.spec.ts', 'decide con la actividad releída bajo el lock'),
+      A('platform-rules.e2e-spec.ts', 'FREEZE: en un reto cerrado nadie valida, rechaza ni borra actividades (400)'),
+      S('La actividad de un reto cerrado no se puede retirar (400)'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-15', title: 'Las escrituras esperan al cierre y nunca caen después', priority: 'Alta', type: 'Seguridad', guide: '6.3',
+    pre: ['Un reto activo y un cierre en curso (el reto bloqueado por otra transacción).'],
+    data: 'Validar mientras otra transacción retiene el bloqueo más de 5 s; escrituras que leyeron ACTIVE cuando el reto ya se cerró',
+    steps: ['Validar una actividad mientras el reto está bloqueado más de 5 s.', 'Crear una actividad, inscribir, quitar, registrar un pago, subir un comprobante, cambiar reglas o activar cuando el reto se cerró después del primer chequeo.'],
+    expected: [
+      'La validación responde 409 "El reto se está cerrando; vuelve a intentarlo en unos segundos" y la actividad no cambia (nunca 500).',
+      'Las escrituras se rechazan sin cambios: "El reto no está activo" al crear, "No se puede modificar un reto cerrado" en participantes, pagos y reglas, "Un reto cerrado no puede reactivarse" al activar.',
+      'Pedir el cierre de nuevo sigue siendo idempotente.',
+    ],
+    auto: [
+      U('challenge-lock.spec.ts', 'reconoce el timeout de la transacción y el lock_timeout de Postgres'),
+      U('challenge-lock.spec.ts', 'no confunde otros errores con un timeout de lock'),
+      U('challenge-lock.spec.ts', 'traduce un timeout de lock a 409 con mensaje legible'),
+      U('challenge-lock.spec.ts', 'deja pasar los demás errores y el resultado'),
+      U('challenge-lock.spec.ts', 'usa los tiempos de espera de las escrituras por defecto'),
+      U('challenge-lock.spec.ts', 'fija el lock_timeout y bloquea la fila en modo compartido o exclusivo'),
+      U('challenge-lock.spec.ts', 'un reto inexistente da 404'),
+      U('activities.service.spec.ts', 'crear una actividad cuando el reto se cerró bajo el lock responde "El reto no está activo"'),
+      U('challenges.service.spec.ts', 'inscribir, quitar y registrar pagos se rechazan si el reto se cerró bajo el lock'),
+      U('challenges.service.spec.ts', 'un cambio de reglas que leyó ACTIVE no cae después del cierre'),
+      U('challenges.service.spec.ts', 'pedir el cierre cuando otro cierre ganó la carrera sigue siendo idempotente'),
+      U('challenges.service.spec.ts', 'activar un reto que se cerró bajo el lock responde 400'),
+      A('platform-rules.e2e-spec.ts', 'FREEZE: si el reto está bloqueado por un cierre más de 5 s, validar responde 409 y no cambia nada'),
+    ],
+  },
 
   // ───────────────────────────── PART ─────────────────────────────
   {
@@ -1327,6 +1372,22 @@ export const CASES = [
     auto: [
       U('import.service.spec.ts', 'fallo de lectura en preview/commit -> 400 con el motivo'),
       A('import-sheet.e2e-spec.ts', 'hoja no compartida en commit -> 400 sin importar nada'),
+    ],
+  },
+  {
+    id: 'TC-IMP-12', title: 'La importación no escribe en un reto cerrado', priority: 'Alta', type: 'Funcional', guide: '7.2',
+    pre: ['Un reto en COMPLETED.'], data: 'CSV con una fila de ese reto para una persona sin cuenta',
+    steps: ['Ver la vista previa.', 'Confirmar la importación.'],
+    expected: [
+      'La vista previa marca la fila como inválida: "El reto M/AAAA está cerrado; no se pueden importar actividades".',
+      'El commit la informa en errors sin crear cuenta, participación ni actividad, y sin sumarla a los contadores.',
+      'Si el reto se cierra a mitad de una importación, las filas ya confirmadas quedan y las siguientes van a errors.',
+    ],
+    auto: [
+      U('import.service.spec.ts', 'la vista previa marca como inválidas las filas de un reto cerrado'),
+      U('import.service.spec.ts', 'el commit no crea cuentas, participaciones ni actividades en un reto cerrado'),
+      U('import.service.spec.ts', 'si el reto se cierra a mitad del commit, las filas siguientes van a errors y no cuentan'),
+      A('platform-rules.e2e-spec.ts', 'FREEZE: la importación no escribe en un reto cerrado ni crea cuentas'),
     ],
   },
   {
