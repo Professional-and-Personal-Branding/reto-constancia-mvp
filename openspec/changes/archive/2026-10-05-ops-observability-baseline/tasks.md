@@ -31,4 +31,4 @@
 - [x] 6.2 Runbook: Start Command with `exec`, health check kept on `/api/health` plus the external monitor on `/api/health/db`, Swagger only with `SWAGGER_ENABLED=true`, diagnosis rows (503 on readiness; a user reports a code: search it in Logs), exit 143 on redeploy is normal, variables table
 - [x] 6.3 Manual QA: stop local Postgres (503 then 200); production build with and without `SWAGGER_ENABLED`; malformed JSON with curl; SIGTERM shows the closing line
 - [x] 6.4 `CHANGELOG.md` Sin publicar; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
-- [ ] 6.5 Open the PR to `develop`; after merge, archive the change
+- [x] 6.5 Open the PR to `develop`; after merge, archive the change
