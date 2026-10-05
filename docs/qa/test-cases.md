@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-04** · rama `release/1.4.1` · commit `93e640c`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-05** · rama `release/1.4.2` · commit `c4d8fb4`. Detalle en [validation-report.md](validation-report.md).
 
-**104 casos** · 104 aprobados · 0 fallidos · 0 con limitación conocida · 103 automatizados.
+**110 casos** · 110 aprobados · 0 fallidos · 0 con limitación conocida · 109 automatizados.
 
 ## Cómo leer cada caso
 
@@ -18,7 +18,7 @@
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
-| [Seguridad y configuración](#sec) | 5 | 5 | 0 |
+| [Seguridad y configuración](#sec) | 11 | 11 | 0 |
 | [Gestión de retos](#chal) | 13 | 13 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
@@ -491,6 +491,12 @@
 | [TC-SEC-03](#tc-sec-03) | Proxy de confianza y límite global configurable | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-04](#tc-sec-04) | El seed exige contraseña de admin en producción | Alta | Seguridad | ✅ Aprobado (manual) |
 | [TC-SEC-05](#tc-sec-05) | La vigencia de los tokens se valida al arrancar | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-06](#tc-sec-06) | El ranking no expone emails ni estado de pago a participantes | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-07](#tc-sec-07) | La lista de retos activos no trae inscritos al participante y el pago propio va en me | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-08](#tc-sec-08) | El detalle del reto se proyecta por rol y el admin inscrito conserva su me | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-09](#tc-sec-09) | El listado de inscritos es solo para admin | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-10](#tc-sec-10) | El detalle de una actividad ajena da 403 | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-11](#tc-sec-11) | El admin conserva emails y pagos en el ranking y en la lista de activos | Media | Seguridad | ✅ Aprobado |
 
 <a id="tc-sec-01"></a>
 
@@ -649,6 +655,218 @@
 | ✅ | Unitaria | `jwt-expiry.spec.ts` | usa el valor por defecto si la variable no está definida |
 | ✅ | Unitaria | `jwt-expiry.spec.ts` | acepta duraciones con unidad y segundos como número |
 | ✅ | Unitaria | `jwt-expiry.spec.ts` | rechaza un valor mal escrito nombrando la variable |
+
+<a id="tc-sec-06"></a>
+
+### TC-SEC-06 · El ranking no expone emails ni estado de pago a participantes
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 6.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con Ana (pagada) y Bruno (sin pagar) inscritos.
+- Sesión de participante.
+
+**Datos de prueba:** ana@reto.local, bruno@reto.local
+
+**Pasos**
+
+1. GET /api/challenges/:id/results como Ana.
+2. Abrir Ranking como Ana con el reto seleccionado.
+
+**Resultado esperado**
+
+- Ninguna fila de ranking, empatados, ganadores ni premiados trae email ni campos de pago; Bruno aparece por su nombre.
+- El pote (payout) sigue completo.
+- La tabla muestra nombres sin emails y la fila propia dice "(tú)".
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `privacy.spec.ts` | participante: filas con lista blanca y sin email ni pago |
+| ✅ | Unitaria | `privacy.spec.ts` | participante: nivel superior, valores y orden idénticos al del admin |
+| ✅ | Unitaria | `privacy.spec.ts` | una columna nueva del ranking no se filtra |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: el ranking no expone email ni pago a un participante; el admin sí los ve |
+| ✅ | UI | `11-privacy.spec.ts` | el ranking no expone emails ni estado de pago a un participante |
+| ✅ | UI | `11-privacy.spec.ts` | el ranking muestra nombres sin emails y marca la fila propia |
+| ✅ | Sesiones | `parallel-session-test.mjs` | El ranking que ve Ana no trae emails ni estado de pago |
+
+<a id="tc-sec-07"></a>
+
+### TC-SEC-07 · La lista de retos activos no trae inscritos al participante y el pago propio va en me
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 6.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con Ana pagada.
+- Sesión de participante.
+
+**Datos de prueba:** ana@reto.local
+
+**Pasos**
+
+1. GET /api/challenges/active/list y GET /api/challenges/active como Ana.
+2. Abrir el inicio como Ana con el reto seleccionado.
+
+**Resultado esperado**
+
+- Ningún reto trae la lista de inscritos; cada uno trae isParticipant.
+- me trae solo paid, paidAt, amountPaid, paymentProofUrl, paymentProofUploadedAt y joinedAt, con los valores de Ana.
+- El inicio muestra "Estado: pagado" en el comprobante de pago.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `privacy.spec.ts` | devuelve solo los seis campos propios, sin el id de Cloudinary |
+| ✅ | Unitaria | `privacy.spec.ts` | participante inscrito: sin participants, con su me e isParticipant |
+| ✅ | Unitaria | `privacy.spec.ts` | una columna nueva del inscrito no se filtra en me |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: un participante no recibe la lista de inscritos y su pago va en me |
+| ✅ | UI | `11-privacy.spec.ts` | la lista de retos activos no trae inscritos y el pago propio va en me |
+| ✅ | UI | `11-privacy.spec.ts` | el dashboard muestra el estado de pago propio |
+| ✅ | Sesiones | `parallel-session-test.mjs` | El participante no recibe la lista de inscritos (solo su propio pago en me) |
+
+<a id="tc-sec-08"></a>
+
+### TC-SEC-08 · El detalle del reto se proyecta por rol y el admin inscrito conserva su me
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 6.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con inscritos.
+
+**Datos de prueba:** ana@reto.local; un participante no inscrito; admin
+
+**Pasos**
+
+1. GET /api/challenges/:id como Ana, como un no inscrito y como admin.
+
+**Resultado esperado**
+
+- Ana recibe me y no la lista de inscritos.
+- El no inscrito recibe me = null.
+- El admin recibe la lista completa con emails y pagos, más su propio me (null si no está inscrito).
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `privacy.spec.ts` | admin: participants intactos más me |
+| ✅ | Unitaria | `privacy.spec.ts` | admin inscrito: también recibe su propio me |
+| ✅ | Unitaria | `privacy.spec.ts` | participante no inscrito: me null y sin participants |
+| ✅ | Unitaria | `privacy.spec.ts` | null si no está inscrito |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: un participante no inscrito recibe me null |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: el admin conserva la lista de inscritos con email y pago, más me |
+| ✅ | UI | `11-privacy.spec.ts` | el detalle del reto se proyecta por rol |
+
+<a id="tc-sec-09"></a>
+
+### TC-SEC-09 · El listado de inscritos es solo para admin
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 1.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto con inscritos.
+
+**Datos de prueba:** ana@reto.local; admin
+
+**Pasos**
+
+1. GET /api/challenges/:id/participants como Ana y como admin.
+
+**Resultado esperado**
+
+- Ana recibe 403.
+- El admin recibe la lista con email, rol y estado.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: el listado de inscritos es solo para admin (403 al participante) |
+| ✅ | UI | `11-privacy.spec.ts` | el listado de inscritos es solo para admin |
+| ✅ | Sesiones | `parallel-session-test.mjs` | El listado de inscritos es solo para admin (403 a Ana) |
+
+<a id="tc-sec-10"></a>
+
+### TC-SEC-10 · El detalle de una actividad ajena da 403
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 6.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Una actividad de Bruno y una de Ana en el mismo reto.
+
+**Datos de prueba:** ana@reto.local, bruno@reto.local; admin
+
+**Pasos**
+
+1. GET /api/activities/:id de Bruno como Ana.
+2. La propia como Ana; la de Bruno como admin; un id inexistente.
+
+**Resultado esperado**
+
+- Ana recibe 403 "No puedes ver esta actividad" sin datos de la actividad.
+- La propia y la del admin responden 200 con la forma de siempre.
+- Un id inexistente da 404.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño recibe su actividad con heartRateCompliant |
+| ✅ | Unitaria | `activities.service.spec.ts` | otro participante recibe 403 con el mensaje exacto |
+| ✅ | Unitaria | `activities.service.spec.ts` | un admin recibe cualquier actividad |
+| ✅ | Unitaria | `activities.service.spec.ts` | una actividad inexistente da 404 a cualquier rol |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: el detalle de una actividad es solo para su dueño o un admin |
+| ✅ | UI | `11-privacy.spec.ts` | el detalle de una actividad ajena da 403 |
+
+<a id="tc-sec-11"></a>
+
+### TC-SEC-11 · El admin conserva emails y pagos en el ranking y en la lista de activos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Media | Seguridad | 6.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con Bruno sin pagar.
+- Sesión de administrador.
+
+**Datos de prueba:** admin; bruno@reto.local
+
+**Pasos**
+
+1. GET /api/challenges/:id/results y GET /api/challenges/active/list como admin.
+2. Abrir Ranking como admin con el reto seleccionado.
+
+**Resultado esperado**
+
+- Las filas del ranking traen email y paid; la lista de activos trae los inscritos con su email.
+- La tabla muestra el email de cada participante.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `privacy.spec.ts` | admin: la misma respuesta, sin copiar |
+| ✅ | UI | `11-privacy.spec.ts` | el admin conserva emails y pagos en el ranking y en la lista de activos |
+| ✅ | UI | `11-privacy.spec.ts` | el ranking muestra el email de cada participante |
 
 <a id="chal"></a>
 
@@ -862,7 +1080,7 @@
 
 - El inscrito recibe A; el no inscrito recibe B.
 - Sin retos activos: null.
-- La respuesta incluye participants.
+- La respuesta incluye me con el pago propio; la lista de inscritos solo llega al admin.
 
 **Validación automatizada**
 
@@ -3604,4 +3822,4 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (66) |
+| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (69) |

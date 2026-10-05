@@ -111,6 +111,93 @@ describe('Reglas de la plataforma (e2e)', () => {
     await app?.close();
   });
 
+  // ---------------- Privacidad (cambio participant-data-privacy) ----------------
+
+  const PAYMENT_KEYS = ['paid', 'paidAt', 'amountPaid', 'paymentProofUrl', 'paymentProofCloudinaryId', 'paymentProofUploadedAt'];
+  const OWN_KEYS = ['amountPaid', 'joinedAt', 'paid', 'paidAt', 'paymentProofUploadedAt', 'paymentProofUrl'];
+
+  it('SEC: un participante no recibe la lista de inscritos y su pago va en me', async () => {
+    const list = await request(http).get('/api/challenges/active/list').set(auth(token.ana));
+    expect(list.status).toBe(200);
+    const mine = list.body.find((c: { id: string }) => c.id === challengeId);
+    for (const c of list.body) expect(c).not.toHaveProperty('participants');
+    expect(mine.isParticipant).toBe(true);
+    expect(Object.keys(mine.me).sort()).toEqual(OWN_KEYS);
+    expect(mine.me.paid).toBe(false);
+
+    const detail = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.ana));
+    expect(detail.status).toBe(200);
+    expect(detail.body).not.toHaveProperty('participants');
+    expect(Object.keys(detail.body.me).sort()).toEqual(OWN_KEYS);
+
+    const active = await request(http).get('/api/challenges/active').set(auth(token.ana));
+    expect(active.status).toBe(200);
+    expect(active.body).not.toHaveProperty('participants');
+    expect(active.body.me).not.toBeUndefined();
+    expect(JSON.stringify([list.body, detail.body, active.body])).not.toContain(emails.bruno);
+  });
+
+  it('SEC: un participante no inscrito recibe me null', async () => {
+    const detail = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.outsider));
+    expect(detail.status).toBe(200);
+    expect(detail.body.me).toBeNull();
+    expect(detail.body).not.toHaveProperty('participants');
+  });
+
+  it('SEC: el admin conserva la lista de inscritos con email y pago, más me', async () => {
+    const detail = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.admin));
+    expect(detail.body.me).toBeNull();
+    const ana = detail.body.participants.find((p: { userId: string }) => p.userId === id.ana);
+    expect(ana.user.email).toBe(emails.ana);
+    expect(ana).toHaveProperty('paid', false);
+  });
+
+  it('SEC: el ranking no expone email ni pago a un participante; el admin sí los ve', async () => {
+    const asAna = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.ana));
+    expect(asAna.status).toBe(200);
+    for (const list of [asAna.body.ranking, asAna.body.tiedAtTop, asAna.body.winners, asAna.body.awards]) {
+      for (const row of list) {
+        expect(row).not.toHaveProperty('email');
+        for (const key of PAYMENT_KEYS) expect(row).not.toHaveProperty(key);
+      }
+    }
+    expect(asAna.body.ranking.map((r: { userId: string }) => r.userId)).toContain(id.bruno);
+    expect(asAna.body.payout).toBeDefined();
+
+    const asAdmin = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    expect(Object.keys(asAdmin.body).sort()).toEqual(Object.keys(asAna.body).sort());
+    expect(asAdmin.body.payout).toEqual(asAna.body.payout);
+    const bruno = asAdmin.body.ranking.find((r: { userId: string }) => r.userId === id.bruno);
+    expect(bruno).toMatchObject({ email: emails.bruno, paid: false });
+  });
+
+  it('SEC: el listado de inscritos es solo para admin (403 al participante)', async () => {
+    const asAna = await request(http).get(`/api/challenges/${challengeId}/participants`).set(auth(token.ana));
+    expect(asAna.status).toBe(403);
+    const asAdmin = await request(http).get(`/api/challenges/${challengeId}/participants`).set(auth(token.admin));
+    expect(asAdmin.status).toBe(200);
+    expect(asAdmin.body.map((p: { user: { email: string } }) => p.user.email)).toContain(emails.ana);
+  });
+
+  it('SEC: el detalle de una actividad es solo para su dueño o un admin', async () => {
+    const created = await request(http).post('/api/activities').set(auth(token.bruno)).send(activity(monday));
+    expect(created.status).toBe(201);
+    const activityId = created.body.id;
+
+    const asAna = await request(http).get(`/api/activities/${activityId}`).set(auth(token.ana));
+    expect(asAna.status).toBe(403);
+    expect(asAna.body.message).toBe('No puedes ver esta actividad');
+    expect(JSON.stringify(asAna.body)).not.toContain(emails.bruno);
+
+    expect((await request(http).get(`/api/activities/${activityId}`).set(auth(token.bruno))).status).toBe(200);
+    expect((await request(http).get(`/api/activities/${activityId}`).set(auth(token.admin))).status).toBe(200);
+    const missing = await request(http).get('/api/activities/00000000-0000-0000-0000-000000000000').set(auth(token.ana));
+    expect(missing.status).toBe(404);
+
+    // Deja el estado como estaba para el resto de la suite
+    await request(http).delete(`/api/activities/${activityId}`).set(auth(token.admin));
+  });
+
   // ---------------- Retos ----------------
 
   it('CHAL: no permite dos retos para el mismo mes y año (409)', async () => {

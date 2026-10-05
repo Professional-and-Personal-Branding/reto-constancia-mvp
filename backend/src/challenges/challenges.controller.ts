@@ -18,8 +18,14 @@ import {
 } from '@nestjs/swagger';
 import { ChallengeStatus, UserRole } from '@prisma/client';
 
-import { ChallengesService } from './challenges.service';
-import { ResultsService } from './results.service';
+import { ChallengeWithParticipants, ChallengesService } from './challenges.service';
+import { ChallengeResults, ResultsService } from './results.service';
+import {
+  ChallengeView,
+  projectChallengeForViewer,
+  projectResultsForViewer,
+  PublicChallengeResults,
+} from './privacy';
 import { FinanceService } from './finance.service';
 import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
@@ -60,25 +66,36 @@ export class ChallengesController {
   @Get('active/list')
   @ApiOperation({
     summary:
-      'Todos los retos activos (más reciente primero) con isParticipant para el usuario actual',
+      'Todos los retos activos (más reciente primero) con isParticipant y me (inscripción propia). Solo el admin recibe la lista de inscritos',
   })
-  findActiveList(@CurrentUser() user: JwtPayload) {
-    return this.challenges.findActiveList(user.sub);
+  async findActiveList(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ChallengeView<ChallengeWithParticipants & { isParticipant: boolean }>[]> {
+    const list = await this.challenges.findActiveList(user.sub);
+    return list.map((challenge) => projectChallengeForViewer(challenge, user));
   }
 
   @Get('active')
   @ApiOperation({
     summary:
-      'Reto activo por defecto: el más reciente en el que participa el usuario, si no el activo más reciente',
+      'Reto activo por defecto: el más reciente en el que participa el usuario, si no el activo más reciente. Incluye me; solo el admin recibe la lista de inscritos',
   })
-  findActive(@CurrentUser() user: JwtPayload) {
-    return this.challenges.findActive(user.sub);
+  async findActive(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ChallengeView<ChallengeWithParticipants> | null> {
+    const challenge = await this.challenges.findActive(user.sub);
+    return challenge ? projectChallengeForViewer(challenge, user) : null;
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Detalle de un reto' })
-  findOne(@Param('id') id: string) {
-    return this.challenges.findOne(id);
+  @ApiOperation({
+    summary: 'Detalle de un reto. Incluye me; solo el admin recibe la lista de inscritos',
+  })
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ChallengeView<ChallengeWithParticipants>> {
+    return projectChallengeForViewer(await this.challenges.findOne(id), user);
   }
 
   @Patch(':id')
@@ -119,10 +136,14 @@ export class ChallengesController {
 
   @Get(':id/results')
   @ApiOperation({
-    summary: 'Ranking, ganadores y resumen del reto',
+    summary:
+      'Ranking, ganadores y resumen del reto. Solo el admin recibe el email y el estado de pago de cada fila',
   })
-  getResults(@Param('id') id: string) {
-    return this.results.getResults(id);
+  async getResults(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ChallengeResults | PublicChallengeResults> {
+    return projectResultsForViewer(await this.results.getResults(id), user);
   }
 
   @Post(':id/awards')
@@ -135,7 +156,9 @@ export class ChallengesController {
   // ----- Participants -----
 
   @Get(':id/participants')
-  @ApiOperation({ summary: 'Listar participantes del reto' })
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Listar participantes del reto (admin)' })
+  @ApiResponse({ status: 403, description: 'Solo administradores' })
   listParticipants(@Param('id') id: string) {
     return this.challenges.listParticipants(id);
   }

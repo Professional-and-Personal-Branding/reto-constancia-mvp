@@ -111,8 +111,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 44 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales y el presupuesto automático) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 104 casos de `docs/qa/` están enlazados a 368 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 53 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 110 casos de `docs/qa/` están enlazados a 401 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -125,6 +125,27 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-04 · v1.4.2 (rama `release/1.4.2`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.**
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **110 de 110 casos aprobados** con 401
+pruebas ejecutadas y 0 fallidas.
+
+**Dependencias:** producción sin avisos en backend, frontend y e2e. `npm audit` completo: backend
+0, e2e 0 y frontend 7 altos de desarrollo (riesgo aceptado, ver §5). Sin migraciones nuevas.
+
+### 2026-10-04 · rama `feature/participant-data-privacy` (privacidad de los participantes)
+
+Base reiniciada con `npx prisma migrate reset --force`. **Batería:** 11 de 11 pasos en verde.
+**Catálogo:** 110 de 110 casos aprobados (109 automatizados) con 401 pruebas y 0 fallidas:
+unitarias del backend 154, unitarias de la web 12, e2e de API 93, recorridos de UI 53 (más la
+preparación), capturas de la guía 18 (más la preparación) y sesiones paralelas 69. Casos nuevos:
+TC-SEC-06 a TC-SEC-11. Las capturas del ranking se regeneraron sin emails.
 
 ### 2026-10-04 · v1.4.1 (rama `release/1.4.1`)
 

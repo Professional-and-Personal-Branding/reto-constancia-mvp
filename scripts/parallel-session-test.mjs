@@ -81,7 +81,8 @@ async function main() {
   const mayChallenge = activeListStart.json?.find((c) => c.month === 5 && c.year === 2026);
   const challengeId = mayChallenge?.id ?? active.json?.id;
   check('Hay un reto activo', !!challengeId, mayChallenge?.name ?? active.json?.name);
-  check('GET /challenges/active devuelve un reto donde Ana participa', active.json?.participants?.some((p) => p.userId === meAna.json?.id) === true, active.json?.name);
+  check('GET /challenges/active devuelve un reto donde Ana participa', active.json?.me != null, active.json?.name);
+  check('El participante no recibe la lista de inscritos (solo su propio pago en me)', active.json && !('participants' in active.json) && (activeListStart.json ?? []).every((c) => !('participants' in c)));
 
   // ---- 3. Participante registra una actividad (día válido libre) ----
   section('3. Participante registra actividad del día');
@@ -138,6 +139,10 @@ async function main() {
   section('5. Resultados y ranking del reto');
   const results = await req('GET', `/challenges/${challengeId}/results`, { token: adminTok });
   check('Hay ranking', Array.isArray(results.json?.ranking), `participantes=${results.json?.ranking?.length}`);
+  const resultsAna = await req('GET', `/challenges/${challengeId}/results`, { token: anaTok });
+  check('El ranking que ve Ana no trae emails ni estado de pago', Array.isArray(resultsAna.json?.ranking) && resultsAna.json.ranking.every((r) => !('email' in r) && !('paid' in r)));
+  const rosterAna = await req('GET', `/challenges/${challengeId}/participants`, { token: anaTok });
+  check('El listado de inscritos es solo para admin (403 a Ana)', rosterAna.status === 403, `status=${rosterAna.status}`);
   const top = results.json?.ranking?.[0];
   check('Top del ranking calculado', !!top, top ? `${top.name} (${top.validatedDays} días)` : '');
 

@@ -93,6 +93,7 @@ a `.qa-results/shots`, para no reescribir las capturas versionadas.
 | `tests/08-closed-results.spec.ts` | Guía 6.5 · Retos cerrados en el Ranking | TC-CHAL-12 |
 | `tests/09-header-layout.spec.ts` | Guía 1.3 · Encabezado en escritorio y móvil | TC-UI-10 |
 | `tests/10-api-only-actions.spec.ts` | Guía 2.3, 3.3 y 4.5 · Editar reto, pago parcial y retirar actividad | TC-CHAL-05, TC-FIN-01, TC-ACT-12 |
+| `tests/11-privacy.spec.ts` | Guía 6.1 · Privacidad: emails y pagos solo para su dueño y el admin | TC-SEC-06 a TC-SEC-11 |
 | `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 16 |
 
 La relación exacta caso → prueba está en [`qa/test-cases.md`](./qa/test-cases.md).

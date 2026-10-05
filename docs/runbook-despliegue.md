@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.4.1` (tag sobre `main`) |
+| **Versión de referencia** | `v1.4.2` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -165,6 +165,14 @@ En la web, con el administrador:
 - [ ] La consola del navegador no muestra errores de CORS.
 - [ ] Swagger en `https://<api>/api/docs` muestra la versión desplegada.
 
+Con la sesión de un participante (privacidad, desde la 1.4.2):
+
+- [ ] El Ranking muestra nombres sin emails y la fila propia dice "(tú)".
+- [ ] "Mi reto" muestra el estado de pago propio en el comprobante.
+- [ ] Con su token, `GET $API/challenges/active/list` no trae la clave `participants` en
+      ningún reto y `me` solo tiene `paid, paidAt, amountPaid, paymentProofUrl,
+      paymentProofUploadedAt, joinedAt`; `GET $API/challenges/<id>/participants` responde 403.
+
 Si algo falla: §4 (revertir) o §6 (diagnóstico).
 
 ---
@@ -190,8 +198,9 @@ Las versiones 1.0.0 → 1.3.0 no tienen migraciones nuevas entre sí, así que r
 ellas es solo volver a desplegar el código. **La 1.4.0 trae una migración** (presupuesto
 automático: `budgetTotal` pasa a ser opcional): toma el respaldo de §5.1 antes de desplegarla.
 Para volver de la 1.4.0 a la 1.3.0 hay que restaurar ese respaldo, porque la 1.3.0 no entiende
-un presupuesto vacío. La 1.4.1 no trae migraciones: volver de la 1.4.1 a la 1.4.0 es solo
-volver a desplegar el código.
+un presupuesto vacío. La 1.4.1 y la 1.4.2 no traen migraciones: volver entre ellas y la 1.4.0
+es solo volver a desplegar el código (API y web juntas, porque la 1.4.2 cambia lo que la API
+entrega a los participantes).
 
 ---
 

@@ -56,7 +56,20 @@ export interface Challenge {
   minValidatedDaysToQualify: number;
   maxWinners: number;
   tiebreakRule: TiebreakRule;
+  /** Inscritos con email y pago: solo llega al ADMIN (cambio participant-data-privacy) */
   participants?: ChallengeParticipant[];
+  /** Inscripción propia de quien consulta; null si no está inscrito */
+  me?: MyParticipation | null;
+}
+
+/** Datos de pago propios: lo único de la inscripción que recibe un participante */
+export interface MyParticipation {
+  paid: boolean;
+  paidAt: string | null;
+  amountPaid: string | null;
+  paymentProofUrl: string | null;
+  paymentProofUploadedAt: string | null;
+  joinedAt: string;
 }
 
 export interface ChallengeParticipant {
@@ -109,7 +122,8 @@ export interface DailyActivity {
 export interface ParticipantRanking {
   userId: string;
   name: string;
-  email: string;
+  /** Solo para el ADMIN */
+  email?: string;
   /** Puntaje según las reglas del reto y si califica para ganar */
   score: number;
   qualified: boolean;
@@ -117,13 +131,15 @@ export interface ParticipantRanking {
   pendingDays: number;
   rejectedDays: number;
   totalKm: number;
-  paid: boolean;
+  /** Solo para el ADMIN */
+  paid?: boolean;
 }
 
 export interface ChallengeAward {
   userId: string;
   name: string;
-  email: string;
+  /** Solo para el ADMIN */
+  email?: string;
   awardedAt: string;
   notes: string | null;
 }
