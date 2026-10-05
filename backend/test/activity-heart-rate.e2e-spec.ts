@@ -6,6 +6,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownedAsset } from './helpers/assets';
 
 /**
  * E2E de la regla de frecuencia cardíaca (OpenSpec: activity-heart-rate-compliance).
@@ -28,8 +29,9 @@ describe('Regla de FC: heartRateMinutes, registro, override e import (e2e)', () 
   let strict: { id: string }; // minHeartRateMinutes = 30
   let lenient: { id: string }; // minHeartRateMinutes = 0
 
-  const activityPhoto = { url: 'https://example.com/e2e/act.jpg', cloudinaryId: 'e2e/hr/act', type: 'ACTIVITY' };
-  const hrPhoto = { url: 'https://example.com/e2e/hr.jpg', cloudinaryId: 'e2e/hr/hr', type: 'HEART_RATE' };
+  // Evidencia propia de Ana en cada reto (spec upload-guardrails)
+  const activityPhoto = (challengeId: string) => ({ ...ownedAsset({ challengeId, userId: anaId, name: 'act' }), type: 'ACTIVITY' });
+  const hrPhoto = (challengeId: string) => ({ ...ownedAsset({ challengeId, userId: anaId, name: 'hr' }), type: 'HEART_RATE' });
 
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -39,7 +41,7 @@ describe('Regla de FC: heartRateMinutes, registro, override e import (e2e)', () 
       date,
       exerciseType: 'RUNNING',
       durationMinutes: 45,
-      photos: [activityPhoto, hrPhoto],
+      photos: [activityPhoto(challengeId), hrPhoto(challengeId)],
       ...over,
     };
   }
@@ -136,7 +138,7 @@ describe('Regla de FC: heartRateMinutes, registro, override e import (e2e)', () 
     const res = await request(http)
       .post('/api/activities')
       .set(auth(anaToken))
-      .send(body(strict.id, `${YEAR}-01-05`, { heartRateMinutes: 45, photos: [activityPhoto] }));
+      .send(body(strict.id, `${YEAR}-01-05`, { heartRateMinutes: 45, photos: [activityPhoto(strict.id)] }));
     expect(res.status).toBe(400);
   });
 
@@ -171,7 +173,7 @@ describe('Regla de FC: heartRateMinutes, registro, override e import (e2e)', () 
     const res = await request(http)
       .post('/api/activities')
       .set(auth(anaToken))
-      .send(body(lenient.id, `${YEAR}-01-05`, { photos: [activityPhoto] }));
+      .send(body(lenient.id, `${YEAR}-01-05`, { photos: [activityPhoto(lenient.id)] }));
     expect(res.status).toBe(201);
     expect(res.body.hasHeartRateProof).toBe(false);
     expect(res.body.heartRateCompliant).toBe(true);

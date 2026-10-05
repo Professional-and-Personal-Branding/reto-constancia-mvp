@@ -6,6 +6,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownedAsset } from './helpers/assets';
 
 /**
  * E2E del ciclo de vida de retos y de múltiples retos activos
@@ -31,16 +32,6 @@ describe('Ciclo de vida de retos y múltiples activos (e2e)', () => {
   let challengeA: { id: string };
   let challengeB: { id: string };
 
-  const photo = {
-    url: 'https://example.com/e2e/activity.jpg',
-    cloudinaryId: 'e2e/lifecycle/activity',
-    type: 'ACTIVITY',
-  };
-  const hrPhoto = {
-    url: 'https://example.com/e2e/hr.jpg',
-    cloudinaryId: 'e2e/lifecycle/hr',
-    type: 'HEART_RATE',
-  };
 
   // Cumple la regla de FC por defecto (minHeartRateMinutes = 20): minutos con FC + captura
   function activityBody(challengeId: string, date: string) {
@@ -52,7 +43,11 @@ describe('Ciclo de vida de retos y múltiples activos (e2e)', () => {
       distanceKm: 5,
       avgHeartRate: 140,
       heartRateMinutes: 25,
-      photos: [photo, hrPhoto],
+      // Evidencia propia de Ana en ese reto (spec upload-guardrails)
+      photos: [
+        { ...ownedAsset({ challengeId, userId: anaId, name: `act-${date}` }), type: 'ACTIVITY' },
+        { ...ownedAsset({ challengeId, userId: anaId, name: `hr-${date}` }), type: 'HEART_RATE' },
+      ],
     };
   }
 

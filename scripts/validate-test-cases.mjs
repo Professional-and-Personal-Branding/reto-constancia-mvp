@@ -71,7 +71,7 @@ async function startApi() {
     const build = sh('npm run build', BACKEND);
     if (build.code !== 0) throw new Error(`No compiló la API:\n${build.out.slice(-2000)}`);
   }
-  const child = spawn('node dist/main.js', { cwd: BACKEND, shell: true, stdio: 'ignore', env: { ...process.env, PORT: '3002', THROTTLE_LIMIT: process.env.THROTTLE_LIMIT ?? '2000' } });
+  const child = spawn('node dist/main.js', { cwd: BACKEND, shell: true, stdio: 'ignore', env: { ...process.env, PORT: '3002', THROTTLE_LIMIT: process.env.THROTTLE_LIMIT ?? '2000', UPLOAD_SIGN_LIMIT: process.env.UPLOAD_SIGN_LIMIT ?? '2000' } });
   for (let i = 0; i < 40; i++) {
     if (await apiIsUp()) {
       return () => {

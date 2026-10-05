@@ -14,6 +14,14 @@
 import { deleteTestChallenges } from './lib/test-db.mjs';
 
 const BASE = process.env.API_URL ?? 'http://localhost:3002/api';
+// Evidencia propia de Ana (spec upload-guardrails): la API corre en modo local, así que la
+// validación es por patrón y el archivo no necesita existir.
+const UPLOAD_BASE = process.env.UPLOAD_BASE_FOLDER ?? 'reto-constancia';
+const ORIGIN = BASE.replace(/\/api\/?$/, '');
+function ownedPhoto(challengeId, userId, name, type) {
+  const cloudinaryId = `${UPLOAD_BASE}/${challengeId}/${userId}/activity/${name}`;
+  return { url: `${ORIGIN}/uploads/${cloudinaryId}.png`, cloudinaryId, type };
+}
 const ADMIN = { email: 'admin@reto.local', password: 'ChangeMe123!' };
 const ANA = { email: 'ana@reto.local', password: 'ChangeMe123!' };
 
@@ -101,8 +109,8 @@ async function main() {
         heartRateMinutes: 25, // regla de FC del reto (mínimo 20 en mayo)
         notes: 'Sesión paralela: actividad de prueba.',
         photos: [
-          { url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/parallel', type: 'ACTIVITY' },
-          { url: `${BASE.replace('/api', '')}/uploads/test-hr.png`, cloudinaryId: 'test/parallel-hr', type: 'HEART_RATE' },
+          ownedPhoto(challengeId, meAna.json?.id, 'parallel', 'ACTIVITY'),
+          ownedPhoto(challengeId, meAna.json?.id, 'parallel-hr', 'HEART_RATE'),
         ],
       },
     });
@@ -304,8 +312,8 @@ async function main() {
         avgHeartRate: 138,
         heartRateMinutes: 35, // regla de FC del reto (mínimo 30 en diciembre)
         photos: [
-          { url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/parallel-dec', type: 'ACTIVITY' },
-          { url: `${BASE.replace('/api', '')}/uploads/test-hr.png`, cloudinaryId: 'test/parallel-dec-hr', type: 'HEART_RATE' },
+          ownedPhoto(sid, meAna.json?.id, 'parallel-dec', 'ACTIVITY'),
+          ownedPhoto(sid, meAna.json?.id, 'parallel-dec-hr', 'HEART_RATE'),
         ],
       },
     });
@@ -330,8 +338,8 @@ async function main() {
       durationMinutes: 40,
       heartRateMinutes: 20,
       photos: [
-        { url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/below', type: 'ACTIVITY' },
-        { url: `${BASE.replace('/api', '')}/uploads/test-hr.png`, cloudinaryId: 'test/below-hr', type: 'HEART_RATE' },
+        ownedPhoto(sid, meAna.json?.id, 'below', 'ACTIVITY'),
+        ownedPhoto(sid, meAna.json?.id, 'below-hr', 'HEART_RATE'),
       ],
     },
   });
@@ -344,7 +352,7 @@ async function main() {
       exerciseType: 'RUNNING',
       durationMinutes: 40,
       heartRateMinutes: 35,
-      photos: [{ url: `${BASE.replace('/api', '')}/uploads/test.png`, cloudinaryId: 'test/nocap', type: 'ACTIVITY' }],
+      photos: [ownedPhoto(sid, meAna.json?.id, 'nocap', 'ACTIVITY')],
     },
   });
   check('Registro sin captura de FC -> 400', noCapture.status === 400, `status=${noCapture.status}`);
