@@ -1,4 +1,4 @@
-import { resolveThrottle, resolveTrustProxy } from './http';
+import { resolveSwaggerEnabled, resolveThrottle, resolveTrustProxy } from './http';
 
 describe('resolveTrustProxy', () => {
   it('en producción sin configurar confía en un proxy delante', () => {
@@ -25,5 +25,20 @@ describe('resolveThrottle', () => {
   it('admite límites configurados y descarta valores inválidos', () => {
     expect(resolveThrottle({ THROTTLE_LIMIT: '500', THROTTLE_TTL_MS: '30000' })).toEqual({ limit: 500, ttl: 30_000 });
     expect(resolveThrottle({ THROTTLE_LIMIT: 'mucho', THROTTLE_TTL_MS: '-5' })).toEqual({ limit: 100, ttl: 60_000 });
+  });
+});
+
+describe('resolveSwaggerEnabled', () => {
+  it('sin configurar: apagado en producción, encendido en desarrollo y pruebas', () => {
+    expect(resolveSwaggerEnabled({ NODE_ENV: 'production' })).toBe(false);
+    expect(resolveSwaggerEnabled({ NODE_ENV: 'development' })).toBe(true);
+    expect(resolveSwaggerEnabled({ NODE_ENV: 'test' })).toBe(true);
+    expect(resolveSwaggerEnabled({})).toBe(true);
+  });
+
+  it('SWAGGER_ENABLED manda en cualquier entorno', () => {
+    expect(resolveSwaggerEnabled({ NODE_ENV: 'production', SWAGGER_ENABLED: 'true' })).toBe(true);
+    expect(resolveSwaggerEnabled({ NODE_ENV: 'development', SWAGGER_ENABLED: 'false' })).toBe(false);
+    expect(resolveSwaggerEnabled({ NODE_ENV: 'test', SWAGGER_ENABLED: ' TRUE ' })).toBe(true);
   });
 });

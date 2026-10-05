@@ -7,12 +7,17 @@ import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { corsWarning, resolveCorsOrigin } from './common/cors';
-import { resolveTrustProxy } from './common/http';
+import { resolveSwaggerEnabled, resolveTrustProxy } from './common/http';
+import { applyRequestContext } from './common/request-context';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
+  // Antes que body-parser y que cualquier ruta: toda respuesta lleva X-Request-Id
+  applyRequestContext(app);
+  // SIGTERM/SIGINT ejecutan onModuleDestroy (cierra la conexión a la base) antes de salir
+  app.enableShutdownHooks();
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
@@ -41,7 +46,7 @@ async function bootstrap() {
   if (corsIssue) {
     new Logger('Bootstrap')[corsEnv.NODE_ENV === 'production' ? 'error' : 'warn'](corsIssue);
   }
-  app.enableCors({ origin: corsOrigin, credentials: true });
+  app.enableCors({ origin: corsOrigin, credentials: true, exposedHeaders: ['X-Request-Id'] });
 
   const apiPrefix = config.get<string>('API_PREFIX', 'api');
   app.setGlobalPrefix(apiPrefix);
@@ -55,20 +60,26 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Reto de Constancia API')
-    .setDescription('API para administrar el reto mensual de constancia')
-    .setVersion('1.4.2')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+  // Swagger: apagado por defecto en producción (SWAGGER_ENABLED=true lo enciende)
+  const swaggerEnabled = resolveSwaggerEnabled({
+    NODE_ENV: config.get<string>('NODE_ENV'),
+    SWAGGER_ENABLED: config.get<string>('SWAGGER_ENABLED'),
+  });
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Reto de Constancia API')
+      .setDescription('API para administrar el reto mensual de constancia')
+      .setVersion('1.4.2')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+  }
 
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
   logger.log(`🚀 API en http://localhost:${port}/${apiPrefix}`);
-  logger.log(`📚 Swagger en http://localhost:${port}/${apiPrefix}/docs`);
+  if (swaggerEnabled) logger.log(`📚 Swagger en http://localhost:${port}/${apiPrefix}/docs`);
 }
 
 bootstrap();
