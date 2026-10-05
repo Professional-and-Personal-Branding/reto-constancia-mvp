@@ -34,4 +34,4 @@
 - [x] 6.2 Runbook: Cloudinary setup (PDF delivery), V1 to V5 scheduled with the Seenode setup, `TRUST_PROXY` check for the sign limit, variables `UPLOAD_SIGN_LIMIT` and `UPLOAD_MAX_BYTES`; `.env.example`
 - [x] 6.3 Guide (upload and proof steps, formats and messages) and `docs/challenge-rules.md` if it describes uploads; regenerate affected captures
 - [x] 6.4 `CHANGELOG.md` Sin publicar (Security and the API contract notes); reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
-- [ ] 6.5 Open the PR to `develop`; after merge, archive the change and prepare release 1.5.0
+- [x] 6.5 Open the PR to `develop`; after merge, archive the change and prepare release 1.5.0
