@@ -27,4 +27,4 @@
 - [x] 4.2 Runbook smoke test: participant-token checks on `active/list`, results and roster
 - [x] 4.3 `CHANGELOG.md` Sin publicar: Security entry plus the API contract note
 - [x] 4.4 Reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs` (all approved); record in `docs/testing.md`
-- [ ] 4.5 Open the PR to `develop`; after merge, archive the change and prepare release 1.4.2
+- [x] 4.5 Open the PR to `develop`; after merge, archive the change and prepare release 1.4.2
