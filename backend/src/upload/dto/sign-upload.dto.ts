@@ -1,23 +1,15 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsUUID } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
-export type UploadResourceType = 'image' | 'raw' | 'auto';
+import { UPLOAD_PURPOSES, UploadPurpose } from '../upload-policy';
 
+/** La carpeta y el tipo de recurso los decide el servidor (spec upload-guardrails). */
 export class SignUploadDto {
-  @ApiPropertyOptional({
-    description: 'Subcarpeta dentro del folder principal de Cloudinary',
-    example: 'reto-mayo-2026',
-  })
-  @IsOptional()
-  @IsString()
-  folder?: string;
+  @ApiProperty({ description: 'Reto al que pertenece la subida', format: 'uuid' })
+  @IsUUID()
+  challengeId!: string;
 
-  @ApiPropertyOptional({
-    description: 'Tipo de recurso para Cloudinary',
-    enum: ['image', 'raw', 'auto'],
-    default: 'image',
-  })
-  @IsOptional()
-  @IsIn(['image', 'raw', 'auto'])
-  resourceType?: UploadResourceType;
+  @ApiProperty({ enum: UPLOAD_PURPOSES, description: 'Foto de actividad o comprobante de pago' })
+  @IsIn(UPLOAD_PURPOSES)
+  purpose!: UploadPurpose;
 }

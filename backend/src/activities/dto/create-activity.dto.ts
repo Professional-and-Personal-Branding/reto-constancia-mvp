@@ -8,7 +8,9 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUrl,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -17,12 +19,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ExerciseType, PhotoType } from '@prisma/client';
 
 export class ActivityPhotoInput {
-  @ApiProperty()
-  @IsString()
+  @ApiProperty({ description: 'URL del archivo subido con la firma de la plataforma' })
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'] })
+  @MaxLength(500)
   url!: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'public_id devuelto por Cloudinary (o el simulador local)' })
   @IsString()
+  @MaxLength(255)
   cloudinaryId!: string;
 
   @ApiPropertyOptional({ enum: PhotoType })

@@ -48,3 +48,9 @@ export function resolveSwaggerEnabled(env: HttpEnv): boolean {
   if (raw === 'false') return false;
   return env.NODE_ENV !== 'production';
 }
+
+/** Firmas de subida por cliente y minuto (spec upload-guardrails). Por defecto 30. */
+export function resolveUploadSignLimit(env: { UPLOAD_SIGN_LIMIT?: string }): number {
+  const limit = Number(env.UPLOAD_SIGN_LIMIT);
+  return Number.isInteger(limit) && limit > 0 ? limit : 30;
+}

@@ -1,4 +1,4 @@
-import { resolveSwaggerEnabled, resolveThrottle, resolveTrustProxy } from './http';
+import { resolveSwaggerEnabled, resolveThrottle, resolveTrustProxy, resolveUploadSignLimit } from './http';
 
 describe('resolveTrustProxy', () => {
   it('en producción sin configurar confía en un proxy delante', () => {
@@ -40,5 +40,14 @@ describe('resolveSwaggerEnabled', () => {
     expect(resolveSwaggerEnabled({ NODE_ENV: 'production', SWAGGER_ENABLED: 'true' })).toBe(true);
     expect(resolveSwaggerEnabled({ NODE_ENV: 'development', SWAGGER_ENABLED: 'false' })).toBe(false);
     expect(resolveSwaggerEnabled({ NODE_ENV: 'test', SWAGGER_ENABLED: ' TRUE ' })).toBe(true);
+  });
+});
+
+describe('resolveUploadSignLimit', () => {
+  it('usa 30 firmas por minuto por defecto y descarta valores inválidos', () => {
+    expect(resolveUploadSignLimit({})).toBe(30);
+    expect(resolveUploadSignLimit({ UPLOAD_SIGN_LIMIT: 'abc' })).toBe(30);
+    expect(resolveUploadSignLimit({ UPLOAD_SIGN_LIMIT: '0' })).toBe(30);
+    expect(resolveUploadSignLimit({ UPLOAD_SIGN_LIMIT: '500' })).toBe(500);
   });
 });
