@@ -3,7 +3,10 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.4.1] — 2026-10-04
+
+Versión de mantenimiento: solo herramientas de desarrollo. No cambia la aplicación, la API ni los
+datos, y **no trae migraciones**; volver a la 1.4.0 es solo volver a desplegar el código.
 
 ### Cambiado
 
