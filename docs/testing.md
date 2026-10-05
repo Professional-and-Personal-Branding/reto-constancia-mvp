@@ -111,8 +111,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 54 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos y el código de soporte en los errores) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 116 casos de `docs/qa/` están enlazados a 438 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 56 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores y los formatos de subida) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 119 casos de `docs/qa/` están enlazados a 493 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -125,6 +125,33 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-05 · rama `feature/upload-guardrails` (protección de subidas)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 119 de 119 casos aprobados (118 automatizados) con 493 pruebas y 0 fallidas:
+- unitarias del backend: 223;
+- unitarias de la web: 16;
+- e2e de API: 109;
+- recorridos de UI: 56, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 69.
+
+Casos nuevos: TC-UP-04 (formatos por propósito), TC-UP-05 (solo evidencia propia) y TC-UP-06
+(límite de firmas). Se actualizaron TC-UP-01 y TC-UP-02.
+
+Las e2e de API corren en modo local por `backend/test/setup-e2e.ts`. La búsqueda de
+`example.com`/`placehold.co` en pruebas y scripts solo encuentra dos usos intencionales: una
+prueba negativa y una fila de importación, que no pasa por la regla.
+
+**Observación:** en una primera corrida del validador, justo después de regenerar las capturas,
+`import-sheet.e2e-spec.ts` falló en su `beforeAll` (la suite no llegó a correr). Repetida sola y
+en una segunda corrida completa del validador, pasó.
+
+Las verificaciones V1 a V5 contra la cuenta real de Cloudinary quedan pendientes del dueño.
 
 ### 2026-10-05 · rama `feature/ops-observability-baseline` (observabilidad básica)
 

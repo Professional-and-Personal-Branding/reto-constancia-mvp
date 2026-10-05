@@ -26,6 +26,27 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - **Start Command de la API:** `npx prisma migrate deploy && exec node dist/main.js`, para que la
   señal de apagado llegue al proceso. El health check de Seenode sigue en `/api/health`, y
   `/api/health/db` queda para un monitor externo.
+- **Contrato de subida (rompe compatibilidad; API y web salen juntas):**
+  - `POST /api/upload/sign` recibe `{ challengeId, purpose }` y responde además
+    `allowedFormats` y `maxBytes`. Enviar `folder` o `resourceType` responde 400.
+  - El endpoint de pago del admin ya no acepta campos de comprobante (400).
+
+### Seguridad
+
+- **Protección de subidas** (cambio `upload-guardrails`, spec `upload-guardrails`):
+  - Solo los inscritos en un reto pueden firmar subidas: las fotos requieren un reto activo y los
+    comprobantes un reto sin cerrar. Quien no participa recibe 403, admin incluido.
+  - La carpeta la decide el servidor: `<base>/<reto>/<usuario>/<propósito>`.
+  - Los formatos van firmados: JPG, PNG, WEBP y HEIC para las fotos; además PDF para los
+    comprobantes.
+  - Cada foto (incluida la captura de FC) y cada comprobante deben ser archivos propios subidos a
+    esa carpeta. Una imagen de otro sitio o de otro participante responde 400. La importación del
+    admin no cambia.
+  - Límite de firmas por cliente y minuto: `UPLOAD_SIGN_LIMIT`, 30 por defecto.
+  - El simulador local de desarrollo aplica las mismas reglas.
+  - La web valida el tamaño antes de subir y muestra los errores de formato y tamaño en español.
+  - **Antes de abrir la URL:** en Cloudinary, activar la entrega de PDF y correr las
+    verificaciones V1 a V5 del runbook.
 
 ## [1.4.2] — 2026-10-04
 
