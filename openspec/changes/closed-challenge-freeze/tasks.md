@@ -5,7 +5,7 @@
 - [x] 1.3 Challenges (D2): `addParticipant`, `removeParticipant`, `markPayment`, `uploadPaymentProof`, non-closing `update` and `activate` under the lock; unit tests
 - [x] 1.4 Import (D3): preview marks closed rows; commit checks the status before creating users, runs each row in `withChallengeLock`, counts only after commit; unit tests including a close in the middle of a commit
 - [x] 1.5 Fixtures (D7): `e2e/fixtures/api.ts closeChallenge` clears activities only while `ACTIVE`; `scripts/parallel-session-test.mjs` deletes its December activity before closing
-- [x] 1.6 API e2e: validate, reject and delete after closing answer 400 for admin, owner and stranger; participants, payments and rules stay blocked; a closed-challenge row in `import-sheet.e2e-spec.ts`; a deterministic lock test (another transaction holds `FOR UPDATE` for more than 5 s, validate answers 409 and nothing changes)
+- [x] 1.6 API e2e: validate, reject and delete after closing answer 400 for admin, owner and stranger; participants, payments and rules stay blocked; a closed-challenge import row (file import in `platform-rules.e2e-spec.ts`; the sheet import shares the same code path); a deterministic lock test (another transaction holds `FOR UPDATE` for more than 5 s, validate answers 409 and nothing changes)
 - [x] 1.7 Lint, `tsc`, unit and API e2e green; open PR 1 to `develop`
 
 ## 2. PR 2 - Closing step and stored draw
