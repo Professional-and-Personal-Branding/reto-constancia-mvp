@@ -3,7 +3,21 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.5.0] — 2026-10-05
+
+La versión con la que se estrena producción: observabilidad básica para operar la API y
+protección de las subidas a Cloudinary. **No trae migraciones.**
+
+**Antes de desplegar (dueño):**
+- **En Seenode:**
+  - Start Command: `npx prisma migrate deploy && exec node dist/main.js`.
+  - Health check en `/api/health`.
+  - `SWAGGER_ENABLED` sin definir.
+  - Un monitor externo sobre `/api/health/db`.
+- **En Cloudinary:** activar la entrega de PDF y, antes de abrir la URL a los participantes,
+  correr las verificaciones V1 a V5 del runbook.
+
+**Para volver a la 1.4.2:** desplegar API y web juntas, porque cambia el contrato de subida.
 
 ### Añadido
 
