@@ -272,6 +272,7 @@
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>Privacidad: el ranking muestra nombres sin emails, y cada participante ve solo su propio estado de pago; el admin sigue viendo todo (paso 6.1).</li>
         <li>El premio se reparte con lo recaudado y el presupuesto se calcula solo con las cuotas (cuota × inscritos), con ajuste manual opcional (pasos 2.1, 3.4 y 6.1).</li>
         <li>Un reto cerrado ya no acepta pagos: el pago tardío va al reto siguiente (3.3 y 6.3).</li>
         <li>Desde la web ya se puede editar un reto (2.3), registrar un pago parcial (3.3) y retirar una actividad pendiente (4.5): nada de eso requiere la API.</li>
@@ -563,8 +564,8 @@
           why: 'Es el marcador del reto, visible para todos.',
           actions: ['Revisa los días válidos del período y el tope actual, en días o en puntos según las reglas del reto.', 'Si el reto tiene reglas propias, una línea explica el puntaje y aparece la columna <span class="ui">Puntos</span>.', 'Quien no llega al mínimo de días aparece marcado "no califica".'],
           expect: 'Se ordena por puntaje y, a igual puntaje, por kilómetros. Debajo del título se ve el premio por ganador: se reparte lo recaudado (no el presupuesto), marcado "proyectado" mientras el reto sigue activo. Si aún no hay pagos, lo dice.',
-          note: 'Quien no pagó la cuota puede ganar igual: el pago no cambia el ranking ni los ganadores.',
-          refs: ['TC-RES-01', 'TC-SCORE-01', 'TC-SCORE-02', 'TC-SCORE-05', 'TC-SCORE-07', 'TC-FIN-04', 'TC-SCORE-06']
+          note: 'Quien no pagó la cuota puede ganar igual: el pago no cambia el ranking ni los ganadores. Solo ves tu propio estado de pago; el admin ve el de todos y los emails.',
+          refs: ['TC-RES-01', 'TC-SCORE-01', 'TC-SCORE-02', 'TC-SCORE-05', 'TC-SCORE-07', 'TC-FIN-04', 'TC-SCORE-06', 'TC-SEC-06', 'TC-SEC-07']
         },
         {
           id: '6.2', role: 'participante', title: 'Entender los empates', route: '/dashboard/results',

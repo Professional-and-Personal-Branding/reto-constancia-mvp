@@ -165,6 +165,14 @@ En la web, con el administrador:
 - [ ] La consola del navegador no muestra errores de CORS.
 - [ ] Swagger en `https://<api>/api/docs` muestra la versión desplegada.
 
+Con la sesión de un participante (privacidad, desde la 1.4.2):
+
+- [ ] El Ranking muestra nombres sin emails y la fila propia dice "(tú)".
+- [ ] "Mi reto" muestra el estado de pago propio en el comprobante.
+- [ ] Con su token, `GET $API/challenges/active/list` no trae la clave `participants` en
+      ningún reto y `me` solo tiene `paid, paidAt, amountPaid, paymentProofUrl,
+      paymentProofUploadedAt, joinedAt`; `GET $API/challenges/<id>/participants` responde 403.
+
 Si algo falla: §4 (revertir) o §6 (diagnóstico).
 
 ---

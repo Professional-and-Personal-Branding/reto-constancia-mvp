@@ -127,7 +127,7 @@ export default function DashboardPage() {
   const validatedCount = activities?.filter((a) => a.status === 'VALIDATED').length ?? 0;
   const pendingCount = activities?.filter((a) => a.status === 'PENDING').length ?? 0;
   const myRank = results?.ranking.find((r) => r.userId === user?.id);
-  const myParticipation = challenge.participants?.find((p) => p.userId === user?.id);
+  const myParticipation = challenge.me;
 
   return (
     <div className="space-y-8">

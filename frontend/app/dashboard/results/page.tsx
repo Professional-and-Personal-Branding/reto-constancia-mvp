@@ -249,7 +249,7 @@ function Results() {
                       )}
                     </p>
                     <p className="text-xs text-ink-mute">
-                      {r.email}
+                      {user?.role === 'ADMIN' && r.email}
                       {!r.qualified && challenge.minValidatedDaysToQualify > 0 && (
                         <span className="text-warn ml-2">no califica</span>
                       )}

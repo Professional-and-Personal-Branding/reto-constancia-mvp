@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
 import { ActivitiesService } from './activities.service';
@@ -61,9 +61,11 @@ export class ActivitiesController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Detalle de una actividad' })
-  findOne(@Param('id') id: string) {
-    return this.activities.findOne(id);
+  @ApiOperation({ summary: 'Detalle de una actividad (su dueño o un admin)' })
+  @ApiResponse({ status: 403, description: 'No puedes ver esta actividad' })
+  @ApiResponse({ status: 404, description: 'Actividad no encontrada' })
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.activities.findOneForViewer(id, user.sub, user.role);
   }
 
   @Post(':id/validate')

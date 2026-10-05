@@ -3,6 +3,28 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Seguridad
+
+- **Privacidad de los participantes** (cambio `participant-data-privacy`): un participante ya no
+  recibe el email ni los datos de pago de otras personas.
+  - El ranking y los resultados muestran nombres y puntajes, sin email ni estado de pago. El pote
+    sigue siendo público.
+  - El detalle del reto y la lista de retos activos ya no traen la lista de inscritos al
+    participante; su propio pago llega en el campo nuevo `me`.
+  - El listado de inscritos es solo para el admin (403 al participante).
+  - El detalle de una actividad es solo para su dueño o el admin (403 "No puedes ver esta
+    actividad").
+  - El admin conserva todo lo que veía.
+
+### Cambiado
+
+- **Contrato de la API:** para un participante, `GET /challenges/active/list`,
+  `GET /challenges/active` y `GET /challenges/:id` ya no incluyen `participants` y suman `me`; las
+  filas de `GET /challenges/:id/results` ya no incluyen `email` ni `paid`. La web de esta versión
+  ya usa la forma nueva. Sin cambios en la base de datos.
+
 ## [1.4.1] — 2026-10-04
 
 Versión de mantenimiento: solo herramientas de desarrollo. No cambia la aplicación, la API ni los
