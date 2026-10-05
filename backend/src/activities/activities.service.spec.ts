@@ -7,6 +7,7 @@ import { ChallengesService } from '../challenges/challenges.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { localUploads, ownedAsset } from '../../test/helpers/assets';
+import { withLocks } from '../../test/helpers/prisma-lock';
 
 const challenge = {
   id: 'c1',
@@ -39,7 +40,7 @@ function buildPrisma(opts: { challenge?: unknown; activity?: unknown; many?: unk
   const update = jest.fn(({ data }: { data: Record<string, unknown> }) =>
     Promise.resolve({ id: 'act1', ...(opts.activity as object), ...data }),
   );
-  const prisma = {
+  const prisma = withLocks({
     challenge: { findUnique: jest.fn().mockResolvedValue(opts.challenge ?? challenge) },
     challengeParticipant: { findUnique: jest.fn().mockResolvedValue({ id: 'p1' }) },
     dailyActivity: {
@@ -48,7 +49,7 @@ function buildPrisma(opts: { challenge?: unknown; activity?: unknown; many?: unk
       findUnique: jest.fn().mockResolvedValue(opts.activity ?? null),
       findMany: jest.fn().mockResolvedValue(opts.many ?? []),
     },
-  } as unknown as PrismaService;
+  } as unknown as PrismaService);
   return { prisma, create, update };
 }
 
@@ -280,5 +281,74 @@ describe('ActivitiesService.findOneForViewer (solo el dueño o un admin)', () =>
     await expect(
       service(prisma).findOneForViewer('nope', 'ana', UserRole.PARTICIPANT),
     ).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('ActivitiesService: reto cerrado (closed-challenge-freeze)', () => {
+  const closed = { ...challenge, status: ChallengeStatus.COMPLETED };
+  const pending = {
+    id: 'act1',
+    challengeId: 'c1',
+    userId: 'u1',
+    status: ActivityStatus.PENDING,
+    heartRateMinutes: 25,
+    hasHeartRateProof: true,
+    challenge: closed,
+    photos: [],
+  };
+  function build(activity: unknown, ch: unknown = closed) {
+    const built = buildPrisma({ activity, challenge: ch });
+    const remove = jest.fn().mockResolvedValue(undefined);
+    (built.prisma as unknown as { dailyActivity: Record<string, unknown> }).dailyActivity.delete = remove;
+    return { ...built, remove };
+  }
+
+  it('validar, rechazar o borrar en un reto cerrado responde 400, también al admin', async () => {
+    const { prisma, update, remove } = build(pending);
+    const svc = service(prisma);
+    const msg = 'El reto está cerrado; sus actividades son definitivas';
+    await expect(svc.validate('act1', 'admin')).rejects.toThrow(msg);
+    await expect(svc.reject('act1', 'admin', 'motivo')).rejects.toThrow(msg);
+    await expect(svc.remove('act1', 'admin', UserRole.ADMIN)).rejects.toThrow(msg);
+    expect(update).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('el reto cerrado va antes que los chequeos de dueño y de estado', async () => {
+    const { prisma, remove } = build({ ...pending, status: ActivityStatus.VALIDATED });
+    const svc = service(prisma);
+    // Un extraño y el dueño de una validada reciben 400, no 403
+    await expect(svc.remove('act1', 'otro', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.remove('act1', 'u1', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(BadRequestException);
+    // Validar de nuevo una ya validada deja de ser un no-op
+    await expect(svc.validate('act1', 'admin')).rejects.toBeInstanceOf(BadRequestException);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('crear una actividad cuando el reto se cerró bajo el lock responde "El reto no está activo"', async () => {
+    const { prisma, create } = buildPrisma();
+    // El chequeo previo lee ACTIVE; el lock ve el reto ya cerrado
+    (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw.mockResolvedValueOnce([{ id: 'c1', status: ChallengeStatus.COMPLETED }]);
+    await expect(service(prisma).create('u1', baseDto({ heartRateMinutes: 25 }))).rejects.toThrow('El reto no está activo');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('en un reto activo, borrar sigue las reglas de siempre', async () => {
+    const { prisma, remove } = build({ ...pending, challenge }, challenge);
+    const svc = service(prisma);
+    await expect(svc.remove('act1', 'otro', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(ForbiddenException);
+    await svc.remove('act1', 'u1', UserRole.PARTICIPANT);
+    expect(remove).toHaveBeenCalledWith({ where: { id: 'act1' } });
+  });
+
+  it('decide con la actividad releída bajo el lock', async () => {
+    const { prisma, update } = build({ ...pending, challenge }, challenge);
+    // Fuera del lock se ve PENDING; adentro ya está VALIDATED: no se vuelve a escribir
+    (prisma as unknown as { dailyActivity: { findUnique: jest.Mock } }).dailyActivity.findUnique
+      .mockResolvedValueOnce({ ...pending, challenge })
+      .mockResolvedValueOnce({ ...pending, challenge, status: ActivityStatus.VALIDATED });
+    const result = await service(prisma).validate('act1', 'admin');
+    expect(result.status).toBe(ActivityStatus.VALIDATED);
+    expect(update).not.toHaveBeenCalled();
   });
 });
