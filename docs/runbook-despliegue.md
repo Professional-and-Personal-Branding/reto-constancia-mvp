@@ -71,14 +71,15 @@ Sin estos puntos en verde **no se despliega**.
 | Root Directory | `backend` |
 | Node | 20 o 22 (el proyecto exige `>=20 <23`) |
 | Build Command | `npm install && npx prisma generate && npm run build` |
-| Start Command | `npx prisma migrate deploy && node dist/main.js` |
+| Start Command | `npx prisma migrate deploy && exec node dist/main.js` |
 | Port | `3000` |
-| Health check | `/api/health` |
+| Health check | `/api/health` (no `/api/health/db`: reiniciar no arregla una base caída) |
 
 Variables (ver la referencia completa en §7):
 
 - **Obligatorias:** `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES_IN=15m`, `JWT_REFRESH_EXPIRES_IN=7d`, `API_PREFIX=api`, `PORT=3000`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER=reto-constancia`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`.
-- **`CORS_ORIGIN`:** se completa en 1.5, cuando exista la URL de la web.
+- **`CORS_ORIGIN`:** se completa en el paso §1.5 (Conectar web y API), cuando exista la URL de la web.
+- **`SWAGGER_ENABLED`:** se deja sin definir (Swagger apagado en producción).
 
 **Controles:**
 
@@ -87,7 +88,11 @@ Variables (ver la referencia completa en §7):
 - [ ] Los logs del arranque muestran `migrate deploy` sin migraciones pendientes y luego la
       API escuchando.
 - [ ] `https://<api>/api/health` responde `{"status":"ok",…}`.
-- [ ] `https://<api>/api/health/db` responde `"db":"up"`.
+- [ ] `https://<api>/api/health/db` responde 200 con `"db":"up"` (con la base caída responde 503).
+- [ ] Un monitor externo gratuito (UptimeRobot, Better Stack o similar) consulta
+      `https://<api>/api/health/db` cada 5 minutos: espera 200 y avisa con 503.
+- [ ] `exec` en el Start Command: al redesplegar, los Logs muestran "Conexión a la base cerrada".
+      Que el proceso anterior termine con código 143 (SIGTERM) es normal.
 
 ### 1.4 Web (Web Service `frontend`)
 
@@ -163,7 +168,8 @@ En la web, con el administrador:
 - [ ] Retos, Participantes, Validar e Importar abren sin errores.
 - [ ] El interruptor de modo claro/oscuro cambia el tema.
 - [ ] La consola del navegador no muestra errores de CORS.
-- [ ] Swagger en `https://<api>/api/docs` muestra la versión desplegada.
+- [ ] `https://<api>/api/docs` responde 404 (Swagger apagado en producción) y las respuestas traen
+      la cabecera `X-Request-Id`.
 
 Con la sesión de un participante (privacidad, desde la 1.4.2):
 
@@ -234,7 +240,9 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | El build de la API falla instalando `xlsx` | Sin salida a `cdn.sheetjs.com` | Permitir el dominio en el build; reintentar |
 | La API no arranca: "`JWT_…_EXPIRES_IN` no es una duración válida" | Valor mal escrito | Usar `900`, `15m`, `12h` o `7d` y redeploy |
 | La API no arranca: error de Prisma o `migrate deploy` | `DATABASE_URL` mal o base caída | Revisar la cadena (red privada) y `/api/health/db` |
-| `/api/health` ok pero `/api/health/db` no | Base caída o sin red privada | Estado de la base en Seenode; reintentar conexión |
+| `/api/health` ok pero `/api/health/db` responde 503 | Base caída o sin red privada | Estado de la base en Seenode; reintentar conexión. La línea `ERROR [HTTP]` de los Logs trae la hora exacta |
+| Un usuario reporta un error con un código | Error inesperado en la API (500) | Buscar el código en Logs: la línea `ERROR [HTTP]` con ese `requestId` trae la ruta y el detalle |
+| `/api/docs` responde 404 | Swagger apagado en producción (por diseño) | `SWAGGER_ENABLED=true` solo mientras se necesite, y redeploy |
 | La web carga pero toda llamada falla con CORS | `CORS_ORIGIN` distinto a la URL exacta de la web | Corregir (sin barra final) y redeploy de la API |
 | La web llama a una API equivocada | `NEXT_PUBLIC_API_URL` mal en el **build** | Corregir y **recompilar** la web |
 | Muchos usuarios reciben 429 a la vez | La API no ve la IP real: todos comparten el cupo | `TRUST_PROXY=1` (por defecto en producción); si hay dos proxies, `2` |
@@ -245,8 +253,10 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | La sesión se cierra sola | Refresh token rechazado (secretos JWT rotados) | Esperado tras rotar secretos: volver a iniciar sesión |
 | Importar desde Google Sheets dice "no configurado" | Faltan `GOOGLE_*` | Opcional: ver `docs/import-template.md` |
 
-Logs: panel de Seenode → servicio → Logs. Los errores 5xx de la API quedan registrados con
-la ruta.
+Logs: panel de Seenode → servicio → Logs. Cada petición deja una línea `[HTTP]` en JSON con
+`requestId`, método, ruta, estado, duración y usuario (nunca contraseñas ni tokens). Cada error
+5xx deja además una línea `ERROR [HTTP]` con el mismo `requestId`; las alertas se configuran
+sobre `ERROR`. La respuesta de toda petición trae el código en la cabecera `X-Request-Id`.
 
 ---
 
@@ -271,6 +281,8 @@ la ruta.
 | `TRUST_PROXY` | No | `1` | Por defecto 1 en producción; `false` si no hay proxy |
 | `THROTTLE_LIMIT` / `THROTTLE_TTL_MS` | No | `100` / `60000` | Límite global por usuario |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEETS_DEFAULT_RANGE` | No | | Importación desde Google Sheets |
+| `SWAGGER_ENABLED` | No | `false` | Sin definir: apagado en producción; `true` publica `/api/docs` |
+| `PUBLIC_URL` | No | `https://reto-api.seenode.app` | URL pública de los archivos en el modo local de subidas (sin Cloudinary) |
 
 ### Web
 

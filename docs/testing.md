@@ -111,8 +111,8 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 53 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 110 casos de `docs/qa/` están enlazados a 401 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 54 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos y el código de soporte en los errores) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 116 casos de `docs/qa/` están enlazados a 438 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -125,6 +125,23 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-05 · rama `feature/ops-observability-baseline` (observabilidad básica)
+
+Base reiniciada con `npx prisma migrate reset --force`. **Batería:** 11 de 11 pasos en verde.
+**Catálogo:** 116 de 116 casos aprobados (115 automatizados) con 438 pruebas y 0 fallidas:
+unitarias del backend 181, unitarias de la web 12, e2e de API 102, recorridos de UI 54 (más la
+preparación), capturas de la guía 18 (más la preparación) y sesiones paralelas 69. Casos nuevos:
+TC-HEALTH-03, 04 y 05, TC-SEC-12 y 13, y TC-UI-11.
+
+**QA manual** sobre la API compilada:
+- Con Postgres detenido, `/api/health/db` respondió 503 con una línea `ERROR [HTTP]` y su
+  `requestId`, y `/api/health` siguió en 200. Al levantarlo, volvió a 200.
+- Con `NODE_ENV=production`, `/api/docs` respondió 404.
+- El JSON mal formado respondió 400 con `X-Request-Id` y una línea `WARN`.
+- Al emitir SIGTERM dentro del proceso se registró "Conexión a la base cerrada". En Windows,
+  `kill -TERM` termina el proceso sin entregar la señal, así que la prueba con la señal real
+  queda para el primer redespliegue en Seenode (Linux).
 
 ### 2026-10-04 · v1.4.2 (rama `release/1.4.2`)
 
