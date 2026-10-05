@@ -38,7 +38,10 @@ Endpoints (admin) para gestionarlo:
 3. La fecha debe estar dentro de `[startDate, endDate]`.
 4. El día de la semana debe estar en `validDays`.
 5. Una sola actividad por día por usuario (`@@unique(challengeId,userId,date)`).
-6. Al menos una foto/captura es obligatoria.
+6. Al menos una foto/captura es obligatoria, y cada foto debe ser un archivo propio subido por la
+   plataforma a la carpeta del participante en ese reto (cambio `upload-guardrails`). Formatos:
+   JPG, PNG, WEBP o HEIC; el comprobante de pago admite además PDF. La importación del admin no
+   pasa por esta regla.
 
 **Cálculo de ganadores** (`ResultsService` + `scoring.ts`, configurable por reto):
 - Puntaje = `días validados × pointsPerValidatedDay + km × pointsPerKm`

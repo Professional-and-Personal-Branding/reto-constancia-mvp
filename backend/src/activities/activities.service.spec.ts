@@ -6,6 +6,7 @@ import { assessHeartRate } from './heart-rate-rule';
 import { ChallengesService } from '../challenges/challenges.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
+import { localUploads, ownedAsset } from '../../test/helpers/assets';
 
 const challenge = {
   id: 'c1',
@@ -16,8 +17,9 @@ const challenge = {
   minHeartRateMinutes: 20,
 };
 
-const activityPhoto = { url: 'https://x/a.jpg', cloudinaryId: 'a', type: PhotoType.ACTIVITY };
-const hrPhoto = { url: 'https://x/hr.jpg', cloudinaryId: 'hr', type: PhotoType.HEART_RATE };
+// Evidencia propia de u1 en el reto c1 (spec upload-guardrails)
+const activityPhoto = { ...ownedAsset({ challengeId: 'c1', userId: 'u1', name: 'a' }), type: PhotoType.ACTIVITY };
+const hrPhoto = { ...ownedAsset({ challengeId: 'c1', userId: 'u1', name: 'hr' }), type: PhotoType.HEART_RATE };
 
 function baseDto(over: Partial<CreateActivityDto> = {}): CreateActivityDto {
   return {
@@ -51,7 +53,8 @@ function buildPrisma(opts: { challenge?: unknown; activity?: unknown; many?: unk
 }
 
 function service(prisma: PrismaService) {
-  return new ActivitiesService(prisma, new ChallengesService(prisma));
+  const uploads = localUploads();
+  return new ActivitiesService(prisma, new ChallengesService(prisma, uploads), uploads);
 }
 
 describe('assessHeartRate (regla pura)', () => {
@@ -133,6 +136,49 @@ describe('ActivitiesService.create (regla de FC)', () => {
     const result = await service(prisma).create('u1', baseDto({ photos: [activityPhoto] }));
     expect(create).toHaveBeenCalledTimes(1);
     expect(result.heartRateCompliant).toBe(true);
+  });
+});
+
+describe('ActivitiesService.create (evidencia propia)', () => {
+  it('acepta la foto de actividad y la captura de FC de la propia carpeta', async () => {
+    const { prisma, create } = buildPrisma();
+    await service(prisma).create('u1', baseDto({ heartRateMinutes: 25 }));
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechaza una foto subida fuera de la plataforma', async () => {
+    const { prisma, create } = buildPrisma();
+    const external = { url: 'https://example.com/a.jpg', cloudinaryId: 'e2e/a', type: PhotoType.ACTIVITY };
+    await expect(service(prisma).create('u1', baseDto({ photos: [external] }))).rejects.toThrow(
+      'La foto debe subirse desde la plataforma',
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza la foto de otro participante del mismo reto', async () => {
+    const { prisma, create } = buildPrisma();
+    const foreign = { ...ownedAsset({ challengeId: 'c1', userId: 'u2', name: 'a' }), type: PhotoType.ACTIVITY };
+    await expect(service(prisma).create('u1', baseDto({ photos: [foreign, hrPhoto] }))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un comprobante usado como foto de actividad', async () => {
+    const { prisma, create } = buildPrisma();
+    const proof = { ...ownedAsset({ challengeId: 'c1', userId: 'u1', purpose: 'payment-proof', name: 'p' }), type: PhotoType.ACTIVITY };
+    await expect(service(prisma).create('u1', baseDto({ photos: [proof, hrPhoto] }))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza la misma foto adjunta dos veces', async () => {
+    const { prisma, create } = buildPrisma();
+    await expect(
+      service(prisma).create('u1', baseDto({ photos: [activityPhoto, { ...activityPhoto, type: PhotoType.HEART_RATE }] })),
+    ).rejects.toThrow('La misma foto no puede adjuntarse dos veces');
+    expect(create).not.toHaveBeenCalled();
   });
 });
 

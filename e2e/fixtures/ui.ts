@@ -24,6 +24,11 @@ export function pngFile(name: string) {
   return { name, mimeType: 'image/png', buffer: Buffer.from(base64, 'base64') };
 }
 
+/** PDF mínimo, para probar los formatos por propósito (spec upload-guardrails). */
+export function pdfFile(name: string) {
+  return { name, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') };
+}
+
 /** Texto del bloque principal, útil para aserciones amplias. */
 export async function mainText(page: Page): Promise<string> {
   return (await page.locator('main').innerText()).replace(/\s+/g, ' ');

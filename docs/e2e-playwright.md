@@ -84,7 +84,7 @@ a `.qa-results/shots`, para no reescribir las capturas versionadas.
 | Archivo | Recorrido de `test-cases.md` | Casos |
 |---|---|---|
 | `tests/01-auth-navigation.spec.ts` | 1 · Alta, sesión y rutas protegidas | TC-AUTH-02, TC-AUTH-10, TC-AUTH-13, TC-AUTH-14, TC-UI-01, TC-UI-02 |
-| `tests/02-activity-upload.spec.ts` | 3 · Registrar actividad con regla de FC | TC-ACT-01, 02, 05, 13, 14, 18, TC-UP-02, TC-UI-04 |
+| `tests/02-activity-upload.spec.ts` | 3 · Registrar actividad con regla de FC | TC-ACT-01, 02, 05, 13, 14, 18, TC-UP-02, TC-UP-04, TC-UI-04 |
 | `tests/03-admin-validation.spec.ts` | 4 · Validar y rechazar como admin | TC-ACT-08, TC-ACT-15, TC-UI-11 |
 | `tests/04-finance.spec.ts` | 5 · Pagos y resumen financiero | TC-PART-04, TC-FIN-01, 02, 04, 05, 06 |
 | `tests/05-challenges-scoring.spec.ts` | 6 y 7 · Varios retos activos y reglas de puntaje | TC-CHAL-08, TC-CHAL-10, TC-SCORE-05 |

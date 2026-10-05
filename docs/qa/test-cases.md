@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-05** · rama `feature/ops-observability-baseline` · commit `6907047` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-05** · rama `feature/upload-guardrails` · commit `060f8d9` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**116 casos** · 116 aprobados · 0 fallidos · 0 con limitación conocida · 115 automatizados.
+**119 casos** · 119 aprobados · 0 fallidos · 0 con limitación conocida · 118 automatizados.
 
 ## Cómo leer cada caso
 
@@ -25,7 +25,7 @@
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 7 | 7 | 0 |
-| [Carga de archivos](#up) | 3 | 3 | 0 |
+| [Carga de archivos](#up) | 6 | 6 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
 | [Interfaz y navegación](#ui) | 11 | 11 | 0 |
 | [Salud del servicio](#health) | 5 | 5 | 0 |
@@ -2977,13 +2977,16 @@
 
 | ID | Caso | Prioridad | Tipo | Estado |
 |---|---|---|---|---|
-| [TC-UP-01](#tc-up-01) | Firma de subida | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-01](#tc-up-01) | Firma de subida ligada al reto, al participante y al propósito | Alta | Seguridad | ✅ Aprobado |
 | [TC-UP-02](#tc-up-02) | Simulador local de subidas en desarrollo | Media | Funcional | ✅ Aprobado |
 | [TC-UP-03](#tc-up-03) | Sin simulador local en producción | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-04](#tc-up-04) | Formatos permitidos por propósito | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-05](#tc-up-05) | Solo se acepta evidencia propia (fotos y comprobantes) | Alta | Seguridad | ✅ Aprobado |
+| [TC-UP-06](#tc-up-06) | Límite de firmas de subida por minuto | Media | Seguridad | ✅ Aprobado |
 
 <a id="tc-up-01"></a>
 
-### TC-UP-01 · Firma de subida
+### TC-UP-01 · Firma de subida ligada al reto, al participante y al propósito
 
 | Módulo | Prioridad | Tipo | Paso de la guía | Estado |
 |---|---|---|---|---|
@@ -2991,25 +2994,38 @@
 
 **Precondiciones**
 
-- Ninguna.
+- Ana inscrita en un reto activo; un usuario no inscrito; el admin sin inscribir.
 
-**Datos de prueba:** POST /api/upload/sign { folder, resourceType }
+**Datos de prueba:** POST /api/upload/sign { challengeId, purpose }
 
 **Pasos**
 
 1. Firmar sin sesión.
-2. Firmar con sesión.
+2. Firmar como Ana para activity y payment-proof.
+3. Enviar folder, resourceType, un propósito inválido o un id que no es UUID.
+4. Firmar como no inscrito, como admin y para un reto inexistente.
 
 **Resultado esperado**
 
 - Sin sesión: 401.
-- Con sesión: 201; en desarrollo { local: true, uploadUrl: .../api/upload/local }.
+- Ana recibe 201 con la carpeta <base>/<reto>/<Ana>/<propósito>, los formatos firmados y maxBytes; en desarrollo { local: true, uploadUrl: .../api/upload/local }.
+- Campos de más o valores inválidos: 400.
+- No inscrito y admin: 403 "No participas en este reto"; reto inexistente: 404.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Unitaria | `upload.service.spec.ts` | firma allowed_formats, folder y timestamp, y sube siempre como image |
+| ✅ | Unitaria | `upload.service.spec.ts` | el comprobante acepta PDF y respeta UPLOAD_MAX_BYTES |
+| ✅ | Unitaria | `upload-policy.spec.ts` | la carpeta incluye el reto, el usuario y el propósito |
+| ✅ | Unitaria | `upload-policy.spec.ts` | normalizeBase quita barras y rechaza caracteres que romperían las carpetas |
+| ✅ | Unitaria | `challenges.service.spec.ts` | assertActiveParticipant: inactivo 400 y no inscrito 403 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | assertPaymentParticipant: cerrado 400, no inscrito 403, borrador permitido |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: firmar una subida exige sesión (401) y con sesión devuelve la firma |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: la firma va al reto, al usuario y al propósito, con formatos firmados |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: la carpeta y el tipo de recurso no los elige el cliente (400) |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: solo firma un participante del reto (403), también para el admin |
 
 <a id="tc-up-02"></a>
 
@@ -3023,24 +3039,35 @@
 
 - Sin Cloudinary, NODE_ENV distinto de production.
 
-**Datos de prueba:** POST /api/upload/local (multipart file)
+**Datos de prueba:** POST /api/upload/local (multipart file y folder)
 
 **Pasos**
 
 1. Subir sin sesión.
-2. Comprobar que el simulador está activo.
+2. Subir a la carpeta propia un .jpeg, un .gif y un PDF de actividad.
+3. Subir a la carpeta de otro usuario y a una carpeta vieja (2094-01).
+4. Usar lo subido como foto de una actividad.
 
 **Resultado esperado**
 
 - Sin sesión: 401.
-- Sin Cloudinary en desarrollo el simulador queda activo.
+- El .jpeg se guarda como .jpg dentro de la carpeta propia; el .gif y el PDF de actividad responden 400 "Formato no permitido…".
+- Carpeta ajena: 403; carpeta no derivada: 400 "Carpeta de subida no válida".
+- Lo subido sirve como evidencia propia.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Unitaria | `upload.service.spec.ts` | sin Cloudinary en desarrollo activa el simulador local |
+| ✅ | Unitaria | `upload.service.spec.ts` | el simulador solo acepta carpetas derivadas del propio usuario |
+| ✅ | Unitaria | `upload.service.spec.ts` | rechaza un formato no permitido para el propósito |
+| ✅ | Unitaria | `upload.service.spec.ts` | guarda los JPEG como jpg, igual que Cloudinary |
+| ✅ | Unitaria | `upload.service.spec.ts` | el comprobante admite PDF |
+| ✅ | Unitaria | `upload-policy.spec.ts` | parseFolder reconoce solo carpetas derivadas |
+| ✅ | Unitaria | `upload-policy.spec.ts` | la carpeta derivada no cambia con el saneado del simulador |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: el simulador local de subidas exige sesión (401) |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: el simulador local guarda en la carpeta propia y aplica formatos y dueño |
 
 <a id="tc-up-03"></a>
 
@@ -3071,6 +3098,136 @@
 |---|---|---|---|
 | ✅ | Unitaria | `upload.service.spec.ts` | sin Cloudinary en producción NO activa el simulador local |
 | ✅ | Unitaria | `upload.service.spec.ts` | con Cloudinary configurado nunca usa el modo local |
+
+<a id="tc-up-04"></a>
+
+### TC-UP-04 · Formatos permitidos por propósito
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Seguridad | 4.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Ana inscrita en un reto activo.
+
+**Datos de prueba:** Actividad: heic, jpg, png, webp. Comprobante: además pdf
+
+**Pasos**
+
+1. Subir un PDF como foto de actividad desde el formulario.
+2. Subir un PDF como comprobante desde el inicio.
+3. Revisar los mensajes de error de formato y tamaño.
+
+**Resultado esperado**
+
+- El PDF de actividad muestra "Formato no permitido. Usa JPG, PNG, WEBP o HEIC (PDF solo para comprobantes)" y no se registra nada.
+- El comprobante en PDF se sube y queda el enlace "Ver comprobante cargado".
+- Un archivo mayor que maxBytes muestra "El archivo supera el tamaño máximo (10 MB)" sin subirse.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `upload-policy.spec.ts` | formatos exactos por propósito, en orden alfabético |
+| ✅ | Unitaria | `upload-policy.spec.ts` | un comprobante acepta PDF |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza un PDF en una actividad |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza la extensión jpeg |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | el tamaño máximo se muestra en MB |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | traduce los rechazos de formato de Cloudinary y del simulador |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | traduce los archivos demasiado grandes |
+| ✅ | Web (unitaria) | `upload-errors.test.ts` | muestra el mensaje en español del simulador y un texto genérico si no hay mensaje |
+| ✅ | UI | `02-activity-upload.spec.ts` | una foto de actividad en PDF muestra el aviso de formato y no se registra |
+| ✅ | UI | `02-activity-upload.spec.ts` | el comprobante de pago se puede subir en PDF desde el inicio |
+
+<a id="tc-up-05"></a>
+
+### TC-UP-05 · Solo se acepta evidencia propia (fotos y comprobantes)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Seguridad | 4.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Ana y Bruno inscritos en el mismo reto activo.
+
+**Datos de prueba:** Foto de example.com; foto y comprobante de Bruno; campos de comprobante en el pago del admin
+
+**Pasos**
+
+1. Ana registra una actividad con una foto externa y con una foto de Bruno.
+2. Ana envía como suyo el comprobante de Bruno; un no inscrito sube un comprobante.
+3. El admin marca un pago enviando campos de comprobante.
+
+**Resultado esperado**
+
+- Foto externa: 400 "La foto debe subirse desde la plataforma"; foto ajena: 400; no se crea la actividad.
+- Comprobante ajeno: 400 "El comprobante debe subirse desde la plataforma"; no inscrito: 403.
+- El admin recibe 400 y el registro no cambia; marcar o desmarcar un pago no toca el comprobante.
+- La captura de FC de la propia carpeta se acepta; la importación del admin no pasa por esta regla.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `upload-policy.spec.ts` | acepta el archivo propio con y sin versión |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza otro host |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza un host que solo empieza igual |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza otra cuenta |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza http |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza la URL de otro archivo |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza una query |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de otro reto |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de otro usuario |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de otro propósito |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de un id con .. |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza el id de la carpeta sin archivo |
+| ✅ | Unitaria | `upload-policy.spec.ts` | acepta la URL local del archivo propio |
+| ✅ | Unitaria | `upload-policy.spec.ts` | respeta un PUBLIC_URL con path |
+| ✅ | Unitaria | `upload-policy.spec.ts` | rechaza otro origen |
+| ✅ | Unitaria | `activities.service.spec.ts` | acepta la foto de actividad y la captura de FC de la propia carpeta |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza una foto subida fuera de la plataforma |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza la foto de otro participante del mismo reto |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza un comprobante usado como foto de actividad |
+| ✅ | Unitaria | `activities.service.spec.ts` | rechaza la misma foto adjunta dos veces |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un no inscrito no puede subir comprobante (403) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | rechaza el comprobante de otro participante o externo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | guarda el comprobante propio, también en PDF |
+| ✅ | Unitaria | `challenges.service.spec.ts` | marcar o desmarcar un pago no toca el comprobante guardado |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: una actividad con foto externa o ajena se rechaza (400) y no se crea |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | UP: el comprobante ajeno se rechaza (400) y el admin no puede adjuntar comprobantes (400) |
+
+<a id="tc-up-06"></a>
+
+### TC-UP-06 · Límite de firmas de subida por minuto
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Media | Seguridad | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- UPLOAD_SIGN_LIMIT=3 (por defecto 30).
+
+**Datos de prueba:** POST /api/upload/sign repetido desde el mismo cliente
+
+**Pasos**
+
+1. Pedir 4 firmas en menos de un minuto.
+
+**Resultado esperado**
+
+- Las 3 primeras pasan el limitador (sin sesión responden 401); la cuarta responde 429.
+- El límite se lee en cada petición, así que también se puede definir en backend/.env.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `http.spec.ts` | usa 30 firmas por minuto por defecto y descarta valores inválidos |
+| ✅ | Unitaria | `upload.controller.spec.ts` | firma con límite configurable: 30 por minuto por defecto y UPLOAD_SIGN_LIMIT si está definido |
+| ✅ | API e2e | `ops-throttle.e2e-spec.ts` | UP: las firmas de subida tienen su propio límite por minuto (UPLOAD_SIGN_LIMIT) |
 
 <a id="imp"></a>
 

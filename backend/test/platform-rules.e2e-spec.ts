@@ -6,6 +6,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownedAsset } from './helpers/assets';
 
 /**
  * Reglas de la plataforma que no cubrían las otras suites e2e: validaciones de retos,
@@ -36,7 +37,6 @@ describe('Reglas de la plataforma (e2e)', () => {
   let draftChallengeId = '';
 
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
-  const photo = { url: 'https://example.com/e2e/rules.png', cloudinaryId: 'e2e/rules', type: 'ACTIVITY' };
 
   /** Primer día del mes de enero del año de prueba que cae en el día de semana pedido (0 = domingo). */
   function dayOfWeek(weekday: number, from = 1): string {
@@ -53,9 +53,15 @@ describe('Reglas de la plataforma (e2e)', () => {
   const friday = dayOfWeek(5);
   const sunday = dayOfWeek(0);
 
-  function activity(date: string, extra: Record<string, unknown> = {}) {
+  /** Actividad con evidencia propia del participante (spec upload-guardrails). */
+  function activityFor(who: keyof typeof emails, date: string, extra: Record<string, unknown> = {}) {
+    const photo = { ...ownedAsset({ challengeId, userId: id[who], name: `rules-${date}` }), type: 'ACTIVITY' };
     return { challengeId, date, exerciseType: 'RUNNING', durationMinutes: 30, distanceKm: 5, photos: [photo], ...extra };
   }
+  const proofFor = (who: keyof typeof emails, name: string, target = challengeId) => {
+    const asset = ownedAsset({ challengeId: target, userId: id[who], purpose: 'payment-proof', name, ext: 'pdf' });
+    return { paymentProofUrl: asset.url, paymentProofCloudinaryId: asset.cloudinaryId };
+  };
 
   async function cleanup() {
     await prisma.challenge.deleteMany({ where: { year: YEAR } });
@@ -180,7 +186,7 @@ describe('Reglas de la plataforma (e2e)', () => {
   });
 
   it('SEC: el detalle de una actividad es solo para su dueño o un admin', async () => {
-    const created = await request(http).post('/api/activities').set(auth(token.bruno)).send(activity(monday));
+    const created = await request(http).post('/api/activities').set(auth(token.bruno)).send(activityFor('bruno', monday));
     expect(created.status).toBe(201);
     const activityId = created.body.id;
 
@@ -196,6 +202,90 @@ describe('Reglas de la plataforma (e2e)', () => {
 
     // Deja el estado como estaba para el resto de la suite
     await request(http).delete(`/api/activities/${activityId}`).set(auth(token.admin));
+  });
+
+  // ---------------- Subidas: firma y evidencia propia (cambio upload-guardrails) ----------------
+
+  it('UP: la firma va al reto, al usuario y al propósito, con formatos firmados', async () => {
+    const res = await request(http).post('/api/upload/sign').set(auth(token.ana)).send({ challengeId, purpose: 'activity' });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      folder: `reto-constancia/${challengeId}/${id.ana}/activity`,
+      allowedFormats: 'heic,jpg,png,webp',
+      maxBytes: 10 * 1024 * 1024,
+      local: true,
+    });
+    const proof = await request(http).post('/api/upload/sign').set(auth(token.ana)).send({ challengeId, purpose: 'payment-proof' });
+    expect(proof.body.allowedFormats).toBe('heic,jpg,pdf,png,webp');
+  });
+
+  it('UP: la carpeta y el tipo de recurso no los elige el cliente (400)', async () => {
+    for (const body of [{ challengeId, purpose: 'activity', folder: 'otra' }, { challengeId, purpose: 'activity', resourceType: 'raw' }, { folder: 'e2e' }, { challengeId, purpose: 'video' }, { challengeId: 'no-uuid', purpose: 'activity' }]) {
+      expect((await request(http).post('/api/upload/sign').set(auth(token.ana)).send(body)).status).toBe(400);
+    }
+  });
+
+  it('UP: solo firma un participante del reto (403), también para el admin', async () => {
+    for (const who of ['outsider', 'admin'] as const) {
+      const res = await request(http).post('/api/upload/sign').set(auth(token[who])).send({ challengeId, purpose: 'activity' });
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe('No participas en este reto');
+    }
+    const missing = await request(http).post('/api/upload/sign').set(auth(token.ana)).send({ challengeId: '00000000-0000-4000-8000-000000000000', purpose: 'activity' });
+    expect(missing.status).toBe(404);
+  });
+
+  it('UP: el simulador local guarda en la carpeta propia y aplica formatos y dueño', async () => {
+    const folder = `reto-constancia/${challengeId}/${id.ana}/activity`;
+    const ok = await request(http).post('/api/upload/local').set(auth(token.ana)).field('folder', folder).attach('file', Buffer.from('x'), 'foto.jpeg');
+    expect(ok.status).toBe(201);
+    expect(ok.body.public_id.startsWith(`${folder}/`)).toBe(true);
+    expect(ok.body.secure_url.endsWith('.jpg')).toBe(true);
+
+    const gif = await request(http).post('/api/upload/local').set(auth(token.ana)).field('folder', folder).attach('file', Buffer.from('x'), 'x.gif');
+    expect(gif.status).toBe(400);
+    expect(gif.body.message).toMatch(/Formato no permitido/);
+    const foreign = await request(http).post('/api/upload/local').set(auth(token.bruno)).field('folder', folder).attach('file', Buffer.from('x'), 'x.png');
+    expect(foreign.status).toBe(403);
+    const legacy = await request(http).post('/api/upload/local').set(auth(token.ana)).field('folder', 'reto-constancia/2094-01').attach('file', Buffer.from('x'), 'x.png');
+    expect(legacy.status).toBe(400);
+
+    // Lo subido por el simulador sirve como evidencia propia
+    const created = await request(http).post('/api/activities').set(auth(token.ana)).send({
+      ...activityFor('ana', tuesday),
+      photos: [{ url: ok.body.secure_url, cloudinaryId: ok.body.public_id, type: 'ACTIVITY' }],
+    });
+    expect(created.status).toBe(201);
+    await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.admin));
+  });
+
+  it('UP: una actividad con foto externa o ajena se rechaza (400) y no se crea', async () => {
+    const external = await request(http).post('/api/activities').set(auth(token.ana)).send(
+      activityFor('ana', monday, { photos: [{ url: 'https://example.com/e2e/rules.png', cloudinaryId: 'e2e/rules', type: 'ACTIVITY' }] }),
+    );
+    expect(external.status).toBe(400);
+    expect(external.body.message).toBe('La foto debe subirse desde la plataforma');
+    const brunoPhoto = activityFor('bruno', monday).photos;
+    const foreign = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', monday, { photos: brunoPhoto }));
+    expect(foreign.status).toBe(400);
+    const mine = await request(http).get(`/api/activities/me?challengeId=${challengeId}`).set(auth(token.ana));
+    expect(mine.body).toHaveLength(0);
+  });
+
+  it('UP: el comprobante ajeno se rechaza (400) y el admin no puede adjuntar comprobantes (400)', async () => {
+    const foreign = await request(http).patch(`/api/challenges/${challengeId}/participants/me/payment-proof`).set(auth(token.ana)).send(proofFor('bruno', 'ajeno'));
+    expect(foreign.status).toBe(400);
+    expect(foreign.body.message).toBe('El comprobante debe subirse desde la plataforma');
+    const outsider = await request(http).patch(`/api/challenges/${challengeId}/participants/me/payment-proof`).set(auth(token.outsider)).send(proofFor('outsider', 'x'));
+    expect(outsider.status).toBe(403);
+
+    const admin = await request(http)
+      .patch(`/api/challenges/${challengeId}/participants/${id.bruno}/payment`)
+      .set(auth(token.admin))
+      .send({ paid: true, ...proofFor('bruno', 'admin') });
+    expect(admin.status).toBe(400);
+    const row = await prisma.challengeParticipant.findUnique({ where: { challengeId_userId: { challengeId, userId: id.bruno } } });
+    expect(row).toMatchObject({ paid: false, paymentProofCloudinaryId: null });
   });
 
   // ---------------- Retos ----------------
@@ -284,9 +374,9 @@ describe('Reglas de la plataforma (e2e)', () => {
     const res = await request(http)
       .patch(`/api/challenges/${challengeId}/participants/me/payment-proof`)
       .set(auth(token.ana))
-      .send({ paymentProofUrl: 'https://example.com/e2e/comprobante.pdf', paymentProofCloudinaryId: 'e2e/comprobante' });
+      .send(proofFor('ana', 'comprobante'));
     expect(res.status).toBe(200);
-    expect(res.body.paymentProofUrl).toBe('https://example.com/e2e/comprobante.pdf');
+    expect(res.body.paymentProofUrl).toBe(proofFor('ana', 'comprobante').paymentProofUrl);
     expect(res.body.paymentProofUploadedAt).toBeTruthy();
     expect(res.body.paid).toBe(false); // el comprobante no marca el pago: lo confirma el admin
   });
@@ -294,25 +384,25 @@ describe('Reglas de la plataforma (e2e)', () => {
   // ---------------- Actividades ----------------
 
   it('ACT: sin fotos la actividad se rechaza (400)', async () => {
-    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(monday, { photos: [] }));
+    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', monday, { photos: [] }));
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body.message)).toMatch(/foto/i);
   });
 
   it('ACT: una fecha fuera del período se rechaza (400)', async () => {
-    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(`${YEAR}-02-10`));
+    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', `${YEAR}-02-10`));
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/fuera del período/);
   });
 
   it('ACT: un día de la semana no habilitado se rechaza (400)', async () => {
-    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(sunday));
+    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', sunday));
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/día de la semana no es válido/);
   });
 
   it('ACT: quien no está inscrito no puede registrar (403)', async () => {
-    const res = await request(http).post('/api/activities').set(auth(token.outsider)).send(activity(monday));
+    const res = await request(http).post('/api/activities').set(auth(token.outsider)).send(activityFor('outsider', monday));
     expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/No participas/);
   });
@@ -327,14 +417,14 @@ describe('Reglas de la plataforma (e2e)', () => {
     const res = await request(http)
       .post('/api/activities')
       .set(auth(token.ana))
-      .send({ ...activity(`${YEAR}-02-05`), challengeId: draftChallengeId });
+      .send({ ...activityFor('ana', `${YEAR}-02-05`), challengeId: draftChallengeId });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/no está activo/);
   });
 
   it('ACT: cada participante solo ve sus propias actividades', async () => {
-    expect((await request(http).post('/api/activities').set(auth(token.ana)).send(activity(monday))).status).toBe(201);
-    expect((await request(http).post('/api/activities').set(auth(token.bruno)).send(activity(monday))).status).toBe(201);
+    expect((await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', monday))).status).toBe(201);
+    expect((await request(http).post('/api/activities').set(auth(token.bruno)).send(activityFor('bruno', monday))).status).toBe(201);
     const mine = await request(http).get(`/api/activities/me?challengeId=${challengeId}`).set(auth(token.ana));
     expect(mine.status).toBe(200);
     expect(mine.body.length).toBeGreaterThan(0);
@@ -371,20 +461,20 @@ describe('Reglas de la plataforma (e2e)', () => {
   // ---------------- Borrado ----------------
 
   it('ACT: el participante borra su actividad pendiente (204)', async () => {
-    const created = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(tuesday));
+    const created = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', tuesday));
     const del = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.ana));
     expect(del.status).toBe(204);
   });
 
   it('ACT: el participante no puede borrar actividades ajenas (403)', async () => {
-    const created = await request(http).post('/api/activities').set(auth(token.bruno)).send(activity(wednesday));
+    const created = await request(http).post('/api/activities').set(auth(token.bruno)).send(activityFor('bruno', wednesday));
     const del = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.ana));
     expect(del.status).toBe(403);
     expect(del.body.message).toMatch(/No puedes eliminar/);
   });
 
   it('ACT: el participante no puede borrar una actividad ya validada (403); el admin sí', async () => {
-    const created = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(thursday));
+    const created = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', thursday));
     await request(http).post(`/api/activities/${created.body.id}/validate`).set(auth(token.admin));
     const own = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.ana));
     expect(own.status).toBe(403);
@@ -437,7 +527,7 @@ describe('Reglas de la plataforma (e2e)', () => {
   });
 
   it('ACT: en un reto cerrado no se registran actividades (400)', async () => {
-    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activity(friday));
+    const res = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', friday));
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/no está activo/);
   });
@@ -471,8 +561,11 @@ describe('Reglas de la plataforma (e2e)', () => {
     const proof = await request(http)
       .patch(`/api/challenges/${challengeId}/participants/me/payment-proof`)
       .set(auth(token.ana))
-      .send({ paymentProofUrl: 'https://example.com/e2e/tarde.pdf', paymentProofCloudinaryId: 'e2e/tarde' });
+      .send(proofFor('ana', 'tarde'));
     expect(proof.status).toBe(400);
+    const sign = await request(http).post('/api/upload/sign').set(auth(token.ana)).send({ challengeId, purpose: 'payment-proof' });
+    expect(sign.status).toBe(400);
+    expect(sign.body.message).toBe('No se puede modificar un reto cerrado');
     const after = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
     expect(after.body.payout.pot).toBe(before.body.payout.pot);
   });
@@ -529,10 +622,12 @@ describe('Reglas de la plataforma (e2e)', () => {
 
   it('UP: firmar una subida exige sesión (401) y con sesión devuelve la firma', async () => {
     expect((await request(http).post('/api/upload/sign').send({})).status).toBe(401);
-    const res = await request(http).post('/api/upload/sign').set(auth(token.ana)).send({ folder: 'e2e' });
+    // A esta altura el reto principal está cerrado: el comprobante se firma en el borrador
+    const res = await request(http).post('/api/upload/sign').set(auth(token.ana)).send({ challengeId: draftChallengeId, purpose: 'payment-proof' });
     expect(res.status).toBe(201);
     expect(res.body.uploadUrl).toBeTruthy();
     expect(res.body.signature).toBeTruthy();
+    expect(res.body.folder).toBe(`reto-constancia/${draftChallengeId}/${id.ana}/payment-proof`);
   });
 
   it('UP: el simulador local de subidas exige sesión (401)', async () => {

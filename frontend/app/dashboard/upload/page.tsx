@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { isoToday } from '@/lib/dates';
 import type { ExerciseType, PhotoType } from '@/lib/types';
@@ -60,8 +60,8 @@ export default function UploadPage() {
       }
 
       setProgress('Subiendo foto de actividad…');
-      const folder = `${challenge.year}-${String(challenge.month).padStart(2, '0')}`;
-      const main = await uploadToCloudinary(activityPhoto.file, folder);
+      // La carpeta la decide el servidor según el reto y el participante
+      const main = await uploadToCloudinary(activityPhoto.file, challenge.id, 'activity');
 
       const photos: { url: string; cloudinaryId: string; type: PhotoType }[] = [
         { url: main.url, cloudinaryId: main.cloudinaryId, type: 'ACTIVITY' },
@@ -69,7 +69,7 @@ export default function UploadPage() {
 
       if (heartRatePhoto.file) {
         setProgress('Subiendo captura de FC…');
-        const hr = await uploadToCloudinary(heartRatePhoto.file, folder);
+        const hr = await uploadToCloudinary(heartRatePhoto.file, challenge.id, 'activity');
         photos.push({
           url: hr.url,
           cloudinaryId: hr.cloudinaryId,
@@ -373,13 +373,13 @@ function PhotoField({
           className="w-full border-2 border-dashed border-line hover:border-accent rounded-md p-8 text-center transition cursor-pointer"
         >
           <p className="text-ink-dim">Toca para seleccionar foto</p>
-          <p className="text-xs text-ink-mute mt-1">JPG, PNG o HEIC</p>
+          <p className="text-xs text-ink-mute mt-1">JPG, PNG, WEBP o HEIC · hasta 10 MB</p>
         </button>
       )}
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={ACCEPT.activity}
         capture="environment"
         className="hidden"
         aria-label={label}

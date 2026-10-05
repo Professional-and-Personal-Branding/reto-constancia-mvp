@@ -8,6 +8,7 @@ import {
   E2E_YEAR,
   enroll,
   markPaid,
+  ownedAsset,
   setupChallenge,
   STATE,
   tokens,
@@ -65,7 +66,7 @@ test.beforeAll(async () => {
       date: e2eDate(MONTH, 4),
       exerciseType: 'RUNNING',
       durationMinutes: 40,
-      photos: [{ url: 'https://example.com/e2e/ana.png', cloudinaryId: 'e2e/privacidad/ana', type: 'ACTIVITY' }],
+      photos: [{ ...ownedAsset(challengeId, tokens().participantId, 'privacidad-ana'), type: 'ACTIVITY' }],
     },
   });
   expect(own.status).toBe(201);

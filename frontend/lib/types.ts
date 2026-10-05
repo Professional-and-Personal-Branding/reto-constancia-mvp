@@ -196,13 +196,20 @@ export interface ChallengeFinance {
   participants: ParticipantFinance[];
 }
 
+export type UploadPurpose = 'activity' | 'payment-proof';
+
 export interface CloudinarySignature {
   signature: string;
   timestamp: number;
   apiKey: string;
   cloudName: string;
+  /** Carpeta derivada por el servidor: <base>/<reto>/<usuario>/<propósito> */
   folder: string;
   uploadUrl: string;
+  /** Formatos firmados; se reenvían tal cual en allowed_formats */
+  allowedFormats: string;
+  maxBytes: number;
+  local?: boolean;
 }
 
 export interface ImportPreviewRow {

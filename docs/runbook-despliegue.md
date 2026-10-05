@@ -47,7 +47,9 @@ Sin estos puntos en verde **no se despliega**.
 ### 1.1 Cuentas y secretos
 
 - [ ] Cuenta de Seenode con GitHub autorizado sobre el repositorio.
-- [ ] Cuenta de Cloudinary: `cloud name`, `api key`, `api secret`.
+- [ ] Cuenta de Cloudinary: `cloud name`, `api key`, `api secret`. En **Settings → Security**
+      activa **"Allow delivery of PDF and ZIP files"**: las cuentas nuevas la traen apagada y sin
+      ella un comprobante en PDF responde 401 al abrirlo.
 - [ ] Dos secretos JWT **distintos**, generados al azar:
   ```bash
   node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
@@ -126,6 +128,23 @@ Haz la prueba de humo de §3 completa y además:
 - [ ] Ningún usuario de demo en la base: `SELECT email FROM "User";` no trae `@reto.local`.
 - [ ] Subir una foto desde "Subir actividad": si Cloudinary falta, la subida queda
       deshabilitada a propósito.
+- [ ] **Verificaciones de subidas en la cuenta real (V1 a V5).** Condicionan abrir la URL a los
+      participantes, no la fusión del código. Con un participante inscrito en un reto activo:
+  - **V1:** la foto de actividad acepta JPG, PNG, WEBP y HEIC, y rechaza PDF y GIF con
+        "Formato no permitido…".
+  - **V2:** una foto `.jpeg` se sube y su URL termina en `.jpg`. Si no, agregar `jpeg` a los
+        formatos (`backend/src/upload/upload-policy.ts`).
+  - **V3:** un comprobante en PDF se sube y se abre desde Admin → Participantes. Si no se abre
+        con la entrega de PDF activada, aplicar el plan B del cambio `upload-guardrails`
+        (comprobantes solo como imagen).
+  - **V4:** alterar `allowed_formats` o `folder` en la subida (DevTools) responde
+        "Invalid Signature".
+  - **V5:** en Cloudinary → Media Library, el `public_id` de lo subido empieza con
+        `reto-constancia/<reto>/<usuario>/activity/` (o `payment-proof/`). Si la cuenta usa
+        *dynamic folders* y el prefijo no aparece, aplicar el fallback del diseño
+        (`asset_folder` con `use_asset_folder_as_public_id_prefix`).
+- [ ] Dos usuarios desde redes distintas no comparten el límite de firmas: si uno llega al 429
+      de `/api/upload/sign` y el otro también, revisar `TRUST_PROXY`.
 - [ ] Recorridos 1, 3, 4 y 5 de la Parte 2 de `docs/test-cases.md` contra el entorno real.
 
 ---
@@ -247,6 +266,10 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | La web llama a una API equivocada | `NEXT_PUBLIC_API_URL` mal en el **build** | Corregir y **recompilar** la web |
 | Muchos usuarios reciben 429 a la vez | La API no ve la IP real: todos comparten el cupo | `TRUST_PROXY=1` (por defecto en producción); si hay dos proxies, `2` |
 | "Subir actividad" deshabilitado | Faltan variables `CLOUDINARY_*` | Cargarlas y redeploy |
+| Subir responde "No participas en este reto" | El usuario no está inscrito en el reto seleccionado | Inscribirlo en Participantes; solo los inscritos pueden subir |
+| Subir responde "Formato no permitido…" | Formato fuera de la lista (actividad: JPG, PNG, WEBP, HEIC; comprobante: además PDF) | Esperado; convertir el archivo |
+| El comprobante en PDF responde 401 al abrirlo | Entrega de PDF apagada en Cloudinary | Settings → Security → "Allow delivery of PDF and ZIP files" |
+| Muchos 429 al subir fotos | Límite de firmas por minuto o `TRUST_PROXY` mal configurado | Revisar `TRUST_PROXY`; subir `UPLOAD_SIGN_LIMIT` si hace falta |
 | Editar un reto responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: su resultado es definitivo | Esperado desde 1.3: no se edita ni se reabre; la premiación sí se puede registrar |
 | Registrar un pago responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: no acepta pagos ni comprobantes | Esperado: el pago tardío se registra en el reto siguiente |
 | Login responde 429 | 5 intentos por minuto por IP (protección anti fuerza bruta) | Esperar un minuto |
@@ -283,6 +306,8 @@ sobre `ERROR`. La respuesta de toda petición trae el código en la cabecera `X-
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEETS_DEFAULT_RANGE` | No | | Importación desde Google Sheets |
 | `SWAGGER_ENABLED` | No | `false` | Sin definir: apagado en producción; `true` publica `/api/docs` |
 | `PUBLIC_URL` | No | `https://reto-api.seenode.app` | URL pública de los archivos en el modo local de subidas (sin Cloudinary) |
+| `UPLOAD_SIGN_LIMIT` | No | `30` | Firmas de subida por cliente y minuto |
+| `UPLOAD_MAX_BYTES` | No | `10485760` | Tamaño máximo que la web valida antes de subir (10 MB) |
 
 ### Web
 
