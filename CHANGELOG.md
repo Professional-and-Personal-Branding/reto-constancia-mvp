@@ -3,6 +3,30 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **Observabilidad básica** (cambio `ops-observability-baseline`, spec `platform-operations`):
+  - Toda respuesta trae la cabecera `X-Request-Id`; si llega una válida se reutiliza.
+  - Cada petición deja una línea `[HTTP]` en JSON con ruta, estado, duración y usuario, sin
+    contraseñas, tokens ni query string.
+  - Un error inesperado responde un 500 genérico en español con el código para soporte, sin el
+    detalle interno, y deja una sola línea `ERROR` con ese código. Los errores de negocio no
+    cambian.
+  - Apagado ordenado: al redesplegar se cierra la conexión a la base y queda registrado.
+  - Variable `SWAGGER_ENABLED`; `PUBLIC_URL` queda documentada.
+
+### Cambiado
+
+- **`GET /api/health/db` responde 503** cuando la base no responde (antes respondía 200 con
+  `db: 'down'`). `GET /api/health` no cambia.
+- **Swagger apagado en producción** por defecto: `/api/docs` responde 404 salvo con
+  `SWAGGER_ENABLED=true`.
+- **Start Command de la API:** `npx prisma migrate deploy && exec node dist/main.js`, para que la
+  señal de apagado llegue al proceso. El health check de Seenode sigue en `/api/health`, y
+  `/api/health/db` queda para un monitor externo.
+
 ## [1.4.2] — 2026-10-04
 
 Parche de seguridad previo al primer despliegue: cada participante ve solo sus propios datos de

@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { resolveThrottle } from './common/http';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import { RouteTemplateInterceptor } from './common/route-template.interceptor';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -27,6 +29,11 @@ import { HealthModule } from './health/health.module';
     ImportModule,
     HealthModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Errores sin detalles internos y con identificador de petición (spec platform-operations)
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: RouteTemplateInterceptor },
+  ],
 })
 export class AppModule {}

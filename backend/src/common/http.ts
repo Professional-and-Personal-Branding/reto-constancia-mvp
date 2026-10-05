@@ -11,6 +11,7 @@ export interface HttpEnv {
   TRUST_PROXY?: string;
   THROTTLE_LIMIT?: string;
   THROTTLE_TTL_MS?: string;
+  SWAGGER_ENABLED?: string;
 }
 
 /**
@@ -35,4 +36,15 @@ export function resolveThrottle(env: HttpEnv): { ttl: number; limit: number } {
     limit: Number.isInteger(limit) && limit > 0 ? limit : 100,
     ttl: Number.isInteger(ttl) && ttl > 0 ? ttl : 60_000,
   };
+}
+
+/**
+ * Swagger expone el mapa de los endpoints de administración. SWAGGER_ENABLED acepta
+ * "true"/"false"; sin configurar, apagado en producción y encendido en desarrollo y pruebas.
+ */
+export function resolveSwaggerEnabled(env: HttpEnv): boolean {
+  const raw = env.SWAGGER_ENABLED?.trim().toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return env.NODE_ENV !== 'production';
 }

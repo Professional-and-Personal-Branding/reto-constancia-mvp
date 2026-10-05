@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-05** · rama `release/1.4.2` · commit `c4d8fb4`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-05** · rama `feature/ops-observability-baseline` · commit `6907047` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**110 casos** · 110 aprobados · 0 fallidos · 0 con limitación conocida · 109 automatizados.
+**116 casos** · 116 aprobados · 0 fallidos · 0 con limitación conocida · 115 automatizados.
 
 ## Cómo leer cada caso
 
@@ -18,7 +18,7 @@
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
-| [Seguridad y configuración](#sec) | 11 | 11 | 0 |
+| [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 13 | 13 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
@@ -27,8 +27,8 @@
 | [Finanzas](#fin) | 7 | 7 | 0 |
 | [Carga de archivos](#up) | 3 | 3 | 0 |
 | [Importación masiva](#imp) | 11 | 11 | 0 |
-| [Interfaz y navegación](#ui) | 10 | 10 | 0 |
-| [Salud del servicio](#health) | 2 | 2 | 0 |
+| [Interfaz y navegación](#ui) | 11 | 11 | 0 |
+| [Salud del servicio](#health) | 5 | 5 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
 <a id="auth"></a>
@@ -497,6 +497,8 @@
 | [TC-SEC-09](#tc-sec-09) | El listado de inscritos es solo para admin | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-10](#tc-sec-10) | El detalle de una actividad ajena da 403 | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-11](#tc-sec-11) | El admin conserva emails y pagos en el ranking y en la lista de activos | Media | Seguridad | ✅ Aprobado |
+| [TC-SEC-12](#tc-sec-12) | Un error inesperado responde un 500 genérico con el código y sin detalles internos | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-13](#tc-sec-13) | Swagger apagado en producción salvo que se active | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-sec-01"></a>
 
@@ -867,6 +869,82 @@
 | ✅ | Unitaria | `privacy.spec.ts` | admin: la misma respuesta, sin copiar |
 | ✅ | UI | `11-privacy.spec.ts` | el admin conserva emails y pagos en el ranking y en la lista de activos |
 | ✅ | UI | `11-privacy.spec.ts` | el ranking muestra el email de cada participante |
+
+<a id="tc-sec-12"></a>
+
+### TC-SEC-12 · Un error inesperado responde un 500 genérico con el código y sin detalles internos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API en marcha.
+
+**Datos de prueba:** Un servicio que lanza Error("detalle interno")
+
+**Pasos**
+
+1. Provocar el error en GET /api/challenges.
+2. Revisar respuesta y logs.
+
+**Resultado esperado**
+
+- 500 con { statusCode, message, requestId }; el mensaje en español incluye el requestId de la cabecera.
+- La respuesta no contiene "detalle interno".
+- Una sola línea ERROR con el stack y el mismo requestId; los 4xx de negocio, el 413 y el 429 no cambian ni dejan líneas ERROR.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un error inesperado responde el 500 genérico sin el mensaje interno y con stack |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 409 sale intacto y sin línea ERROR |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 429 del limitador conserva su cuerpo |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | el JSON mal formado (BadRequestException) responde 400 sin línea ERROR |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 413 de http-errors se responde directo y sin línea ERROR |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | con las cabeceras ya enviadas termina la respuesta sin escribir |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | sin middleware toma el identificador de la cabecera y lo devuelve |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | sin middleware fija la cabecera también en los 4xx |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | solo acepta códigos enteros 4xx con mensaje |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | statusCode en texto va al 500 genérico |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | mensaje vacío va al 500 genérico |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | http-errors 5xx va al 500 genérico |
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un valor que no es objeto va al 500 genérico |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: un error inesperado responde el 500 genérico con el identificador y sin el detalle interno |
+| ✅ | API e2e | `ops-throttle.e2e-spec.ts` | OPS: el sexto login fallido en un minuto responde 429 con el cuerpo del limitador y X-Request-Id |
+
+<a id="tc-sec-13"></a>
+
+### TC-SEC-13 · Swagger apagado en producción salvo que se active
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API compilada.
+
+**Datos de prueba:** NODE_ENV=production con y sin SWAGGER_ENABLED=true
+
+**Pasos**
+
+1. Arrancar en producción y abrir /api/docs.
+2. Repetir con SWAGGER_ENABLED=true.
+
+**Resultado esperado**
+
+- Sin la variable, /api/docs responde 404 (con X-Request-Id).
+- Con SWAGGER_ENABLED=true, Swagger se sirve; en desarrollo y pruebas está encendido por defecto.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `http.spec.ts` | sin configurar: apagado en producción, encendido en desarrollo y pruebas |
+| ✅ | Unitaria | `http.spec.ts` | SWAGGER_ENABLED manda en cualquier entorno |
 
 <a id="chal"></a>
 
@@ -3396,6 +3474,7 @@
 | [TC-UI-04](#tc-ui-04) | Fechas sin desfase de zona horaria | Alta | Regresión | ✅ Aprobado |
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
 | [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
+| [TC-UI-11](#tc-ui-11) | Un error inesperado al validar muestra el código para soporte | Media | UI | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -3535,7 +3614,7 @@
 
 **Precondiciones**
 
-- API en marcha.
+- API en marcha en un entorno no productivo o con SWAGGER_ENABLED=true.
 
 **Datos de prueba:** /api/docs
 
@@ -3588,6 +3667,36 @@
 | ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del administrador no desborda la página |
 | ✅ | UI | `09-header-layout.spec.ts` | en escritorio el participante ve el nombre del reto completo y nada se desborda |
 | ✅ | UI | `09-header-layout.spec.ts` | en móvil el encabezado del participante no desborda la página |
+
+<a id="tc-ui-11"></a>
+
+### TC-UI-11 · Un error inesperado al validar muestra el código para soporte
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Media | UI | 5.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador con una actividad pendiente.
+- La API responde 500 al validar (simulado).
+
+**Datos de prueba:** Respuesta 500 con requestId "pw-req-1"
+
+**Pasos**
+
+1. Validar la actividad.
+
+**Resultado esperado**
+
+- El aviso de error muestra el mensaje con el código "pw-req-1" para compartir con el administrador.
+- La actividad sigue pendiente.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `03-admin-validation.spec.ts` | un error inesperado al validar muestra el código para soporte |
 
 <a id="tc-ui-06"></a>
 
@@ -3731,6 +3840,9 @@
 |---|---|---|---|---|
 | [TC-HEALTH-01](#tc-health-01) | Servicio vivo | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-02](#tc-health-02) | Base de datos accesible | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-03](#tc-health-03) | La readiness responde 503 con la base caída | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-04](#tc-health-04) | Toda respuesta lleva un X-Request-Id y una línea de acceso segura | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-05](#tc-health-05) | Apagado ordenado | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-health-01"></a>
 
@@ -3787,6 +3899,114 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `app.e2e-spec.ts` | GET /api/health/db verifica la conexión |
+
+<a id="tc-health-03"></a>
+
+### TC-HEALTH-03 · La readiness responde 503 con la base caída
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API en marcha.
+
+**Datos de prueba:** GET /api/health/db y GET /api/health con la base detenida y de nuevo en marcha
+
+**Pasos**
+
+1. Detener Postgres y consultar ambos endpoints.
+2. Levantar Postgres y consultar /api/health/db.
+
+**Resultado esperado**
+
+- /api/health/db responde 503 { status: "error", db: "down" } y deja una línea ERROR [HTTP] con su requestId.
+- /api/health sigue en 200.
+- Con la base de nuevo arriba, /api/health/db vuelve a 200.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `all-exceptions.filter.spec.ts` | un 503 deja una sola línea ERROR sin stack y conserva el cuerpo |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: con la base caída /api/health/db responde 503 y /api/health sigue en 200 |
+
+<a id="tc-health-04"></a>
+
+### TC-HEALTH-04 · Toda respuesta lleva un X-Request-Id y una línea de acceso segura
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API en marcha.
+
+**Datos de prueba:** X-Request-Id válido e inválido; /api/no-existe, /fuera-del-prefijo, JSON mal formado; login con ?token=secreto
+
+**Pasos**
+
+1. Consultar con y sin X-Request-Id.
+2. Consultar rutas inexistentes y enviar JSON mal formado.
+3. Revisar las líneas [HTTP] de los logs.
+
+**Resultado esperado**
+
+- Un identificador válido se reutiliza; si falta o no es válido se genera un UUID.
+- Las rutas inexistentes y el JSON mal formado (400) también traen X-Request-Id.
+- Cada petición deja una sola línea [HTTP] con la plantilla de la ruta, sin contraseñas, tokens ni query; una petición abortada queda con 499.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `request-log.spec.ts` | reutiliza un identificador válido |
+| ✅ | Unitaria | `request-log.spec.ts` | genera un UUID v4 si falta o no es válido |
+| ✅ | Unitaria | `request-log.spec.ts` | usa la plantilla de la ruta si hubo handler |
+| ✅ | Unitaria | `request-log.spec.ts` | sin handler usa el path sin query |
+| ✅ | Unitaria | `request-log.spec.ts` | log por debajo de 400 y para 401 y 404; warn para el resto |
+| ✅ | Unitaria | `request-log.spec.ts` | arma la línea con lista blanca: nunca cuerpo, query ni cabeceras |
+| ✅ | Unitaria | `request-log.spec.ts` | incluye el usuario del JWT |
+| ✅ | Unitaria | `request-log.spec.ts` | una petición abortada queda con 499 y aborted |
+| ✅ | Unitaria | `request-context.spec.ts` | fija el identificador en la petición y en la cabecera, y sigue |
+| ✅ | Unitaria | `request-context.spec.ts` | una respuesta terminada deja exactamente una línea |
+| ✅ | Unitaria | `request-context.spec.ts` | una respuesta abortada deja una sola línea con 499 |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: X-Request-Id se reutiliza si es válido y si no se genera |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: la línea de acceso usa la plantilla de la ruta; las rutas inexistentes también llevan X-Request-Id |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: la línea de acceso no contiene contraseñas, tokens ni la query |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: el JSON mal formado responde 400 con X-Request-Id y sin línea ERROR |
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: una petición abortada por el cliente deja una sola línea con 499 |
+
+<a id="tc-health-05"></a>
+
+### TC-HEALTH-05 · Apagado ordenado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Media | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- API compilada en marcha.
+
+**Datos de prueba:** SIGTERM (Linux, Seenode) o cierre de la app
+
+**Pasos**
+
+1. Enviar SIGTERM al proceso, o redesplegar en Seenode.
+
+**Resultado esperado**
+
+- Los logs muestran "Conexión a la base cerrada" antes de que el proceso termine.
+- En Linux el proceso termina por la señal (código 143); es el cierre normal.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: al cerrar la app se cierra la conexión a la base y queda registrado |
 
 <a id="par"></a>
 
