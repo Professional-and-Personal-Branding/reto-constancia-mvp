@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   ActivityStatus,
+  ChallengeStatus,
   PhotoType,
   Prisma,
   UserRole,
@@ -14,6 +15,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengesService } from '../challenges/challenges.service';
+import { lockChallenge, withChallengeLock } from '../challenges/challenge-lock';
 import { UploadService } from '../upload/upload.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
@@ -24,6 +26,14 @@ import {
   HeartRateInput,
   HeartRateRule,
 } from './heart-rate-rule';
+
+export const CLOSED_ACTIVITIES_MESSAGE = 'El reto está cerrado; sus actividades son definitivas';
+
+const ACTIVITY_DETAIL_INCLUDE = {
+  user: { select: { id: true, name: true, email: true } },
+  photos: true,
+  challenge: true,
+} satisfies Prisma.DailyActivityInclude;
 
 @Injectable()
 export class ActivitiesService {
@@ -104,29 +114,37 @@ export class ActivitiesService {
     }
 
     try {
-      const created = await this.prisma.dailyActivity.create({
-        data: {
-          challengeId: dto.challengeId,
-          userId,
-          date: activityDate,
-          exerciseType: dto.exerciseType,
-          durationMinutes: dto.durationMinutes,
-          distanceKm: dto.distanceKm,
-          avgHeartRate: dto.avgHeartRate,
-          heartRateMinutes: dto.heartRateMinutes ?? null,
-          hasHeartRateProof,
-          notes: dto.notes,
-          photos: {
-            create: dto.photos.map((p) => ({
-              url: p.url,
-              cloudinaryId: p.cloudinaryId,
-              type: p.type,
-            })),
+      // Bajo el lock del reto (spec challenge-lifecycle): nunca se crea una actividad después
+      // de que el reto se cerró, aunque el chequeo de arriba haya leído ACTIVE.
+      return await withChallengeLock(this.prisma, async (tx) => {
+        const locked = await lockChallenge(tx, dto.challengeId);
+        if (locked.status !== ChallengeStatus.ACTIVE) {
+          throw new BadRequestException('El reto no está activo');
+        }
+        const created = await tx.dailyActivity.create({
+          data: {
+            challengeId: dto.challengeId,
+            userId,
+            date: activityDate,
+            exerciseType: dto.exerciseType,
+            durationMinutes: dto.durationMinutes,
+            distanceKm: dto.distanceKm,
+            avgHeartRate: dto.avgHeartRate,
+            heartRateMinutes: dto.heartRateMinutes ?? null,
+            hasHeartRateProof,
+            notes: dto.notes,
+            photos: {
+              create: dto.photos.map((p) => ({
+                url: p.url,
+                cloudinaryId: p.cloudinaryId,
+                type: p.type,
+              })),
+            },
           },
-        },
-        include: { photos: true },
+          include: { photos: true },
+        });
+        return this.withCompliance(created, challenge);
       });
-      return this.withCompliance(created, challenge);
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -186,66 +204,90 @@ export class ActivitiesService {
     return activity;
   }
 
-  async validate(id: string, validatorId: string, dto: ValidateActivityDto = {}) {
-    const activity = await this.findOne(id);
-    if (activity.status === ActivityStatus.VALIDATED) return activity;
-
-    const assessment = assessHeartRate(activity.challenge, activity);
-    const hasOverride = dto.override === true && !!dto.note;
-    if (!assessment.compliant && !hasOverride) {
-      throw new BadRequestException(
-        `La actividad no cumple la regla de FC del reto: ${assessment.reasons.join('. ')}. ` +
-          'Para validarla de todas formas envía override=true con una nota.',
-      );
+  /**
+   * Bloquea el reto de la actividad, rechaza si está cerrado (antes que cualquier chequeo de rol
+   * o propiedad) y relee la actividad bajo el lock para decidir con datos frescos.
+   */
+  private async lockOpenActivity(tx: Prisma.TransactionClient, id: string, challengeId: string) {
+    const locked = await lockChallenge(tx, challengeId);
+    if (locked.status === ChallengeStatus.COMPLETED) {
+      throw new BadRequestException(CLOSED_ACTIVITIES_MESSAGE);
     }
+    const fresh = await tx.dailyActivity.findUnique({ where: { id }, include: ACTIVITY_DETAIL_INCLUDE });
+    if (!fresh) throw new NotFoundException('Actividad no encontrada');
+    return fresh;
+  }
 
-    const updated = await this.prisma.dailyActivity.update({
-      where: { id },
-      data: {
-        status: ActivityStatus.VALIDATED,
-        validatedById: validatorId,
-        validatedAt: new Date(),
-        rejectionReason: null,
-        validationNote: dto.note ?? null,
-      },
-      include: {
-        photos: true,
-        user: { select: { id: true, name: true, email: true } },
-        challenge: { select: { minHeartRateMinutes: true } },
-      },
+  async validate(id: string, validatorId: string, dto: ValidateActivityDto = {}) {
+    const { challengeId } = await this.findOne(id);
+    return withChallengeLock(this.prisma, async (tx) => {
+      const activity = await this.lockOpenActivity(tx, id, challengeId);
+      if (activity.status === ActivityStatus.VALIDATED) return this.withCompliance(activity);
+
+      const assessment = assessHeartRate(activity.challenge, activity);
+      const hasOverride = dto.override === true && !!dto.note;
+      if (!assessment.compliant && !hasOverride) {
+        throw new BadRequestException(
+          `La actividad no cumple la regla de FC del reto: ${assessment.reasons.join('. ')}. ` +
+            'Para validarla de todas formas envía override=true con una nota.',
+        );
+      }
+
+      const updated = await tx.dailyActivity.update({
+        where: { id },
+        data: {
+          status: ActivityStatus.VALIDATED,
+          validatedById: validatorId,
+          validatedAt: new Date(),
+          rejectionReason: null,
+          validationNote: dto.note ?? null,
+        },
+        include: {
+          photos: true,
+          user: { select: { id: true, name: true, email: true } },
+          challenge: { select: { minHeartRateMinutes: true } },
+        },
+      });
+      return this.withCompliance(updated);
     });
-    return this.withCompliance(updated);
   }
 
   async reject(id: string, validatorId: string, reason: string) {
-    await this.findOne(id);
-    const updated = await this.prisma.dailyActivity.update({
-      where: { id },
-      data: {
-        status: ActivityStatus.REJECTED,
-        validatedById: validatorId,
-        validatedAt: new Date(),
-        rejectionReason: reason,
-      },
-      include: {
-        photos: true,
-        user: { select: { id: true, name: true, email: true } },
-        challenge: { select: { minHeartRateMinutes: true } },
-      },
+    const { challengeId } = await this.findOne(id);
+    return withChallengeLock(this.prisma, async (tx) => {
+      await this.lockOpenActivity(tx, id, challengeId);
+      const updated = await tx.dailyActivity.update({
+        where: { id },
+        data: {
+          status: ActivityStatus.REJECTED,
+          validatedById: validatorId,
+          validatedAt: new Date(),
+          rejectionReason: reason,
+        },
+        include: {
+          photos: true,
+          user: { select: { id: true, name: true, email: true } },
+          challenge: { select: { minHeartRateMinutes: true } },
+        },
+      });
+      return this.withCompliance(updated);
     });
-    return this.withCompliance(updated);
   }
 
   async remove(id: string, userId: string, role: UserRole) {
-    const activity = await this.findOne(id);
-    if (role !== UserRole.ADMIN && activity.userId !== userId) {
-      throw new ForbiddenException('No puedes eliminar esta actividad');
-    }
-    if (role !== UserRole.ADMIN && activity.status !== ActivityStatus.PENDING) {
-      throw new ForbiddenException(
-        'Solo se pueden eliminar actividades pendientes',
-      );
-    }
-    await this.prisma.dailyActivity.delete({ where: { id } });
+    const { challengeId } = await this.findOne(id);
+    await withChallengeLock(this.prisma, async (tx) => {
+      // El reto cerrado va primero: nadie borra actividades de un reto definitivo
+      const activity = await this.lockOpenActivity(tx, id, challengeId);
+      if (role !== UserRole.ADMIN && activity.userId !== userId) {
+        throw new ForbiddenException('No puedes eliminar esta actividad');
+      }
+      if (role !== UserRole.ADMIN && activity.status !== ActivityStatus.PENDING) {
+        throw new ForbiddenException(
+          'Solo se pueden eliminar actividades pendientes',
+        );
+      }
+      await tx.dailyActivity.delete({ where: { id } });
+    });
   }
 }

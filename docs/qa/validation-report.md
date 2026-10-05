@@ -1,32 +1,32 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-05 06:22 (UTC)
-- **Código:** rama `release/1.5.0`, commit `533244f`
+- **Fecha:** 2026-10-05 07:30 (UTC)
+- **Código:** rama `feature/closed-challenge-freeze`, commit `e2978fc` (con cambios sin commit)
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs`
 
 ## Resultado
 
-**119 de 119 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
+**122 de 122 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
 
-Se ejecutaron **493 pruebas** automatizadas: 493 pasaron y 0 fallaron.
+Se ejecutaron **516 pruebas** automatizadas: 516 pasaron y 0 fallaron.
 
 ## Suites ejecutadas
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 223 | 223 | 0 | 10.4 s | 2026-10-05 06:21 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 16 | 16 | 0 | 729 ms | 2026-10-05 06:21 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 109 | 109 | 0 | 11.0 s | 2026-10-05 06:21 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 57 | 57 | 0 | 45.6 s | 2026-10-05 06:22 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 19 | 19 | 0 | 24.3 s | 2026-10-05 06:22 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 69 | 69 | 0 | 1.1 s | 2026-10-05 06:22 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 242 | 242 | 0 | 10.8 s | 2026-10-05 07:28 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 16 | 16 | 0 | 680 ms | 2026-10-05 07:28 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 112 | 112 | 0 | 15.2 s | 2026-10-05 07:28 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 57 | 57 | 0 | 41.5 s | 2026-10-05 07:29 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 19 | 19 | 0 | 23.3 s | 2026-10-05 07:30 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.1 s | 2026-10-05 07:30 |
 
 ## Casos por prioridad
 
 | Prioridad | Casos | Aprobados | Fallidos |
 |---|---:|---:|---:|
-| Alta | 77 | 77 | 0 |
+| Alta | 80 | 80 | 0 |
 | Media | 41 | 41 | 0 |
 | Baja | 1 | 1 | 0 |
 
@@ -34,8 +34,8 @@ Se ejecutaron **493 pruebas** automatizadas: 493 pasaron y 0 fallaron.
 
 | Tipo | Casos |
 |---|---:|
-| Funcional | 50 |
-| Seguridad | 33 |
+| Funcional | 51 |
+| Seguridad | 35 |
 | Negativo | 15 |
 | Regresión | 7 |
 | UI | 10 |

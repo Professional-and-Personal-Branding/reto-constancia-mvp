@@ -13,6 +13,7 @@ import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
 import { UploadService } from '../upload/upload.service';
+import { LockMode, lockChallenge, withChallengeLock } from './challenge-lock';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
 export const participantsInclude = {
@@ -25,6 +26,15 @@ export const participantsInclude = {
 export type ChallengeWithParticipants = Prisma.ChallengeGetPayload<{
   include: typeof participantsInclude;
 }>;
+
+const CLOSED_MESSAGE = 'No se puede modificar un reto cerrado';
+
+/** Pedir de nuevo el cierre (solo `status: COMPLETED`, el resto sin definir) no cambia nada. */
+function onlyClosing(dto: UpdateChallengeDto): boolean {
+  return Object.entries(dto).every(
+    ([key, value]) => value === undefined || (key === 'status' && value === ChallengeStatus.COMPLETED),
+  );
+}
 
 @Injectable()
 export class ChallengesService {
@@ -117,9 +127,12 @@ export class ChallengesService {
     if (challenge.status === ChallengeStatus.COMPLETED) {
       throw new BadRequestException('Un reto cerrado no puede reactivarse');
     }
-    return this.prisma.challenge.update({
-      where: { id },
-      data: { status: ChallengeStatus.ACTIVE },
+    return withChallengeLock(this.prisma, async (tx) => {
+      const locked = await lockChallenge(tx, id, 'update');
+      if (locked.status === ChallengeStatus.COMPLETED) {
+        throw new BadRequestException('Un reto cerrado no puede reactivarse');
+      }
+      return tx.challenge.update({ where: { id }, data: { status: ChallengeStatus.ACTIVE } });
     });
   }
 
@@ -142,11 +155,8 @@ export class ChallengesService {
     // reescribiría su ranking final y sus ganadores. La premiación sigue permitida (awards).
     if (current.status === ChallengeStatus.COMPLETED) {
       // Volver a pedir el cierre (POST :id/close) es idempotente: no cambia nada
-      const onlyClosing = Object.entries(dto).every(
-        ([key, value]) => value === undefined || (key === 'status' && value === ChallengeStatus.COMPLETED),
-      );
-      if (onlyClosing) return current;
-      throw new BadRequestException('No se puede modificar un reto cerrado');
+      if (onlyClosing(dto)) return current;
+      throw new BadRequestException(CLOSED_MESSAGE);
     }
     // El período resultante combina lo nuevo con lo guardado, con la misma regla que al crear
     if (dto.startDate !== undefined || dto.endDate !== undefined) {
@@ -180,7 +190,33 @@ export class ChallengesService {
     }
 
     if (Object.keys(data).length === 0) return current;
-    return this.prisma.challenge.update({ where: { id }, data });
+    // Bajo lock exclusivo: un cambio de reglas que leyó ACTIVE no puede caer después del cierre
+    // (spec challenge-lifecycle). Si otro cierre ganó la carrera, pedir el cierre sigue siendo
+    // idempotente y cualquier otro cambio se rechaza.
+    return withChallengeLock(this.prisma, async (tx) => {
+      const locked = await lockChallenge(tx, id, 'update');
+      if (locked.status === ChallengeStatus.COMPLETED) {
+        if (onlyClosing(dto)) return tx.challenge.findUniqueOrThrow({ where: { id } });
+        throw new BadRequestException(CLOSED_MESSAGE);
+      }
+      return tx.challenge.update({ where: { id }, data });
+    });
+  }
+
+  /**
+   * Corre una escritura que depende del estado del reto bajo su lock y la rechaza si el reto
+   * ya está cerrado (spec challenge-lifecycle: writes serialized with closing).
+   */
+  private writeWhileOpen<T>(
+    challengeId: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    mode: LockMode = 'share',
+  ): Promise<T> {
+    return withChallengeLock(this.prisma, async (tx) => {
+      const locked = await lockChallenge(tx, challengeId, mode);
+      if (locked.status === ChallengeStatus.COMPLETED) throw new BadRequestException(CLOSED_MESSAGE);
+      return fn(tx);
+    });
   }
 
   // ----- Participants -----
@@ -197,10 +233,12 @@ export class ChallengesService {
     }
 
     try {
-      return await this.prisma.challengeParticipant.create({
-        data: { challengeId, userId },
-        include: { user: { select: { id: true, name: true, email: true } } },
-      });
+      return await this.writeWhileOpen(challengeId, (tx) =>
+        tx.challengeParticipant.create({
+          data: { challengeId, userId },
+          include: { user: { select: { id: true, name: true, email: true } } },
+        }),
+      );
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -220,9 +258,11 @@ export class ChallengesService {
     if (challenge.status === ChallengeStatus.COMPLETED) {
       throw new BadRequestException('No se puede modificar un reto cerrado');
     }
-    await this.prisma.challengeParticipant.delete({
-      where: { challengeId_userId: { challengeId, userId } },
-    });
+    await this.writeWhileOpen(challengeId, (tx) =>
+      tx.challengeParticipant.delete({
+        where: { challengeId_userId: { challengeId, userId } },
+      }),
+    );
   }
 
   async markPayment(
@@ -236,7 +276,7 @@ export class ChallengesService {
     if (dto.paid) {
       amountPaid = dto.amountPaid !== undefined ? dto.amountPaid : Number(challenge.feePerParticipant);
     }
-    return this.prisma.challengeParticipant.update({
+    return this.writeWhileOpen(challengeId, (tx) => tx.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId } },
       data: {
         paid: dto.paid,
@@ -245,7 +285,7 @@ export class ChallengesService {
         amountPaid,
       },
       include: { user: { select: { id: true, name: true, email: true } } },
-    });
+    }));
   }
 
   async uploadPaymentProof(
@@ -258,15 +298,17 @@ export class ChallengesService {
       { url: dto.paymentProofUrl, publicId: dto.paymentProofCloudinaryId },
       { challengeId, userId, purpose: 'payment-proof' },
     );
-    return this.prisma.challengeParticipant.update({
-      where: { challengeId_userId: { challengeId, userId } },
-      data: {
-        paymentProofUrl: dto.paymentProofUrl,
-        paymentProofCloudinaryId: dto.paymentProofCloudinaryId,
-        paymentProofUploadedAt: new Date(),
-      },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    });
+    return this.writeWhileOpen(challengeId, (tx) =>
+      tx.challengeParticipant.update({
+        where: { challengeId_userId: { challengeId, userId } },
+        data: {
+          paymentProofUrl: dto.paymentProofUrl,
+          paymentProofCloudinaryId: dto.paymentProofCloudinaryId,
+          paymentProofUploadedAt: new Date(),
+        },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      }),
+    );
   }
 
   /**

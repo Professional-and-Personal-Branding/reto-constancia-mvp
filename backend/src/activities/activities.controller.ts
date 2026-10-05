@@ -33,6 +33,8 @@ export class ActivitiesController {
 
   @Post()
   @ApiOperation({ summary: 'Registrar actividad del día (participante)' })
+  @ApiResponse({ status: 400, description: 'El reto no está activo, o datos inválidos' })
+  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateActivityDto) {
     return this.activities.create(user.sub, dto);
   }
@@ -74,6 +76,8 @@ export class ActivitiesController {
     summary:
       'Validar actividad (admin). Si no cumple la regla de FC del reto requiere { override: true, note }',
   })
+  @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
+  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
   validate(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
@@ -85,6 +89,8 @@ export class ActivitiesController {
   @Post(':id/reject')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Rechazar actividad (admin)' })
+  @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
+  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
   reject(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
@@ -95,7 +101,9 @@ export class ActivitiesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar actividad (propia si pendiente, o admin)' })
+  @ApiOperation({ summary: 'Eliminar actividad (propia si pendiente, o admin; nunca en un reto cerrado)' })
+  @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
+  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,

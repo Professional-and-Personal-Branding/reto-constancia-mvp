@@ -112,7 +112,7 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 56 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores y los formatos de subida) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 119 casos de `docs/qa/` están enlazados a 493 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 122 casos de `docs/qa/` están enlazados a 516 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -125,6 +125,30 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-05 · rama `feature/closed-challenge-freeze`, PR 1 (bloqueo y congelamiento)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 122 de 122 casos aprobados (121 automatizados) con 516 pruebas y 0 fallidas:
+- unitarias del backend: 242;
+- unitarias de la web: 16;
+- e2e de API: 112;
+- recorridos de UI: 56, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-CHAL-14 (actividades definitivas), TC-CHAL-15 (escrituras serializadas con el
+cierre y 409 por bloqueo) y TC-IMP-12 (importación en un reto cerrado).
+
+**Impacto funcional:** antes de agregar pruebas nuevas, todas las existentes pasaron sin cambios:
+109 de API e2e, los recorridos de UI, las capturas y las sesiones. A los mocks unitarios solo se
+les agregó soporte de transacción.
+
+**Prueba determinista del 409:** otra transacción retiene `FOR UPDATE` sobre el reto y una
+validación espera más de 5 s. Recibe 409 y la actividad no cambia.
 
 ### 2026-10-05 · v1.5.0 (rama `release/1.5.0`)
 

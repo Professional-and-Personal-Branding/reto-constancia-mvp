@@ -3,6 +3,28 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Cambiado
+
+- **El reto cerrado queda congelado** (cambio `closed-challenge-freeze`, primera parte):
+  - Sus actividades ya no se validan, rechazan ni borran: responden 400 "El reto está cerrado; sus
+    actividades son definitivas", también para el admin.
+  - La importación (archivo y Google Sheets) marca en la vista previa las filas de un reto cerrado
+    y no escribe nada de ellas, ni siquiera cuentas nuevas.
+  - Las escrituras que dependen del estado del reto bloquean su fila y releen el estado, así que
+    ninguna se confirma después del cierre: actividades, participantes, pagos, reglas, activación y
+    cada fila importada.
+  - Si una escritura espera más de 5 s al cierre, responde 409 "El reto se está cerrando; vuelve a
+    intentarlo en unos segundos", nunca 500.
+- **Cambios de comportamiento para quien use la API:**
+  - Validar de nuevo una actividad ya validada de un reto cerrado responde 400; antes no hacía
+    nada.
+  - Borrar una actividad de un reto cerrado responde 400 para todos, también para el admin; antes
+    el admin podía, y el dueño o un extraño recibían 403.
+- **La importación hace una transacción por fila**, para que un cierre pueda intercalarse entre
+  filas. Los contadores cuentan solo las filas confirmadas.
+
 ## [1.5.0] — 2026-10-05
 
 La versión con la que se estrena producción: observabilidad básica para operar la API y

@@ -4,6 +4,7 @@ import { ChallengeStatus } from '@prisma/client';
 import { ChallengesService } from './challenges.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { localUploads, ownedAsset } from '../../test/helpers/assets';
+import { withLocks } from '../../test/helpers/prisma-lock';
 
 type ChallengeRow = {
   id: string;
@@ -45,9 +46,9 @@ function buildPrisma(rows: ChallengeRow[]) {
         .sort((a, b) => b.startDate.getTime() - a.startDate.getTime()),
     ),
   );
-  const prisma = {
+  const prisma = withLocks({
     challenge: { findUnique, update, findMany },
-  } as unknown as PrismaService;
+  } as unknown as PrismaService);
   return { prisma, findUnique, update, findMany };
 }
 
@@ -182,10 +183,10 @@ describe('ChallengesService.markPayment', () => {
     const update = jest.fn(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ id: 'p1', ...data }),
     );
-    const prisma = {
+    const prisma = withLocks({
       challenge: { findUnique: jest.fn().mockResolvedValue({ feePerParticipant: '120.00' }) },
       challengeParticipant: { update },
-    } as unknown as PrismaService;
+    } as unknown as PrismaService);
     return { prisma, update };
   }
 
@@ -259,13 +260,13 @@ describe('ChallengesService: pagos y presupuesto', () => {
   function paymentsPrisma(status: ChallengeStatus) {
     const participantUpdate = jest.fn((args: unknown) => Promise.resolve(args));
     const create = jest.fn(({ data }: { data: unknown }) => Promise.resolve(data));
-    const prisma = {
+    const prisma = withLocks({
       challenge: {
         findUnique: jest.fn(() => Promise.resolve({ id: 'c', status, feePerParticipant: '120.00' })),
         create,
       },
       challengeParticipant: { update: participantUpdate },
-    } as unknown as PrismaService;
+    } as unknown as PrismaService);
     return { prisma, participantUpdate, create };
   }
 
@@ -307,13 +308,13 @@ describe('ChallengesService: pagos y presupuesto', () => {
 describe('ChallengesService: participación y comprobante propio (upload-guardrails)', () => {
   function build(status: ChallengeStatus, enrolled: boolean) {
     const participantUpdate = jest.fn((args: unknown) => Promise.resolve(args));
-    const prisma = {
+    const prisma = withLocks({
       challenge: { findUnique: jest.fn(() => Promise.resolve({ id: 'c', status, feePerParticipant: '120.00' })) },
       challengeParticipant: {
         findUnique: jest.fn(() => Promise.resolve(enrolled ? { id: 'p' } : null)),
         update: participantUpdate,
       },
-    } as unknown as PrismaService;
+    } as unknown as PrismaService);
     return { svc: new ChallengesService(prisma, localUploads()), participantUpdate };
   }
   const ownProof = () => {
@@ -365,5 +366,72 @@ describe('ChallengesService: participación y comprobante propio (upload-guardra
     const data = (participantUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(data).not.toHaveProperty('paymentProofUrl');
     expect(data).not.toHaveProperty('paymentProofCloudinaryId');
+  });
+});
+
+describe('ChallengesService: escrituras serializadas con el cierre (closed-challenge-freeze)', () => {
+  /** El chequeo previo lee ACTIVE; el lock ve el reto ya cerrado (otro cierre ganó la carrera). */
+  function racing() {
+    const writes = {
+      participantCreate: jest.fn(),
+      participantDelete: jest.fn(),
+      participantUpdate: jest.fn(),
+      challengeUpdate: jest.fn(),
+    };
+    const active = { id: 'c', status: ChallengeStatus.ACTIVE, feePerParticipant: '120.00', startDate: new Date('2026-05-01'), endDate: new Date('2026-05-31'), participants: [] };
+    const prisma = withLocks(
+      {
+        challenge: {
+          findUnique: jest.fn().mockResolvedValue(active),
+          update: writes.challengeUpdate,
+          findUniqueOrThrow: jest.fn().mockResolvedValue({ ...active, status: ChallengeStatus.COMPLETED }),
+        },
+        user: { findUnique: jest.fn().mockResolvedValue({ id: 'u' }) },
+        challengeParticipant: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'p' }),
+          create: writes.participantCreate,
+          delete: writes.participantDelete,
+          update: writes.participantUpdate,
+        },
+      } as unknown as PrismaService,
+      async (id) => ({ id, status: ChallengeStatus.COMPLETED }),
+    );
+    return { svc: new ChallengesService(prisma, localUploads()), writes };
+  }
+  const closedMsg = 'No se puede modificar un reto cerrado';
+
+  it('inscribir, quitar y registrar pagos se rechazan si el reto se cerró bajo el lock', async () => {
+    const { svc, writes } = racing();
+    await expect(svc.addParticipant('c', 'u')).rejects.toThrow(closedMsg);
+    await expect(svc.removeParticipant('c', 'u')).rejects.toThrow(closedMsg);
+    await expect(svc.markPayment('c', 'u', { paid: true })).rejects.toThrow(closedMsg);
+    const proof = ownedAsset({ challengeId: 'c', userId: 'u', purpose: 'payment-proof', name: 'p' });
+    await expect(
+      svc.uploadPaymentProof('c', 'u', { paymentProofUrl: proof.url, paymentProofCloudinaryId: proof.cloudinaryId }),
+    ).rejects.toThrow(closedMsg);
+    expect(writes.participantCreate).not.toHaveBeenCalled();
+    expect(writes.participantDelete).not.toHaveBeenCalled();
+    expect(writes.participantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('un cambio de reglas que leyó ACTIVE no cae después del cierre', async () => {
+    const { svc, writes } = racing();
+    await expect(svc.update('c', { pointsPerKm: 5 })).rejects.toThrow(closedMsg);
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
+  });
+
+  it('pedir el cierre cuando otro cierre ganó la carrera sigue siendo idempotente', async () => {
+    const { svc, writes } = racing();
+    const result = await svc.update('c', { status: ChallengeStatus.COMPLETED, name: undefined });
+    expect(result.status).toBe(ChallengeStatus.COMPLETED);
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
+  });
+
+  it('activar un reto que se cerró bajo el lock responde 400', async () => {
+    const { svc, writes } = racing();
+    const draft = { id: 'c', status: ChallengeStatus.DRAFT };
+    (svc as unknown as { prisma: { challenge: { findUnique: jest.Mock } } }).prisma.challenge.findUnique.mockResolvedValueOnce(draft);
+    await expect(svc.activate('c')).rejects.toThrow('Un reto cerrado no puede reactivarse');
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
   });
 });
