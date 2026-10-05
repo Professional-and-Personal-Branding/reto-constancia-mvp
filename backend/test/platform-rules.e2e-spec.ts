@@ -288,6 +288,49 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(row).toMatchObject({ paid: false, paymentProofCloudinaryId: null });
   });
 
+  // ---------------- Bloqueo del reto (closed-challenge-freeze) ----------------
+
+  it('FREEZE: si el reto está bloqueado por un cierre más de 5 s, validar responde 409 y no cambia nada', async () => {
+    const created = await request(http).post('/api/challenges').set(auth(token.admin)).send({
+      name: 'E2E Bloqueo', month: 6, year: YEAR,
+      startDate: `${YEAR}-06-01T00:00:00.000Z`, endDate: `${YEAR}-06-28T23:59:59.000Z`,
+      validDays: [0, 1, 2, 3, 4, 5, 6], minHeartRateMinutes: 0,
+    });
+    const lockedId = created.body.id as string;
+    await request(http).post(`/api/challenges/${lockedId}/activate`).set(auth(token.admin));
+    await request(http).post(`/api/challenges/${lockedId}/participants`).set(auth(token.admin)).send({ userId: id.ana });
+    const photo = { ...ownedAsset({ challengeId: lockedId, userId: id.ana, name: 'bloqueo' }), type: 'ACTIVITY' };
+    const act = await request(http).post('/api/activities').set(auth(token.ana)).send({
+      challengeId: lockedId, date: `${YEAR}-06-03`, exerciseType: 'RUNNING', durationMinutes: 30, photos: [photo],
+    });
+    expect(act.status).toBe(201);
+
+    // Otra transacción retiene el lock exclusivo, como lo haría un cierre lento
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let locked!: () => void;
+    const isLocked = new Promise<void>((resolve) => (locked = resolve));
+    const holder = prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Challenge" WHERE id = ${lockedId} FOR UPDATE`;
+        locked();
+        await held;
+      },
+      { maxWait: 5_000, timeout: 30_000 },
+    );
+    await isLocked;
+    try {
+      const res = await request(http).post(`/api/activities/${act.body.id}/validate`).set(auth(token.admin));
+      expect(res.status).toBe(409);
+      expect(res.body.message).toBe('El reto se está cerrando; vuelve a intentarlo en unos segundos');
+    } finally {
+      release();
+      await holder;
+    }
+    const after = await prisma.dailyActivity.findUnique({ where: { id: act.body.id } });
+    expect(after?.status).toBe(ActivityStatus.PENDING);
+  }, 30_000);
+
   // ---------------- Retos ----------------
 
   it('CHAL: no permite dos retos para el mismo mes y año (409)', async () => {
@@ -568,6 +611,50 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(sign.body.message).toBe('No se puede modificar un reto cerrado');
     const after = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
     expect(after.body.payout.pot).toBe(before.body.payout.pot);
+  });
+
+  it('FREEZE: en un reto cerrado nadie valida, rechaza ni borra actividades (400)', async () => {
+    const acts = await prisma.dailyActivity.findMany({ where: { challengeId }, orderBy: { date: 'asc' } });
+    const pending = acts.find((a) => a.status === ActivityStatus.PENDING);
+    const validated = acts.find((a) => a.status === ActivityStatus.VALIDATED);
+    expect(pending && validated).toBeTruthy();
+    const before = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    const msg = 'El reto está cerrado; sus actividades son definitivas';
+
+    for (const res of [
+      await request(http).post(`/api/activities/${pending!.id}/validate`).set(auth(token.admin)),
+      await request(http).post(`/api/activities/${validated!.id}/validate`).set(auth(token.admin)),
+      await request(http).post(`/api/activities/${validated!.id}/reject`).set(auth(token.admin)).send({ reason: 'tarde' }),
+      await request(http).delete(`/api/activities/${pending!.id}`).set(auth(token.admin)),
+    ]) {
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe(msg);
+    }
+    // El dueño y un extraño también reciben 400 (el reto cerrado va antes que la propiedad)
+    const owner = Object.entries(id).find(([, uid]) => uid === pending!.userId)![0] as keyof typeof token;
+    expect((await request(http).delete(`/api/activities/${pending!.id}`).set(auth(token[owner]))).status).toBe(400);
+    expect((await request(http).delete(`/api/activities/${pending!.id}`).set(auth(token.outsider))).status).toBe(400);
+
+    const after = await prisma.dailyActivity.findMany({ where: { challengeId }, orderBy: { date: 'asc' } });
+    expect(after.map((a) => [a.id, a.status])).toEqual(acts.map((a) => [a.id, a.status]));
+    const results = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
+    expect(results.body.ranking).toEqual(before.body.ranking);
+  });
+
+  it('FREEZE: la importación no escribe en un reto cerrado ni crea cuentas', async () => {
+    const csv = [
+      'email,name,challengeMonth,challengeYear,date,exerciseType,durationMinutes',
+      `e2e-rules-tardio@reto.local,Tardío,1,${YEAR},${monday},RUNNING,30`,
+    ].join('\n');
+    const preview = await request(http).post('/api/import/activities/preview').set(auth(token.admin)).attach('file', Buffer.from(csv, 'utf8'), 'tarde.csv');
+    expect(preview.body.summary.invalid).toBe(1);
+    expect(preview.body.rows[0].errors).toContain(`El reto 1/${YEAR} está cerrado; no se pueden importar actividades`);
+
+    const commit = await request(http).post('/api/import/activities/commit').set(auth(token.admin)).attach('file', Buffer.from(csv, 'utf8'), 'tarde.csv');
+    expect(commit.status).toBe(201);
+    expect(commit.body).toMatchObject({ created: 0, usersCreated: 0, participantsCreated: 0 });
+    expect(commit.body.errors[0].message).toBe(`El reto 1/${YEAR} está cerrado; no se pueden importar actividades`);
+    expect(await prisma.user.findUnique({ where: { email: 'e2e-rules-tardio@reto.local' } })).toBeNull();
   });
 
   it('RES: la premiación de un reto cerrado se puede registrar después del cierre', async () => {

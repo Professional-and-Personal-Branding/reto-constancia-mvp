@@ -160,8 +160,10 @@ export async function closeChallenge(month: number): Promise<void> {
   const { admin } = tokens();
   const challenge = await findChallenge(month);
   if (!challenge) return;
-  await clearActivities(challenge.id);
+  // Un reto cerrado es definitivo (no admite borrar actividades): se limpia solo si está activo.
+  // Los retos cerrados de prueba los borra setupChallenge directo en la base.
   if (challenge.status === 'ACTIVE') {
+    await clearActivities(challenge.id);
     await api('POST', `/challenges/${challenge.id}/close`, { token: admin });
   }
 }
