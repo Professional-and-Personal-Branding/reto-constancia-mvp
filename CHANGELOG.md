@@ -3,7 +3,11 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.4.2] — 2026-10-04
+
+Parche de seguridad previo al primer despliegue: cada participante ve solo sus propios datos de
+pago y nadie ve el email de los demás, salvo el admin. **No trae migraciones**; volver a la 1.4.1
+es solo volver a desplegar el código, API y web juntas.
 
 ### Seguridad
 
