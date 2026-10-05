@@ -13,7 +13,9 @@ import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
 import { UploadService } from '../upload/upload.service';
-import { LockMode, lockChallenge, withChallengeLock } from './challenge-lock';
+import { CLOSER_TX, LockMode, lockChallenge, withChallengeLock } from './challenge-lock';
+import { ResultsService } from './results.service';
+import { AUTO_DRAW_NOTE } from './scoring';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
 export const participantsInclude = {
@@ -41,6 +43,7 @@ export class ChallengesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadService,
+    private readonly results: ResultsService,
   ) {}
 
   async create(dto: CreateChallengeDto): Promise<Challenge> {
@@ -157,6 +160,13 @@ export class ChallengesService {
       // Volver a pedir el cierre (POST :id/close) es idempotente: no cambia nada
       if (onlyClosing(dto)) return current;
       throw new BadRequestException(CLOSED_MESSAGE);
+    }
+    // Cerrar pasa siempre por el mismo paso (spec challenge-lifecycle), sin mezclar otros cambios
+    if (dto.status === ChallengeStatus.COMPLETED) {
+      if (!onlyClosing(dto)) {
+        throw new BadRequestException('Para cerrar el reto envía solo el estado');
+      }
+      return this.close(id);
     }
     // El período resultante combina lo nuevo con lo guardado, con la misma regla que al crear
     if (dto.startDate !== undefined || dto.endDate !== undefined) {
@@ -355,31 +365,68 @@ export class ChallengesService {
     return challenge;
   }
 
+  /** Cierra un reto activo (idempotente si ya está cerrado) por el paso común de cierre. */
+  async close(id: string): Promise<Challenge> {
+    await this.findOne(id); // 404 legible antes de tomar el lock
+    await this.closeTx(id);
+    return this.prisma.challenge.findUniqueOrThrow({ where: { id } });
+  }
+
+  /**
+   * Único paso de cierre (spec challenge-lifecycle y challenge-scoring). Toma el lock exclusivo
+   * del reto, así espera a las escrituras en curso y bloquea las nuevas:
+   * - DRAFT: 400; solo se cierra un reto activo.
+   * - Sin premiación manual: cierra un ACTIVE y, si los resultados (calculados dentro de la
+   *   transacción) necesitan sorteo, lo hace una sola vez y guarda a todos los ganadores como
+   *   awards con la nota reservada. Un COMPLETED se devuelve tal cual (idempotente).
+   * - Con premiación manual: valida a los premiados bajo el lock, cierra si estaba activo y
+   *   reemplaza las awards (también las del sorteo automático).
+   */
+  private async closeTx(id: string, manual?: { userIds: string[]; notes?: string }): Promise<void> {
+    await withChallengeLock(
+      this.prisma,
+      async (tx) => {
+        const locked = await lockChallenge(tx, id, 'update', CLOSER_TX.lockTimeoutMs);
+        if (locked.status === ChallengeStatus.DRAFT) {
+          throw new BadRequestException('Solo se puede cerrar un reto activo');
+        }
+
+        if (manual) {
+          const enrolled = await tx.challengeParticipant.findMany({
+            where: { challengeId: id },
+            select: { userId: true },
+          });
+          const participantIds = new Set(enrolled.map((p) => p.userId));
+          if (manual.userIds.some((userId) => !participantIds.has(userId))) {
+            throw new BadRequestException('Solo se puede premiar a participantes del reto');
+          }
+          if (locked.status === ChallengeStatus.ACTIVE) {
+            await tx.challenge.update({ where: { id }, data: { status: ChallengeStatus.COMPLETED } });
+          }
+          await tx.challengeAward.deleteMany({ where: { challengeId: id } });
+          await tx.challengeAward.createMany({
+            data: manual.userIds.map((userId) => ({ challengeId: id, userId, notes: manual.notes })),
+          });
+          return;
+        }
+
+        if (locked.status === ChallengeStatus.COMPLETED) return;
+        await tx.challenge.update({ where: { id }, data: { status: ChallengeStatus.COMPLETED } });
+        const results = await this.results.computeResults(tx, id);
+        if (results.drawNeeded && results.awards.length === 0) {
+          // winners ya incluye a los asegurados del desempate por km
+          await tx.challengeAward.createMany({
+            data: results.winners.map((w) => ({ challengeId: id, userId: w.userId, notes: AUTO_DRAW_NOTE })),
+          });
+        }
+      },
+      CLOSER_TX,
+    );
+  }
+
   async award(challengeId: string, userIds: string[], notes?: string) {
-    const challenge = await this.findOne(challengeId);
-    const participantIds = new Set(challenge.participants.map((p) => p.userId));
-    const invalidIds = userIds.filter((userId) => !participantIds.has(userId));
-
-    if (invalidIds.length > 0) {
-      throw new BadRequestException('Solo se puede premiar a participantes del reto');
-    }
-
-    await this.prisma.$transaction([
-      this.prisma.challenge.update({
-        where: { id: challengeId },
-        data: { status: ChallengeStatus.COMPLETED },
-      }),
-      this.prisma.challengeAward.deleteMany({ where: { challengeId } }),
-      ...userIds.map((userId) =>
-        this.prisma.challengeAward.create({
-          data: {
-            challengeId,
-            userId,
-            notes,
-          },
-        }),
-      ),
-    ]);
+    await this.findOne(challengeId); // 404 legible antes de tomar el lock
+    await this.closeTx(challengeId, { userIds, notes });
 
     return this.prisma.challengeAward.findMany({
       where: { challengeId },

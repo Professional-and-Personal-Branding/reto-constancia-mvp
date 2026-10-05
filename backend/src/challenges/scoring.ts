@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { TiebreakRule } from '@prisma/client';
 
 /**
@@ -30,7 +31,20 @@ export interface WinnerSelection<T> {
   winners: T[];
   drawNeeded: boolean;
   notes: string[];
+  /**
+   * Detalle interno del sorteo (no se expone en GET /results): quiénes ganan sin sorteo, entre
+   * quiénes se sortea y cuántos cupos. Siempre: guaranteed + drawSeats = winners.
+   */
+  guaranteed: T[];
+  drawPool?: T[];
+  drawSeats?: number;
 }
+
+/** Nota reservada de las awards que guarda el sorteo automático al cerrar el reto. */
+export const AUTO_DRAW_NOTE = 'Sorteo automático al cierre';
+
+/** Entero aleatorio en [0, maxExclusive). Inyectable en pruebas. */
+export type RandInt = (maxExclusive: number) => number;
 
 function num(value: Numeric): number {
   if (value === null || value === undefined) return 0;
@@ -73,8 +87,14 @@ export function describeScoring(rules: ScoringRules): string | null {
   return parts.length > 0 ? parts.join('. ') + '.' : null;
 }
 
-function shuffle<T>(items: T[]): T[] {
-  return [...items].sort(() => Math.random() - 0.5);
+/** Fisher–Yates con fuente criptográfica: permutación uniforme (spec challenge-scoring). */
+export function shuffle<T>(items: T[], rand: RandInt = randomInt): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 /**
@@ -84,32 +104,33 @@ function shuffle<T>(items: T[]): T[] {
 export function selectWinners<T extends TiebreakCandidate>(
   tied: T[],
   rules: ScoringRules,
+  rand: RandInt = randomInt,
 ): WinnerSelection<T> {
   const notes: string[] = [];
   const maxWinners = Math.max(1, Math.trunc(rules.maxWinners ?? 2));
 
   if (tied.length === 0) {
     notes.push('Aún no hay participantes que califiquen, sin ganador definido.');
-    return { winners: [], drawNeeded: false, notes };
+    return { winners: [], drawNeeded: false, notes, guaranteed: [] };
   }
 
   if (tied.length === 1) {
     notes.push('Ganador único, sin empate.');
-    return { winners: tied, drawNeeded: false, notes };
+    return { winners: tied, drawNeeded: false, notes, guaranteed: tied };
   }
 
   if (tied.length <= maxWinners) {
     notes.push(
       `Empate de ${tied.length} personas dentro del cupo de ${maxWinners}: ganan todas y el presupuesto se divide.`,
     );
-    return { winners: tied, drawNeeded: false, notes };
+    return { winners: tied, drawNeeded: false, notes, guaranteed: tied };
   }
 
   if (rules.tiebreakRule === TiebreakRule.SHARE_ALL) {
     notes.push(
       `Empate de ${tied.length} personas: la regla del reto reparte el premio entre todas.`,
     );
-    return { winners: tied, drawNeeded: false, notes };
+    return { winners: tied, drawNeeded: false, notes, guaranteed: tied };
   }
 
   if (rules.tiebreakRule === TiebreakRule.TOTAL_KM) {
@@ -123,7 +144,8 @@ export function selectWinners<T extends TiebreakCandidate>(
       notes.push(
         `Empate de ${tied.length} personas: se desempató por kilómetros acumulados. Ganan ${maxWinners}.`,
       );
-      return { winners: [...above, ...atCut], drawNeeded: false, notes };
+      const winners = [...above, ...atCut];
+      return { winners, drawNeeded: false, notes, guaranteed: winners };
     }
 
     notes.push(
@@ -131,14 +153,24 @@ export function selectWinners<T extends TiebreakCandidate>(
         `así que se sorteó entre ellas. Ganan ${maxWinners}.`,
     );
     return {
-      winners: [...above, ...shuffle(atCut).slice(0, seats)],
+      winners: [...above, ...shuffle(atCut, rand).slice(0, seats)],
       drawNeeded: true,
       notes,
+      guaranteed: above,
+      drawPool: atCut,
+      drawSeats: seats,
     };
   }
 
   notes.push(
     `Empate de ${tied.length} personas: se hizo sorteo aleatorio entre las empatadas. Ganan ${maxWinners}.`,
   );
-  return { winners: shuffle(tied).slice(0, maxWinners), drawNeeded: true, notes };
+  return {
+    winners: shuffle(tied, rand).slice(0, maxWinners),
+    drawNeeded: true,
+    notes,
+    guaranteed: [],
+    drawPool: tied,
+    drawSeats: maxWinners,
+  };
 }

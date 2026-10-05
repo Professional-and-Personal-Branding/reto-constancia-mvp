@@ -2,6 +2,12 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { ChallengeStatus } from '@prisma/client';
 
 import { ChallengesService } from './challenges.service';
+import { ResultsService } from './results.service';
+
+/** Servicio con sus dependencias reales sobre el mismo mock de Prisma. */
+function challengesService(prisma: PrismaService): ChallengesService {
+  return new ChallengesService(prisma, localUploads(), new ResultsService(prisma));
+}
 import { PrismaService } from '../prisma/prisma.service';
 import { localUploads, ownedAsset } from '../../test/helpers/assets';
 import { withLocks } from '../../test/helpers/prisma-lock';
@@ -55,7 +61,7 @@ function buildPrisma(rows: ChallengeRow[]) {
 describe('ChallengesService.activate', () => {
   it('activa un reto en DRAFT', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.DRAFT, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const result = await svc.activate('a');
     expect(result.status).toBe(ChallengeStatus.ACTIVE);
     expect(update).toHaveBeenCalledWith({
@@ -66,7 +72,7 @@ describe('ChallengesService.activate', () => {
 
   it('es idempotente si el reto ya está ACTIVE (no escribe)', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.ACTIVE, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const result = await svc.activate('a');
     expect(result.status).toBe(ChallengeStatus.ACTIVE);
     expect(update).not.toHaveBeenCalled();
@@ -74,14 +80,14 @@ describe('ChallengesService.activate', () => {
 
   it('rechaza reactivar un reto COMPLETED con 400', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(svc.activate('a')).rejects.toBeInstanceOf(BadRequestException);
     expect(update).not.toHaveBeenCalled();
   });
 
   it('devuelve 404 si el reto no existe', async () => {
     const { prisma } = buildPrisma([]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(svc.activate('nope')).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -90,7 +96,7 @@ describe('ChallengesService.activate', () => {
       row('a', ChallengeStatus.ACTIVE, '2026-05-01'),
       row('b', ChallengeStatus.DRAFT, '2026-06-01'),
     ]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const result = await svc.activate('b');
     expect(result.status).toBe(ChallengeStatus.ACTIVE);
   });
@@ -99,7 +105,7 @@ describe('ChallengesService.activate', () => {
 describe('ChallengesService.update con status ACTIVE', () => {
   it('aplica las reglas de activación (COMPLETED -> 400)', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(
       svc.update('a', { status: ChallengeStatus.ACTIVE }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -108,7 +114,7 @@ describe('ChallengesService.update con status ACTIVE', () => {
 
   it('activa y además aplica el resto de campos', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.DRAFT, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const result = await svc.update('a', {
       status: ChallengeStatus.ACTIVE,
       name: 'Renombrado',
@@ -126,7 +132,7 @@ describe('ChallengesService.update con status ACTIVE', () => {
 
   it('sin más campos devuelve el reto activado sin segunda escritura', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.DRAFT, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const result = await svc.update('a', { status: ChallengeStatus.ACTIVE });
     expect(result.status).toBe(ChallengeStatus.ACTIVE);
     expect(update).toHaveBeenCalledTimes(1);
@@ -140,7 +146,7 @@ describe('ChallengesService.findActiveList', () => {
       row('b', ChallengeStatus.ACTIVE, '2026-06-01', ['u2']),
       row('c', ChallengeStatus.DRAFT, '2026-07-01', ['u1']),
     ]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const list = await svc.findActiveList('u1');
     expect(list.map((c) => c.id)).toEqual(['b', 'a']);
     expect(list.map((c) => c.isParticipant)).toEqual([false, true]);
@@ -148,7 +154,7 @@ describe('ChallengesService.findActiveList', () => {
 
   it('devuelve lista vacía sin retos activos', async () => {
     const { prisma } = buildPrisma([row('c', ChallengeStatus.DRAFT, '2026-07-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     expect(await svc.findActiveList('u1')).toEqual([]);
   });
 });
@@ -160,20 +166,20 @@ describe('ChallengesService.findActive', () => {
   ];
 
   it('prefiere el reto activo más reciente en el que participa el usuario', async () => {
-    const svc = new ChallengesService(buildPrisma(rows()).prisma, localUploads());
+    const svc = challengesService(buildPrisma(rows()).prisma);
     const active = await svc.findActive('u1');
     expect(active?.id).toBe('a');
     expect(active && 'isParticipant' in active).toBe(false);
   });
 
   it('si no participa en ninguno devuelve el activo más reciente', async () => {
-    const svc = new ChallengesService(buildPrisma(rows()).prisma, localUploads());
+    const svc = challengesService(buildPrisma(rows()).prisma);
     const active = await svc.findActive('u9');
     expect(active?.id).toBe('b');
   });
 
   it('devuelve null sin retos activos', async () => {
-    const svc = new ChallengesService(buildPrisma([]).prisma, localUploads());
+    const svc = challengesService(buildPrisma([]).prisma);
     expect(await svc.findActive('u1')).toBeNull();
   });
 });
@@ -192,7 +198,7 @@ describe('ChallengesService.markPayment', () => {
 
   it('pagado sin monto registra la cuota del reto', async () => {
     const { prisma, update } = build();
-    await new ChallengesService(prisma, localUploads()).markPayment('c1', 'u1', { paid: true });
+    await challengesService(prisma).markPayment('c1', 'u1', { paid: true });
     const data = update.mock.calls[0][0].data as Record<string, unknown>;
     expect(data.amountPaid).toBe(120);
     expect(data.paidAt).toBeInstanceOf(Date);
@@ -200,14 +206,14 @@ describe('ChallengesService.markPayment', () => {
 
   it('pagado con monto explícito respeta el monto', async () => {
     const { prisma, update } = build();
-    await new ChallengesService(prisma, localUploads()).markPayment('c1', 'u1', { paid: true, amountPaid: 150 });
+    await challengesService(prisma).markPayment('c1', 'u1', { paid: true, amountPaid: 150 });
     const data = update.mock.calls[0][0].data as Record<string, unknown>;
     expect(data.amountPaid).toBe(150);
   });
 
   it('impago limpia monto y fecha', async () => {
     const { prisma, update } = build();
-    await new ChallengesService(prisma, localUploads()).markPayment('c1', 'u1', { paid: false });
+    await challengesService(prisma).markPayment('c1', 'u1', { paid: false });
     const data = update.mock.calls[0][0].data as Record<string, unknown>;
     expect(data.paid).toBe(false);
     expect(data.amountPaid).toBeNull();
@@ -224,21 +230,21 @@ describe('ChallengesService.update: retos cerrados y período', () => {
 
   it('un reto cerrado no admite cambios de reglas', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(svc.update('a', { pointsPerKm: 5 })).rejects.toThrow('No se puede modificar un reto cerrado');
     expect(update).not.toHaveBeenCalled();
   });
 
   it('un reto cerrado no vuelve a borrador', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(svc.update('a', { status: ChallengeStatus.DRAFT })).rejects.toBeInstanceOf(BadRequestException);
     expect(update).not.toHaveBeenCalled();
   });
 
   it('cerrar un reto ya cerrado es idempotente (no escribe ni falla)', async () => {
     const { prisma, update } = buildPrisma([row('a', ChallengeStatus.COMPLETED, '2026-05-01')]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     const result = await svc.update('a', { status: ChallengeStatus.COMPLETED });
     expect(result.status).toBe(ChallengeStatus.COMPLETED);
     expect(update).not.toHaveBeenCalled();
@@ -247,7 +253,7 @@ describe('ChallengesService.update: retos cerrados y período', () => {
   it('valida el período combinando los valores nuevos con los guardados', async () => {
     const draft = withPeriod(row('a', ChallengeStatus.DRAFT, '2025-05-01'), '2025-05-01', '2025-05-31');
     const { prisma, update } = buildPrisma([draft as ChallengeRow]);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(svc.update('a', { endDate: '2025-04-15' })).rejects.toThrow('startDate debe ser menor que endDate');
     expect(update).not.toHaveBeenCalled();
 
@@ -272,7 +278,7 @@ describe('ChallengesService: pagos y presupuesto', () => {
 
   it('un reto cerrado no admite registrar ni borrar pagos', async () => {
     const { prisma, participantUpdate } = paymentsPrisma(ChallengeStatus.COMPLETED);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(svc.markPayment('c', 'u', { paid: true })).rejects.toThrow('No se puede modificar un reto cerrado');
     await expect(svc.markPayment('c', 'u', { paid: false })).rejects.toBeInstanceOf(BadRequestException);
     expect(participantUpdate).not.toHaveBeenCalled();
@@ -280,7 +286,7 @@ describe('ChallengesService: pagos y presupuesto', () => {
 
   it('un reto cerrado no admite subir comprobantes de pago', async () => {
     const { prisma, participantUpdate } = paymentsPrisma(ChallengeStatus.COMPLETED);
-    const svc = new ChallengesService(prisma, localUploads());
+    const svc = challengesService(prisma);
     await expect(
       svc.uploadPaymentProof('c', 'u', { paymentProofUrl: 'https://x/p.png', paymentProofCloudinaryId: 'p' }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -289,7 +295,7 @@ describe('ChallengesService: pagos y presupuesto', () => {
 
   it('en un reto activo, pagar sin monto registra la cuota', async () => {
     const { prisma, participantUpdate } = paymentsPrisma(ChallengeStatus.ACTIVE);
-    await new ChallengesService(prisma, localUploads()).markPayment('c', 'u', { paid: true });
+    await challengesService(prisma).markPayment('c', 'u', { paid: true });
     expect(participantUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ paid: true, amountPaid: 120 }) }),
     );
@@ -298,7 +304,7 @@ describe('ChallengesService: pagos y presupuesto', () => {
   it('crear un reto sin presupuesto lo deja automático (NULL)', async () => {
     const { prisma, create } = paymentsPrisma(ChallengeStatus.DRAFT);
     (prisma.challenge.findUnique as jest.Mock).mockResolvedValueOnce(null);
-    await new ChallengesService(prisma, localUploads()).create({
+    await challengesService(prisma).create({
       name: 'Auto', month: 7, year: 2031, startDate: '2031-07-01', endDate: '2031-07-31',
     } as never);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ budgetTotal: null }) }));
@@ -315,7 +321,7 @@ describe('ChallengesService: participación y comprobante propio (upload-guardra
         update: participantUpdate,
       },
     } as unknown as PrismaService);
-    return { svc: new ChallengesService(prisma, localUploads()), participantUpdate };
+    return { svc: challengesService(prisma), participantUpdate };
   }
   const ownProof = () => {
     const asset = ownedAsset({ challengeId: 'c', userId: 'u', purpose: 'payment-proof', name: 'p', ext: 'pdf' });
@@ -396,7 +402,7 @@ describe('ChallengesService: escrituras serializadas con el cierre (closed-chall
       } as unknown as PrismaService,
       async (id) => ({ id, status: ChallengeStatus.COMPLETED }),
     );
-    return { svc: new ChallengesService(prisma, localUploads()), writes };
+    return { svc: challengesService(prisma), writes };
   }
   const closedMsg = 'No se puede modificar un reto cerrado';
 
@@ -433,5 +439,101 @@ describe('ChallengesService: escrituras serializadas con el cierre (closed-chall
     (svc as unknown as { prisma: { challenge: { findUnique: jest.Mock } } }).prisma.challenge.findUnique.mockResolvedValueOnce(draft);
     await expect(svc.activate('c')).rejects.toThrow('Un reto cerrado no puede reactivarse');
     expect(writes.challengeUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('ChallengesService: paso único de cierre y sorteo guardado (closed-challenge-freeze)', () => {
+  function build(status: ChallengeStatus, results: Record<string, unknown> = {}) {
+    const writes = {
+      challengeUpdate: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+    };
+    const challenge = { id: 'c', status, participants: [{ userId: 'a' }, { userId: 'b' }, { userId: 'c' }] };
+    const prisma = withLocks({
+      challenge: {
+        findUnique: jest.fn().mockResolvedValue(challenge),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ ...challenge, status: ChallengeStatus.COMPLETED }),
+        update: writes.challengeUpdate,
+      },
+      challengeParticipant: { findMany: jest.fn().mockResolvedValue(challenge.participants) },
+      challengeAward: { deleteMany: writes.deleteMany, createMany: writes.createMany, findMany: jest.fn().mockResolvedValue([]) },
+    } as unknown as PrismaService);
+    const computeResults = jest.fn().mockResolvedValue({ drawNeeded: false, awards: [], winners: [], ...results });
+    const svc = new ChallengesService(prisma, localUploads(), { computeResults } as unknown as ResultsService);
+    return { svc, writes, computeResults, prisma };
+  }
+  const drawn = { drawNeeded: true, awards: [], winners: [{ userId: 'b' }, { userId: 'c' }] };
+
+  it('cerrar con sorteo guarda a todos los ganadores con la nota reservada, calculando dentro de la transacción', async () => {
+    const { svc, writes, computeResults, prisma } = build(ChallengeStatus.ACTIVE, drawn);
+    await svc.close('c');
+    expect(writes.challengeUpdate).toHaveBeenCalledWith({ where: { id: 'c' }, data: { status: ChallengeStatus.COMPLETED } });
+    expect(computeResults).toHaveBeenCalledWith(prisma, 'c');
+    expect(writes.createMany).toHaveBeenCalledWith({
+      data: [
+        { challengeId: 'c', userId: 'b', notes: 'Sorteo automático al cierre' },
+        { challengeId: 'c', userId: 'c', notes: 'Sorteo automático al cierre' },
+      ],
+    });
+  });
+
+  it('cerrar sin sorteo no crea awards', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE, { winners: [{ userId: 'a' }] });
+    await svc.close('c');
+    expect(writes.createMany).not.toHaveBeenCalled();
+  });
+
+  it('cerrar un reto cerrado no cambia nada ni vuelve a sortear', async () => {
+    const { svc, writes, computeResults } = build(ChallengeStatus.COMPLETED, drawn);
+    await svc.close('c');
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
+    expect(computeResults).not.toHaveBeenCalled();
+  });
+
+  it('un borrador no se cierra ni se premia (400)', async () => {
+    const { svc, writes } = build(ChallengeStatus.DRAFT);
+    await expect(svc.close('c')).rejects.toThrow('Solo se puede cerrar un reto activo');
+    await expect(svc.award('c', ['a'])).rejects.toThrow('Solo se puede cerrar un reto activo');
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
+    expect(writes.createMany).not.toHaveBeenCalled();
+  });
+
+  it('premiar un reto activo lo cierra con exactamente esas awards', async () => {
+    const { svc, writes, computeResults } = build(ChallengeStatus.ACTIVE, drawn);
+    await svc.award('c', ['a', 'b'], 'Premio entregado');
+    expect(writes.challengeUpdate).toHaveBeenCalledTimes(1);
+    expect(writes.deleteMany).toHaveBeenCalled();
+    expect(writes.createMany).toHaveBeenCalledWith({
+      data: [
+        { challengeId: 'c', userId: 'a', notes: 'Premio entregado' },
+        { challengeId: 'c', userId: 'b', notes: 'Premio entregado' },
+      ],
+    });
+    expect(computeResults).not.toHaveBeenCalled();
+  });
+
+  it('premiar un reto cerrado reemplaza las awards sin volver a cerrarlo', async () => {
+    const { svc, writes } = build(ChallengeStatus.COMPLETED);
+    await svc.award('c', ['c']);
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
+    expect(writes.deleteMany).toHaveBeenCalled();
+  });
+
+  it('solo se premia a participantes, comprobado bajo el lock', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE);
+    await expect(svc.award('c', ['a', 'zoe'])).rejects.toThrow('Solo se puede premiar a participantes del reto');
+    expect(writes.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('un PATCH de cierre con otros campos se rechaza y solo el estado delega en el cierre', async () => {
+    const { svc, writes, computeResults } = build(ChallengeStatus.ACTIVE, drawn);
+    await expect(svc.update('c', { status: ChallengeStatus.COMPLETED, pointsPerKm: 5 })).rejects.toThrow(
+      'Para cerrar el reto envía solo el estado',
+    );
+    expect(writes.challengeUpdate).not.toHaveBeenCalled();
+    await svc.update('c', { status: ChallengeStatus.COMPLETED, name: undefined });
+    expect(computeResults).toHaveBeenCalled();
+    expect(writes.createMany).toHaveBeenCalled();
   });
 });
