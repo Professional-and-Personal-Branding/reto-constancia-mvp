@@ -124,6 +124,13 @@ describen la regla aplicada.
 > participantes, pagos e importación. Las escrituras que compiten con el cierre lo esperan
 > bajo un bloqueo de la fila del reto y nunca se confirman después (cambio
 > `closed-challenge-freeze`).
+>
+> El sorteo (`DRAW`, o el empate en el corte de `TOTAL_KM`) usa una permutación uniforme
+> de fuente criptográfica. Mientras el reto está activo es solo una proyección. Al cerrar, si
+> hace falta, se sortea una única vez y los ganadores se guardan como premiación con la nota
+> reservada "Sorteo automático al cierre". Una premiación posterior del admin la reemplaza.
+> Solo se cierra un reto activo; cerrar, el PATCH de cierre y "Guardar premiación" pasan por
+> el mismo paso.
 
 **Fuera de alcance (requerirían su propio cambio):** bonus por rachas, pesos por
 tipo de ejercicio, cuotas semanales (la elegibilidad por pago se descartó: ver decisión 4).

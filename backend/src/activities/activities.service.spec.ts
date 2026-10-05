@@ -4,6 +4,7 @@ import { ActivityStatus, ChallengeStatus, ExerciseType, PhotoType, UserRole } fr
 import { ActivitiesService } from './activities.service';
 import { assessHeartRate } from './heart-rate-rule';
 import { ChallengesService } from '../challenges/challenges.service';
+import { ResultsService } from '../challenges/results.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { localUploads, ownedAsset } from '../../test/helpers/assets';
@@ -55,7 +56,7 @@ function buildPrisma(opts: { challenge?: unknown; activity?: unknown; many?: unk
 
 function service(prisma: PrismaService) {
   const uploads = localUploads();
-  return new ActivitiesService(prisma, new ChallengesService(prisma, uploads), uploads);
+  return new ActivitiesService(prisma, new ChallengesService(prisma, uploads, new ResultsService(prisma)), uploads);
 }
 
 describe('assessHeartRate (regla pura)', () => {

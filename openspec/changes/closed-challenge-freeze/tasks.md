@@ -10,16 +10,16 @@
 
 ## 2. PR 2 - Closing step and stored draw
 
-- [ ] 2.1 `scoring.ts`: Fisher–Yates with injectable `rand`; `selectWinners` returns `guaranteed`, `drawPool`, `drawSeats` (D4); tests for a fixed permutation, uniformity with a seeded generator (60,000 samples, 1/6 ± 0.01), a smoke test with the real `randomInt` and the invariant across `DRAW`, partial and resolved `TOTAL_KM` and `SHARE_ALL`
-- [ ] 2.2 `results.service.ts`: `computeResults(db, id)`, the automatic-draw note and `drawNeeded = false` when all awards are automatic (D6); public contract unchanged; unit tests
-- [ ] 2.3 `ChallengesService.closeTx`/`close` (D5): `FOR UPDATE` with a 10 s lock timeout, `DRAFT` 400, idempotent `COMPLETED`, award participants validated under the lock, stored draw; `award()` and the closing branch of `update()` (using `onlyClosing`) go through it; controller `POST /close` calls `close()`; unit tests
-- [ ] 2.4 `AwardChallengeDto` rejects the reserved note (trimmed); unit test
-- [ ] 2.5 API e2e: closing a `DRAFT` 400 (close, PATCH, awards); mixed closing PATCH 400; `DRAW` tie closed gives two stored awards and identical results on repeated reads; `TOTAL_KM` partial tie; awards after closing replace the automatic ones; reserved note 400; existing award and close tests stay green
-- [ ] 2.6 Playwright `08-closed-results` and the guide captures stay green
+- [x] 2.1 `scoring.ts`: Fisher–Yates with injectable `rand`; `selectWinners` returns `guaranteed`, `drawPool`, `drawSeats` (D4); tests for a fixed permutation, uniformity with a seeded generator (60,000 samples, 1/6 ± 0.01), a smoke test with the real `randomInt` and the invariant across `DRAW`, partial and resolved `TOTAL_KM` and `SHARE_ALL`
+- [x] 2.2 `results.service.ts`: `computeResults(db, id)`, the automatic-draw note and `drawNeeded = false` when all awards are automatic (D6); public contract unchanged; unit tests
+- [x] 2.3 `ChallengesService.closeTx`/`close` (D5): `FOR UPDATE` with a 10 s lock timeout, `DRAFT` 400, idempotent `COMPLETED`, award participants validated under the lock, stored draw; `award()` and the closing branch of `update()` (using `onlyClosing`) go through it; controller `POST /close` calls `close()`; unit tests
+- [x] 2.4 `AwardChallengeDto` rejects the reserved note (trimmed); unit test
+- [x] 2.5 API e2e: closing a `DRAFT` 400 (close, PATCH, awards); mixed closing PATCH 400; `DRAW` tie closed gives two stored awards and identical results on repeated reads; `TOTAL_KM` partial tie; awards after closing replace the automatic ones; reserved note 400; existing award and close tests stay green
+- [x] 2.6 Playwright `08-closed-results` and the guide captures stay green
 
 ## 3. Docs and verification
 
-- [ ] 3.1 QA catalog: closed-challenge activities final; stored and stable draw; only active challenges close and mixed PATCH rejected; replacing the automatic draw and reserved note; import rows of a closed challenge; lock timeout 409; update TC-CHAL-13; run the validator
-- [ ] 3.2 `docs/challenge-rules.md` (what a closed challenge freezes, the stored draw), guide (closing, awarding closes the challenge, phase 7 order: create, activate, import, then "Guardar premiación" on the active challenge)
-- [ ] 3.3 `CHANGELOG.md` Sin publicar with the behaviour changes for API callers; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
+- [x] 3.1 QA catalog: closed-challenge activities final; stored and stable draw; only active challenges close and mixed PATCH rejected; replacing the automatic draw and reserved note; import rows of a closed challenge; lock timeout 409; update TC-CHAL-13; run the validator
+- [x] 3.2 `docs/challenge-rules.md` (what a closed challenge freezes, the stored draw), guide (closing, awarding closes the challenge, phase 7 order: create, activate, import, then "Guardar premiación" on the active challenge)
+- [x] 3.3 `CHANGELOG.md` Sin publicar with the behaviour changes for API callers; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
 - [ ] 3.4 Open PR 2 to `develop`; after merge, archive the change

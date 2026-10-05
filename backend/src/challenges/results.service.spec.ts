@@ -207,3 +207,51 @@ describe('ResultsService con reglas de puntaje configurables', () => {
     expect(r.payout.perWinner).toBe(300);
   });
 });
+
+describe('ResultsService: sorteo guardado al cierre (closed-challenge-freeze)', () => {
+  const tiedActs = [
+    { userId: 'u1', status: 'VALIDATED', distanceKm: 5 },
+    { userId: 'u2', status: 'VALIDATED', distanceKm: 5 },
+    { userId: 'u3', status: 'VALIDATED', distanceKm: 5 },
+  ];
+  const three = {
+    ...baseChallenge,
+    status: 'COMPLETED',
+    maxWinners: 1,
+    participants: [
+      ...baseChallenge.participants,
+      { userId: 'u3', paid: false, amountPaid: null, user: { id: 'u3', name: 'Carla', email: 'c@x' } },
+    ],
+  };
+  const award = (userId: string, notes: string) => ({
+    userId,
+    notes,
+    awardedAt: new Date('2026-06-01T00:00:00Z'),
+    user: { id: userId, name: userId, email: `${userId}@x` },
+  });
+
+  it('con las awards del sorteo automático: ganadores fijos, sin sorteo y con su nota', async () => {
+    const challenge = { ...three, awards: [award('u2', 'Sorteo automático al cierre')] };
+    const svc = new ResultsService(buildPrismaMock(challenge, tiedActs));
+    for (let i = 0; i < 5; i++) {
+      const r = await svc.getResults('c1');
+      expect(r.winners.map((w) => w.userId)).toEqual(['u2']);
+      expect(r.drawNeeded).toBe(false);
+      expect(r.notes).toContain('Ganadores definidos por sorteo automático al cierre.');
+    }
+  });
+
+  it('con una premiación del admin la nota sigue siendo la de siempre', async () => {
+    const challenge = { ...three, awards: [award('u3', 'Sorteo presencial')] };
+    const r = await new ResultsService(buildPrismaMock(challenge, tiedActs)).getResults('c1');
+    expect(r.notes).toContain('Premiación registrada por el administrador.');
+  });
+
+  it('computeResults lee con el cliente que recibe (la transacción del cierre)', async () => {
+    const tx = buildPrismaMock(three, tiedActs);
+    const other = buildPrismaMock(null, []);
+    const r = await new ResultsService(other).computeResults(tx, 'c1');
+    expect(r.tiedAtTop).toHaveLength(3);
+    expect(r.drawNeeded).toBe(true);
+  });
+});
