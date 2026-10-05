@@ -24,6 +24,21 @@ Versionado [SemVer](https://semver.org/lang/es/).
     el admin podía, y el dueño o un extraño recibían 403.
 - **La importación hace una transacción por fila**, para que un cierre pueda intercalarse entre
   filas. Los contadores cuentan solo las filas confirmadas.
+- **Sorteo justo y guardado al cerrar** (cambio `closed-challenge-freeze`, segunda parte):
+  - El sorteo usa una permutación uniforme (Fisher–Yates con `crypto.randomInt`); antes usaba
+    `Math.random`, que no reparte igual.
+  - Al cerrar un reto que necesita sorteo, se sortea una sola vez dentro del cierre y los ganadores
+    se guardan como premiación con la nota reservada "Sorteo automático al cierre". Las lecturas
+    posteriores devuelven siempre esos ganadores, sin sorteo pendiente.
+  - Una premiación posterior del admin reemplaza al sorteo automático.
+- **Un solo paso de cierre:** `POST /close`, el PATCH con `status: COMPLETED` y `POST /awards`
+  sobre un reto no cerrado pasan por el mismo paso, con bloqueo exclusivo de la fila. Los premiados
+  se comprueban bajo ese bloqueo.
+- **Más cambios de comportamiento para quien use la API:**
+  - Cerrar o premiar un reto en borrador responde 400 "Solo se puede cerrar un reto activo"; antes
+    lo cerraba.
+  - Un PATCH de cierre con otros campos responde 400 "Para cerrar el reto envía solo el estado".
+  - La nota "Sorteo automático al cierre" está reservada en `POST /awards` (400).
 
 ## [1.5.0] — 2026-10-05
 

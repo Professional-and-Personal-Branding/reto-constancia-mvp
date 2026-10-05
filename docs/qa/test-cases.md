@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-05** · rama `feature/closed-challenge-freeze` · commit `e2978fc` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-05** · rama `feature/closed-challenge-draw` · commit `e96b51e` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**122 casos** · 122 aprobados · 0 fallidos · 0 con limitación conocida · 121 automatizados.
+**125 casos** · 125 aprobados · 0 fallidos · 0 con limitación conocida · 124 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 15 | 15 | 0 |
+| [Gestión de retos](#chal) | 18 | 18 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -967,6 +967,9 @@
 | [TC-CHAL-13](#tc-chal-13) | Un reto cerrado es definitivo | Alta | Seguridad | ✅ Aprobado |
 | [TC-CHAL-14](#tc-chal-14) | Las actividades de un reto cerrado son definitivas | Alta | Seguridad | ✅ Aprobado |
 | [TC-CHAL-15](#tc-chal-15) | Las escrituras esperan al cierre y nunca caen después | Alta | Seguridad | ✅ Aprobado |
+| [TC-CHAL-16](#tc-chal-16) | Solo se cierra un reto activo, siempre por el mismo paso | Alta | Negativo | ✅ Aprobado |
+| [TC-CHAL-17](#tc-chal-17) | El sorteo es justo y se guarda al cerrar | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-18](#tc-chal-18) | La premiación del admin reemplaza al sorteo automático; la nota está reservada | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1504,6 +1507,124 @@
 | ✅ | Unitaria | `challenges.service.spec.ts` | pedir el cierre cuando otro cierre ganó la carrera sigue siendo idempotente |
 | ✅ | Unitaria | `challenges.service.spec.ts` | activar un reto que se cerró bajo el lock responde 400 |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: si el reto está bloqueado por un cierre más de 5 s, validar responde 409 y no cambia nada |
+
+<a id="tc-chal-16"></a>
+
+### TC-CHAL-16 · Solo se cierra un reto activo, siempre por el mismo paso
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Negativo | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto en borrador con un inscrito y un reto activo.
+
+**Datos de prueba:** POST close, PATCH status COMPLETED y POST awards sobre el borrador; PATCH { status: COMPLETED, pointsPerKm: 5 } sobre el activo
+
+**Pasos**
+
+1. Cerrar el borrador por las tres vías.
+2. Enviar un PATCH de cierre mezclado al activo.
+
+**Resultado esperado**
+
+- Las tres vías responden 400 "Solo se puede cerrar un reto activo"; el borrador sigue en borrador y sin awards.
+- El PATCH mezclado responde 400 "Para cerrar el reto envía solo el estado"; el reto sigue activo y sus reglas no cambian.
+- Solo el estado delega en el mismo paso de cierre que POST close.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador no se cierra ni se premia (400) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un PATCH de cierre con otros campos se rechaza y solo el estado delega en el cierre |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar un reto cerrado no cambia nada ni vuelve a sortear |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | CLOSE: un borrador no se cierra por ninguna vía (400) y sigue en borrador |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | CLOSE: un PATCH de cierre con otros campos se rechaza (400) y no cambia nada |
+
+<a id="tc-chal-17"></a>
+
+### TC-CHAL-17 · El sorteo es justo y se guarda al cerrar
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 6.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto activo con 4 participantes empatados en el tope.
+
+**Datos de prueba:** maxWinners 2 con DRAW; TOTAL_KM con 30, 20, 20 y 10 km
+
+**Pasos**
+
+1. Cerrar el reto con DRAW y leer los resultados varias veces.
+2. Cerrarlo de nuevo.
+3. Cerrar el de TOTAL_KM.
+
+**Resultado esperado**
+
+- Al cerrar se sortea una vez con una permutación uniforme y se guardan los 2 ganadores como awards con la nota "Sorteo automático al cierre".
+- Todas las lecturas devuelven los mismos ganadores, sin sorteo pendiente y con la nota "Ganadores definidos por sorteo automático al cierre.".
+- Cerrar de nuevo no vuelve a sortear.
+- Con TOTAL_KM se guardan el de 30 km y el sorteado entre los de 20 km.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `scoring.spec.ts` | Fisher-Yates con una fuente fija da la permutación esperada |
+| ✅ | Unitaria | `scoring.spec.ts` | las 6 permutaciones de 3 salen con frecuencia uniforme (1/6 ± 0,01) |
+| ✅ | Unitaria | `scoring.spec.ts` | con el randomInt real aparecen las 6 permutaciones |
+| ✅ | Unitaria | `scoring.spec.ts` | asegurados + cupos sorteados = ganadores, con cada regla |
+| ✅ | Unitaria | `results.service.spec.ts` | con las awards del sorteo automático: ganadores fijos, sin sorteo y con su nota |
+| ✅ | Unitaria | `results.service.spec.ts` | computeResults lee con el cliente que recibe (la transacción del cierre) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar con sorteo guarda a todos los ganadores con la nota reservada, calculando dentro de la transacción |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar sin sorteo no crea awards |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | DRAW: al cerrar con empate se sortea una vez y los ganadores no cambian al releer |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | TOTAL_KM: con empate en el corte se guarda al asegurado y al sorteado |
+
+<a id="tc-chal-18"></a>
+
+### TC-CHAL-18 · La premiación del admin reemplaza al sorteo automático; la nota está reservada
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Media | Funcional | 6.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto cerrado con sorteo automático guardado y un reto activo con empate.
+
+**Datos de prueba:** POST awards con la nota " Sorteo automático al cierre "; POST awards con otra nota; POST awards sobre el activo
+
+**Pasos**
+
+1. Registrar awards con la nota reservada.
+2. Registrar la premiación real sobre el cerrado.
+3. Premiar el reto activo.
+4. Premiar a alguien que no participa.
+
+**Resultado esperado**
+
+- La nota reservada responde 400 "Esa nota está reservada para el sorteo automático", también con espacios alrededor.
+- La premiación real reemplaza las awards del sorteo y la nota pasa a "Premiación registrada por el administrador."; el reto sigue cerrado.
+- Premiar un reto activo lo cierra con exactamente esas awards y la nota del admin.
+- Premiar a quien no participa responde 400 (comprobado bajo el bloqueo del cierre).
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `award-challenge.dto.spec.ts` | rechaza la nota del sorteo automático, también con espacios alrededor |
+| ✅ | Unitaria | `award-challenge.dto.spec.ts` | acepta cualquier otra nota |
+| ✅ | Unitaria | `results.service.spec.ts` | con una premiación del admin la nota sigue siendo la de siempre |
+| ✅ | Unitaria | `challenges.service.spec.ts` | premiar un reto activo lo cierra con exactamente esas awards |
+| ✅ | Unitaria | `challenges.service.spec.ts` | premiar un reto cerrado reemplaza las awards sin volver a cerrarlo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | solo se premia a participantes, comprobado bajo el lock |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: la premiación del admin reemplaza al sorteo automático y la nota reservada se rechaza |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: premiar un reto activo lo cierra con exactamente esas awards |
 
 <a id="part"></a>
 

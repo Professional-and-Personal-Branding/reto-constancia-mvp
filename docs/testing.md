@@ -112,7 +112,7 @@ Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede merg
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 56 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores y los formatos de subida) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 122 casos de `docs/qa/` están enlazados a 516 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 125 casos de `docs/qa/` están enlazados a 539 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -125,6 +125,30 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-05 · rama `feature/closed-challenge-draw`, PR 2 (paso de cierre y sorteo guardado)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 125 de 125 casos aprobados (124 automatizados) con 539 pruebas y 0 fallidas:
+- unitarias del backend: 259;
+- unitarias de la web: 16;
+- e2e de API: 118 (incluye la suite nueva `close-draw.e2e-spec.ts`);
+- recorridos de UI: 56, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-CHAL-16 (solo se cierra un reto activo), TC-CHAL-17 (sorteo justo y guardado)
+y TC-CHAL-18 (premiación que reemplaza al sorteo y nota reservada).
+
+**Impacto funcional:** las 112 pruebas de API y todos los recorridos existentes pasaron sin
+cambios. Eso cubre los flujos de premiación y cierre de `platform-rules`, `challenge-lifecycle`,
+`08-closed-results` y la suite de capturas.
+
+**Uniformidad del sorteo:** 60.000 permutaciones de 3 con un generador determinista, todas dentro
+de 1/6 ± 0,01.
 
 ### 2026-10-05 · rama `feature/closed-challenge-freeze`, PR 1 (bloqueo y congelamiento)
 
