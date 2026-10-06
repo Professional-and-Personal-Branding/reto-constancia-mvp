@@ -18,6 +18,16 @@ Versionado [SemVer](https://semver.org/lang/es/).
     mostraba sus errores), con "Reintentar" si el cierre está en curso (409).
   - Nuevo endpoint `GET /api/challenges/:id/close-preview`: solo admin, solo lectura y solo para
     retos activos.
+- **Limpieza de archivos** (cambio `upload-asset-cleanup`):
+  - Retirar o borrar una actividad libera sus fotos del almacenamiento después de guardar el
+    cambio. La respuesta (204) no cambia aunque el borrado falle: queda un aviso en los Logs.
+  - Nunca se borra un archivo que otra foto o un comprobante sigue usando, ni las fotos importadas
+    (`import/...`).
+  - Los comprobantes de pago reemplazados se conservan por defecto; nueva variable opcional
+    `UPLOAD_DELETE_REPLACED_PROOFS=true` para liberarlos.
+  - Nuevo `scripts/cloudinary-orphans.mjs`: reporte de solo lectura de archivos huérfanos
+    (Cloudinary o `--local`), con categoría, tamaño total y uso del plan. Mantenimiento mensual en
+    el runbook (§5.3).
 
 ## [1.6.0] — 2026-10-05
 
