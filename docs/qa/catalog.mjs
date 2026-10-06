@@ -677,6 +677,45 @@ export const CASES = [
       A('close-draw.e2e-spec.ts', 'AWARD: premiar un reto activo lo cierra con exactamente esas awards'),
     ],
   },
+  {
+    id: 'TC-CHAL-19', title: 'Resumen previo al cierre (solo lectura, solo admin)', priority: 'Alta', type: 'Funcional', guide: '6.3',
+    pre: ['Un reto activo con una actividad pendiente, un impago, un pago parcial y un comprobante sin pago registrado.'],
+    data: 'GET /api/challenges/:id/close-preview como admin y como participante; retos en borrador y cerrado; DRAW con 4 empatados; TOTAL_KM con empate en el corte',
+    steps: ['Pedir el resumen como admin.', 'Pedirlo para un borrador, para un reto cerrado y como participante.'],
+    expected: [
+      'Trae el conteo exacto de pendientes y hasta 50 con nombre y fecha, los comprobantes por revisar, los impagos y parciales, y la proyección: asegurados, candidatos, cupos y reparto.',
+      'Con DRAW proyecta 2 cupos entre 4 sin asegurados; con TOTAL_KM, el de más km asegurado y 1 cupo entre los empatados.',
+      'Borrador: 400 "Solo se puede cerrar un reto activo"; cerrado: 400 "El reto ya está cerrado"; participante: 403.',
+      'No cambia nada: el reto sigue activo y no se guarda ningún sorteo.',
+    ],
+    auto: [
+      U('results.service.spec.ts', 'con DRAW expone la selección sin sortear: nadie asegurado y 2 cupos entre 4'),
+      U('results.service.spec.ts', 'con TOTAL_KM y empate en el corte: uno asegurado y 1 cupo entre los empatados'),
+      U('results.service.spec.ts', 'sin empate no hay sorteo y los ganadores están asegurados'),
+      U('challenges.service.spec.ts', 'reúne pendientes, comprobantes por revisar, impagos y la proyección'),
+      U('challenges.service.spec.ts', 'un borrador o un reto cerrado responden 400'),
+      A('close-draw.e2e-spec.ts', 'PREVIEW: el resumen previo reúne pendientes, comprobantes por revisar, impagos y la proyección, sin cambiar nada'),
+      A('close-draw.e2e-spec.ts', 'PREVIEW: con TOTAL_KM y empate en el corte proyecta al asegurado y el cupo sorteado'),
+      A('close-draw.e2e-spec.ts', 'PREVIEW: solo para retos activos (400) y solo para el admin (403)'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-20', title: 'Cerrar o premiar desde la web pasa por la revisión previa', priority: 'Alta', type: 'UI', guide: '6.3',
+    pre: ['Sesión de administrador; un reto activo con una actividad pendiente y un impago; otro con un ganador validado.'],
+    data: 'Cerrar reto en la lista de retos; Guardar premiación en el ranking; un 409 simulado al cerrar',
+    steps: ['Pulsar Cerrar reto.', 'Marcar la casilla y confirmar.', 'Guardar la premiación del otro reto.', 'Repetir el cierre con la API respondiendo 409.'],
+    expected: [
+      'El diálogo dice que 1 actividad pendiente no contará y bloquea el botón hasta marcar "Cerrar de todas formas"; los impagos aparecen con "Pueden ganar igual" sin bloquear.',
+      'Ganadores y reparto aparecen como proyección; al confirmar, el reto queda Cerrado.',
+      'Guardar premiación abre el diálogo con los premiados elegidos y al confirmar cierra el reto con esa premiación.',
+      'Un 409 se muestra dentro del diálogo con su mensaje y un botón Reintentar.',
+    ],
+    auto: [
+      W('12-assisted-close.spec.ts', 'si el cierre está en curso (409) el diálogo muestra el mensaje y ofrece reintentar'),
+      W('12-assisted-close.spec.ts', 'las pendientes bloquean el cierre hasta confirmarlas; los impagos solo informan'),
+      W('12-assisted-close.spec.ts', 'guardar la premiación pasa por la revisión y cierra el reto con esos premiados'),
+    ],
+  },
 
   // ───────────────────────────── PART ─────────────────────────────
   {

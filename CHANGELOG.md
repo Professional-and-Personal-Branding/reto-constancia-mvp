@@ -3,6 +3,22 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- **Cierre asistido** (cambio `assisted-challenge-close`):
+  - Antes de "Cerrar reto" y de "Guardar premiación", la web muestra una revisión con las
+    actividades pendientes que no contarán, los comprobantes subidos sin pago registrado, quién no
+    pagó o pagó en parte, y la proyección de ganadores, sorteo y reparto.
+  - Con pendientes, el botón queda bloqueado hasta marcar "Cerrar de todas formas". Los impagos
+    solo informan, porque quien no pagó puede ganar.
+  - Reemplaza el `confirm()` del navegador.
+  - Los errores del cierre y de la premiación se ven dentro del diálogo (antes la premiación no
+    mostraba sus errores), con "Reintentar" si el cierre está en curso (409).
+  - Nuevo endpoint `GET /api/challenges/:id/close-preview`: solo admin, solo lectura y solo para
+    retos activos.
+
 ## [1.6.0] — 2026-10-05
 
 El reto cerrado pasa a ser definitivo de verdad: nada que alimente su ranking o su pote cambia

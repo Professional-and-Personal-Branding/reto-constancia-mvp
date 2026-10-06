@@ -424,6 +424,14 @@ test.describe('Administrador', () => {
     await expect(panel.getByRole('checkbox', { name: /Carla Disciplina/ })).not.toBeChecked();
     await expect(panel.getByRole('checkbox', { name: /Diego Sin Excusas/ })).not.toBeChecked();
     await shot(page, '18-premiacion.jpg', panel);
+
+    // Guardar abre la revisión previa al cierre; se cancela para no cerrar el reto de demo
+    await panel.getByRole('button', { name: 'Guardar premiación' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Proyección: al cerrar se vuelve a calcular');
+    await shot(page, '27-cierre-asistido.jpg', dialog);
+    await dialog.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(dialog).toHaveCount(0);
   });
 
   test('importación: vista previa, resultado y Google Sheets', async ({ page }) => {
