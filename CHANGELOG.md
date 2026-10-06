@@ -3,7 +3,19 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.6.0] — 2026-10-05
+
+El reto cerrado pasa a ser definitivo de verdad: nada que alimente su ranking o su pote cambia
+después del cierre, y el sorteo es justo y queda guardado. **No trae migraciones.** Cambios de
+comportamiento para quien use la API, sin efecto en la web de esta versión. Para volver a la
+1.5.0 basta redesplegar la API.
+
+**Integración continua:** imagen `ubuntu-24.04`, Node 22, actions v7, tiempos máximos por job y
+cancelación de corridas viejas en los PR (#53). Los tres jobs (Backend, Frontend y E2E de UI) son
+obligatorios para fusionar en `develop` y `main`.
+
+**Seguridad:** `source-map-js` pasa a 1.2.2 en el frontend (aviso alto GHSA-68fv-2mgg-jv7q en
+producción, vía `next` → `postcss`), con lo que producción vuelve a 0 avisos.
 
 ### Cambiado
 

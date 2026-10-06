@@ -132,7 +132,7 @@ el PR #52: el relanzamiento quedó en verde.
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
-| Avisos en dependencias de desarrollo | **Riesgo aceptado en el frontend:** 7 avisos altos de `braces` ≤ 3.0.3 (GHSA-vfj7-8cjw-p6xm) que llegan por Tailwind 3 (`chokidar`, `fast-glob`) y por `@next/eslint-plugin-next` (fija `fast-glob` 3.3.1 incluso en su última versión). No existe `braces` corregido, solo corre en máquinas de desarrollo y en la CI contra los patrones del propio repositorio, y producción tiene 0 avisos. Revisar cuando se publique un `braces` corregido, cuando el plugin de Next deje `fast-glob` o al migrar a Tailwind 4 junto con Next 16. Backend y e2e: 0 avisos |
+| Avisos en dependencias de desarrollo | **Riesgo aceptado en el frontend:** 7 avisos altos de `braces` ≤ 3.0.3 (GHSA-vfj7-8cjw-p6xm) que llegan por Tailwind 3 (`chokidar`, `fast-glob`) y por `@next/eslint-plugin-next` (fija `fast-glob` 3.3.1 incluso en su última versión), y desde el 5 oct 2 moderados de `postcss-selector-parser` < 7.1.6 (GHSA-rj75-hqrm-r3gf, vía `postcss-nested` de Tailwind 3; solo se corrige con Tailwind 4). No existe `braces` corregido, solo corre en máquinas de desarrollo y en la CI contra los patrones del propio repositorio, y producción tiene 0 avisos. Revisar cuando se publique un `braces` corregido, cuando el plugin de Next deje `fast-glob` o al migrar a Tailwind 4 junto con Next 16. Backend y e2e: 0 avisos |
 
 Si en el futuro se agregan pruebas de componentes aislados, el lugar natural es Vitest más
 Testing Library, y el corredor ya tiene dónde enchufarlas.
@@ -141,6 +141,26 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-05 · v1.6.0 (rama `release/1.6.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.** Se corrió dos veces: antes
+y después de corregir el lockfile del frontend.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **125 de 125 casos aprobados** con 539
+pruebas ejecutadas y 0 fallidas.
+
+**Dependencias:**
+- El 5 oct apareció un aviso alto en **producción** del frontend: `source-map-js` ≤ 1.2.1
+  (GHSA-68fv-2mgg-jv7q, vía `next` → `postcss`).
+- Se corrigió con `npm audit fix --package-lock-only`, que lo lleva a 1.2.2 sin salto mayor.
+- Producción queda en 0 avisos en backend, frontend y e2e.
+- `npm audit` completo: backend 0, e2e 0 y frontend 7 altos más 2 moderados de desarrollo
+  (riesgo aceptado, ver §5).
+- Sin migraciones nuevas.
 
 ### 2026-10-05 · rama `feature/closed-challenge-draw`, PR 2 (paso de cierre y sorteo guardado)
 
