@@ -10,6 +10,7 @@ import { formatDay } from '@/lib/dates';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { useClosedChallenges } from '@/lib/use-closed-challenges';
 import type { Challenge, ChallengeResults, ParticipantRanking } from '@/lib/types';
+import { CloseChallengeDialog, closeErrorFrom, type CloseError } from '@/components/close-challenge-dialog';
 
 const RESULTS_PATH = '/dashboard/results';
 
@@ -44,6 +45,10 @@ function Results() {
     enabled: !!challenge,
   });
 
+  // Guardar la premiación cierra el reto: pasa por la revisión previa y muestra los errores
+  // de la API (spec challenge-lifecycle, cambio assisted-challenge-close)
+  const [pendingAward, setPendingAward] = useState<{ userIds: string[]; notes?: string } | null>(null);
+  const [awardError, setAwardError] = useState<CloseError | null>(null);
   const awardMut = useMutation({
     mutationFn: ({ userIds, notes }: { userIds: string[]; notes?: string }) =>
       api(`/challenges/${challenge!.id}/awards`, {
@@ -51,9 +56,14 @@ function Results() {
         body: { userIds, notes },
       }),
     onSuccess: () => {
+      setPendingAward(null);
+      setAwardError(null);
       qc.invalidateQueries({ queryKey: ['results'] });
       qc.invalidateQueries({ queryKey: ['challenge'] });
+      qc.invalidateQueries({ queryKey: ['challenges'] });
+      qc.invalidateQueries({ queryKey: ['close-preview'] });
     },
+    onError: (e) => setAwardError(closeErrorFrom(e)),
   });
 
   const openClosed = (id: string) => router.push(id ? `${RESULTS_PATH}?reto=${id}` : RESULTS_PATH);
@@ -202,7 +212,22 @@ function Results() {
         <AwardPanel
           results={results}
           isPending={awardMut.isPending}
-          onAward={(userIds, notes) => awardMut.mutate({ userIds, notes })}
+          onAward={(userIds, notes) => {
+            setAwardError(null);
+            setPendingAward({ userIds, notes });
+          }}
+        />
+      )}
+      {challenge && pendingAward && results && (
+        <CloseChallengeDialog
+          challengeId={challenge.id}
+          open
+          mode="award"
+          selectedWinners={results.ranking.filter((r) => pendingAward.userIds.includes(r.userId))}
+          isPending={awardMut.isPending}
+          error={awardError}
+          onConfirm={() => awardMut.mutate(pendingAward)}
+          onCancel={() => setPendingAward(null)}
         />
       )}
 
