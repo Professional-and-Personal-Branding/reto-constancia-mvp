@@ -276,7 +276,7 @@ export class ActivitiesService {
 
   async remove(id: string, userId: string, role: UserRole) {
     const { challengeId } = await this.findOne(id);
-    await withChallengeLock(this.prisma, async (tx) => {
+    const photoIds = await withChallengeLock(this.prisma, async (tx) => {
       // El reto cerrado va primero: nadie borra actividades de un reto definitivo
       const activity = await this.lockOpenActivity(tx, id, challengeId);
       if (role !== UserRole.ADMIN && activity.userId !== userId) {
@@ -288,6 +288,9 @@ export class ActivitiesService {
         );
       }
       await tx.dailyActivity.delete({ where: { id } });
+      return activity.photos.map((p) => p.cloudinaryId);
     });
+    // Después del commit y sin esperar: libera las fotos que ya nadie usa (spec activity-withdrawal)
+    void this.uploads.deleteAssetsLater(photoIds);
   }
 }

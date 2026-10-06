@@ -340,8 +340,12 @@ export class ChallengesService {
       { url: dto.paymentProofUrl, publicId: dto.paymentProofCloudinaryId },
       { challengeId, userId, purpose: 'payment-proof' },
     );
-    return this.writeWhileOpen(challengeId, (tx) =>
-      tx.challengeParticipant.update({
+    const { updated, previousId } = await this.writeWhileOpen(challengeId, async (tx) => {
+      const previous = await tx.challengeParticipant.findUnique({
+        where: { challengeId_userId: { challengeId, userId } },
+        select: { paymentProofCloudinaryId: true },
+      });
+      const saved = await tx.challengeParticipant.update({
         where: { challengeId_userId: { challengeId, userId } },
         data: {
           paymentProofUrl: dto.paymentProofUrl,
@@ -349,8 +353,15 @@ export class ChallengesService {
           paymentProofUploadedAt: new Date(),
         },
         include: { user: { select: { id: true, name: true, email: true } } },
-      }),
-    );
+      });
+      return { updated: saved, previousId: previous?.paymentProofCloudinaryId ?? null };
+    });
+    // El comprobante anterior es evidencia financiera: se conserva salvo que se active el
+    // borrado (spec challenge-finance). Se libera después del commit y sin esperar.
+    if (this.uploads.deleteReplacedProofs && previousId && previousId !== dto.paymentProofCloudinaryId) {
+      void this.uploads.deleteAssetsLater([previousId]);
+    }
+    return updated;
   }
 
   /**
