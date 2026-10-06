@@ -16,7 +16,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { ChallengeStatus, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 import { ChallengeWithParticipants, ChallengesService } from './challenges.service';
 import { ChallengeResults, ResultsService } from './results.service';
@@ -107,9 +107,14 @@ export class ChallengesController {
 
   @Post(':id/close')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Cerrar reto (admin)' })
+  @ApiOperation({
+    summary:
+      'Cerrar reto (admin). Solo un reto activo; si hace falta sorteo, se hace una vez y se guarda',
+  })
+  @ApiResponse({ status: 400, description: 'Solo se puede cerrar un reto activo' })
+  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
   close(@Param('id') id: string) {
-    return this.challenges.update(id, { status: ChallengeStatus.COMPLETED });
+    return this.challenges.close(id);
   }
 
   @Post(':id/activate')

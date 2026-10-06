@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.5.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.6.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -227,7 +227,9 @@ un presupuesto vacío. La 1.4.1 y la 1.4.2 no traen migraciones: volver entre el
 es solo volver a desplegar el código (API y web juntas, porque la 1.4.2 cambia lo que la API
 entrega a los participantes). La 1.5.0 tampoco trae migraciones; para volver a la 1.4.2 se
 despliegan API y web juntas, porque cambia el contrato de subida, y el Start Command con `exec`
-sigue sirviendo.
+sigue sirviendo. La 1.6.0 no trae migraciones: volver a la 1.5.0 es solo redesplegar la API (la
+web no cambia). Los premios guardados por el sorteo automático quedan en la base como premiación
+normal.
 
 ---
 

@@ -6,6 +6,7 @@ import {
 import {
   ActivityStatus,
   Challenge,
+  ChallengeStatus,
   ExerciseType,
   PhotoType,
   UserRole,
@@ -18,6 +19,12 @@ import { ImportOptionsDto, DuplicateStrategy } from './dto/import-options.dto';
 import { assessHeartRate } from '../activities/heart-rate-rule';
 import { SheetsClient, SheetsReadError } from './sheets.client';
 import { SheetImportDto } from './dto/sheet-import.dto';
+import { lockChallenge, withChallengeLock } from '../challenges/challenge-lock';
+
+/** Una fila de un reto cerrado no se importa (spec google-sheets-import). */
+export function closedChallengeMessage(month: number, year: number): string {
+  return `El reto ${month}/${year} está cerrado; no se pueden importar actividades`;
+}
 
 export const TEMPLATE_HEADERS = [
   'email',
@@ -292,6 +299,8 @@ export class ImportService {
           rowErrors.push(
             `No existe un reto para ${normalized.challengeMonth}/${normalized.challengeYear}`,
           );
+        } else if (challenge.status === ChallengeStatus.COMPLETED) {
+          rowErrors.push(closedChallengeMessage(normalized.challengeMonth, normalized.challengeYear));
         } else {
           // Regla de FC: se informa como advertencia, la fila se importa igual (registros históricos)
           const assessment = assessHeartRate(challenge, {
@@ -380,6 +389,11 @@ export class ImportService {
     return result;
   }
 
+  /**
+   * Aplica una fila en su propia transacción, bajo el lock del reto (spec google-sheets-import:
+   * import never writes into a closed challenge). Si el reto está cerrado no se crea nada, ni
+   * siquiera la cuenta, y los contadores suben solo cuando la fila se confirma.
+   */
   private async applyRow(
     n: NormalizedRow,
     ctx: CommitContext,
@@ -397,57 +411,87 @@ export class ImportService {
     if (!challenge) {
       throw new Error(`No existe un reto para ${n.challengeMonth}/${n.challengeYear}`);
     }
+    // Solo se usa el id de la caché: el estado se relee bajo el lock en cada fila
+    const challengeId = challenge.id;
 
-    let user = await this.prisma.user.findUnique({ where: { email: n.email } });
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: n.email,
-          name: n.name,
-          passwordHash: ctx.passwordHash,
-          role: UserRole.PARTICIPANT,
+    const delta = await withChallengeLock(this.prisma, async (tx) => {
+      const locked = await lockChallenge(tx, challengeId);
+      if (locked.status === ChallengeStatus.COMPLETED) {
+        throw new Error(closedChallengeMessage(n.challengeMonth, n.challengeYear));
+      }
+      const counts = { created: 0, updated: 0, skipped: 0, usersCreated: 0, participantsCreated: 0 };
+
+      let user = await tx.user.findUnique({ where: { email: n.email } });
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            email: n.email,
+            name: n.name,
+            passwordHash: ctx.passwordHash,
+            role: UserRole.PARTICIPANT,
+          },
+        });
+        counts.usersCreated++;
+      }
+
+      const participation = await tx.challengeParticipant.findUnique({
+        where: {
+          challengeId_userId: { challengeId, userId: user.id },
         },
       });
-      result.usersCreated++;
-    }
+      if (!participation) {
+        await tx.challengeParticipant.create({
+          data: { challengeId, userId: user.id },
+        });
+        counts.participantsCreated++;
+      }
 
-    const participation = await this.prisma.challengeParticipant.findUnique({
-      where: {
-        challengeId_userId: { challengeId: challenge.id, userId: user.id },
-      },
-    });
-    if (!participation) {
-      await this.prisma.challengeParticipant.create({
-        data: { challengeId: challenge.id, userId: user.id },
+      const date = new Date(`${n.date}T00:00:00.000Z`);
+      const status = n.status ?? ctx.defaultStatus;
+      const validatedFields =
+        status === ActivityStatus.VALIDATED
+          ? { validatedById: ctx.adminId, validatedAt: new Date() }
+          : {};
+
+      const existing = await tx.dailyActivity.findUnique({
+        where: {
+          challengeId_userId_date: {
+            challengeId,
+            userId: user.id,
+            date,
+          },
+        },
       });
-      result.participantsCreated++;
-    }
 
-    const date = new Date(`${n.date}T00:00:00.000Z`);
-    const status = n.status ?? ctx.defaultStatus;
-    const validatedFields =
-      status === ActivityStatus.VALIDATED
-        ? { validatedById: ctx.adminId, validatedAt: new Date() }
-        : {};
+      if (existing) {
+        if (ctx.strategy === 'skip') {
+          counts.skipped++;
+          return counts;
+        }
+        await tx.dailyActivity.update({
+          where: { id: existing.id },
+          data: {
+            exerciseType: n.exerciseType,
+            durationMinutes: n.durationMinutes,
+            distanceKm: n.distanceKm ?? null,
+            avgHeartRate: n.avgHeartRate ?? null,
+            heartRateMinutes: n.heartRateMinutes ?? null,
+            hasHeartRateProof: n.hasHeartRateProof,
+            notes: n.notes ?? null,
+            status,
+            rejectionReason: null,
+            ...validatedFields,
+          },
+        });
+        counts.updated++;
+        return counts;
+      }
 
-    const existing = await this.prisma.dailyActivity.findUnique({
-      where: {
-        challengeId_userId_date: {
-          challengeId: challenge.id,
+      await tx.dailyActivity.create({
+        data: {
+          challengeId,
           userId: user.id,
           date,
-        },
-      },
-    });
-
-    if (existing) {
-      if (ctx.strategy === 'skip') {
-        result.skipped++;
-        return;
-      }
-      await this.prisma.dailyActivity.update({
-        where: { id: existing.id },
-        data: {
           exerciseType: n.exerciseType,
           durationMinutes: n.durationMinutes,
           distanceKm: n.distanceKm ?? null,
@@ -456,42 +500,29 @@ export class ImportService {
           hasHeartRateProof: n.hasHeartRateProof,
           notes: n.notes ?? null,
           status,
-          rejectionReason: null,
           ...validatedFields,
+          photos: n.photoUrl
+            ? {
+                create: [
+                  {
+                    url: n.photoUrl,
+                    cloudinaryId: `import/${user.id}/${n.date}`,
+                    type: PhotoType.ACTIVITY,
+                  },
+                ],
+              }
+            : undefined,
         },
       });
-      result.updated++;
-      return;
-    }
-
-    await this.prisma.dailyActivity.create({
-      data: {
-        challengeId: challenge.id,
-        userId: user.id,
-        date,
-        exerciseType: n.exerciseType,
-        durationMinutes: n.durationMinutes,
-        distanceKm: n.distanceKm ?? null,
-        avgHeartRate: n.avgHeartRate ?? null,
-        heartRateMinutes: n.heartRateMinutes ?? null,
-        hasHeartRateProof: n.hasHeartRateProof,
-        notes: n.notes ?? null,
-        status,
-        ...validatedFields,
-        photos: n.photoUrl
-          ? {
-              create: [
-                {
-                  url: n.photoUrl,
-                  cloudinaryId: `import/${user.id}/${n.date}`,
-                  type: PhotoType.ACTIVITY,
-                },
-              ],
-            }
-          : undefined,
-      },
+      counts.created++;
+      return counts;
     });
-    result.created++;
+
+    result.created += delta.created;
+    result.updated += delta.updated;
+    result.skipped += delta.skipped;
+    result.usersCreated += delta.usersCreated;
+    result.participantsCreated += delta.participantsCreated;
   }
 
   // ---------- Google Sheets (spec google-sheets-import) ----------

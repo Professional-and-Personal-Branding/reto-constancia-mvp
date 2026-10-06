@@ -1,10 +1,4 @@
-# activity-withdrawal Specification
-
-## Purpose
-Lets participants take back an activity they registered by mistake while it still awaits
-validation, without asking an admin to delete it through the API.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Only pending activities can be withdrawn by their owner
 A participant SHALL be able to delete their own activity only while it is `PENDING` and its
@@ -41,23 +35,3 @@ precedence over the ownership checks.
 #### Scenario: Admin deletes in an active challenge
 - **WHEN** an admin deletes an activity of an `ACTIVE` challenge
 - **THEN** the response is 204
-
-### Requirement: The web offers withdrawing pending activities
-"Mis actividades" SHALL show a "Retirar" action on each of the participant's `PENDING`
-activities and no action on validated or rejected ones. Withdrawing MUST ask for an in-page
-confirmation before deleting, and the list, the pending count and the day's upload button MUST
-update after the activity is removed.
-
-#### Scenario: Withdraw with confirmation
-- **GIVEN** a participant sees a pending activity in "Mis actividades"
-- **WHEN** they press "Retirar" and confirm
-- **THEN** the activity disappears from the list and the pending count decreases by one
-
-#### Scenario: Cancel the confirmation
-- **WHEN** the participant presses "Retirar" and then cancels
-- **THEN** nothing is deleted
-
-#### Scenario: Day becomes available again
-- **GIVEN** the withdrawn activity was today's
-- **WHEN** it is withdrawn
-- **THEN** the dashboard offers uploading today's activity again

@@ -4,8 +4,10 @@ import {
   computeScore,
   describeScoring,
   isQualified,
+  RandInt,
   ScoringRules,
   selectWinners,
+  shuffle,
 } from './scoring';
 
 const defaults: ScoringRules = {
@@ -141,5 +143,61 @@ describe('selectWinners', () => {
     const r = selectWinners(tied, { ...defaults, tiebreakRule: TiebreakRule.SHARE_ALL });
     expect(r.winners).toHaveLength(5);
     expect(r.drawNeeded).toBe(false);
+  });
+});
+
+/** Generador determinista (mulberry32) para medir la uniformidad sin depender del azar. */
+function seeded(seed: number): RandInt {
+  let a = seed >>> 0;
+  return (maxExclusive: number) => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    const r = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    return Math.floor(r * maxExclusive);
+  };
+}
+
+describe('sorteo justo (closed-challenge-freeze)', () => {
+  it('Fisher-Yates con una fuente fija da la permutación esperada', () => {
+    // i=2 -> j=0, i=1 -> j=0: [a,b,c] -> [c,b,a] -> [b,c,a]
+    const rand: RandInt = () => 0;
+    expect(shuffle(['a', 'b', 'c'], rand)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('las 6 permutaciones de 3 salen con frecuencia uniforme (1/6 ± 0,01)', () => {
+    const rand = seeded(20261005);
+    const counts = new Map<string, number>();
+    const N = 60_000;
+    for (let i = 0; i < N; i++) {
+      const key = shuffle(['a', 'b', 'c'], rand).join('');
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    expect(counts.size).toBe(6);
+    for (const n of counts.values()) expect(Math.abs(n / N - 1 / 6)).toBeLessThan(0.01);
+  });
+
+  it('con el randomInt real aparecen las 6 permutaciones', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 6_000; i++) seen.add(shuffle(['a', 'b', 'c']).join(''));
+    expect(seen.size).toBe(6);
+  });
+
+  it('asegurados + cupos sorteados = ganadores, con cada regla', () => {
+    const tied = [candidate('a', 30), candidate('b', 20), candidate('c', 20), candidate('d', 10)];
+    const cases = [
+      selectWinners(tied, { ...defaults, maxWinners: 2, tiebreakRule: TiebreakRule.DRAW }),
+      selectWinners(tied, { ...defaults, maxWinners: 2, tiebreakRule: TiebreakRule.TOTAL_KM }),
+      selectWinners(tied, { ...defaults, maxWinners: 3, tiebreakRule: TiebreakRule.TOTAL_KM }),
+      selectWinners(tied, { ...defaults, maxWinners: 2, tiebreakRule: TiebreakRule.SHARE_ALL }),
+    ];
+    for (const s of cases) expect(s.guaranteed.length + (s.drawSeats ?? 0)).toBe(s.winners.length);
+    // TOTAL_KM con empate en el corte: A asegurado, 1 cupo entre B y C
+    expect(cases[1].guaranteed.map((c) => c.id)).toEqual(['a']);
+    expect(cases[1].drawPool?.map((c) => c.id).sort()).toEqual(['b', 'c']);
+    expect(cases[1].drawSeats).toBe(1);
+    // DRAW: nadie asegurado, 2 cupos entre los 4
+    expect(cases[0]).toMatchObject({ guaranteed: [], drawSeats: 2 });
   });
 });

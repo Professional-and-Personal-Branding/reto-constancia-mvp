@@ -92,7 +92,7 @@ reto-constancia/
 ## Setup local
 
 ### Requisitos
-- Node 20+
+- Node 22 (el proyecto admite 20 a 22; la CI usa 22)
 - pnpm o npm
 - Docker (para Postgres local) o conexión a Supabase
 - Cuenta gratuita de Cloudinary
@@ -205,7 +205,7 @@ Pasos:
 - Gitflow y convención de commits: ver `docs/gitflow.md`.
 - Seguridad / OWASP: ver `docs/security-owasp.md`.
 - Casos de prueba (entorno y recorridos guiados): ver `docs/test-cases.md`.
-- Catálogo de casos validado (119 casos con sus pruebas) y último reporte: `docs/qa/test-cases.md`, `docs/qa/validation-report.md`; se regeneran con `node scripts/validate-test-cases.mjs`.
+- Catálogo de casos validado (125 casos con sus pruebas) y último reporte: `docs/qa/test-cases.md`, `docs/qa/validation-report.md`; se regeneran con `node scripts/validate-test-cases.mjs`.
 - Batería automatizada y cómo correrla (`node scripts/run-tests.mjs`): ver `docs/testing.md`.
 - Pruebas de UI con Playwright (configuración y ejecución): ver `docs/e2e-playwright.md`.
 - Guía interactiva de uso con todas las funciones en orden y capturas de pantalla (abrir en el navegador): `docs/guia-plataforma.html`.

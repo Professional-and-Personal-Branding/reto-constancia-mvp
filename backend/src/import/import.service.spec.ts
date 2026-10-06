@@ -3,6 +3,7 @@ import { BadRequestException, ServiceUnavailableException } from '@nestjs/common
 import { ImportService } from './import.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SheetsClient, SheetsReadError } from './sheets.client';
+import { withLocks } from '../../test/helpers/prisma-lock';
 
 describe('ImportService (parseo y validación)', () => {
   const service = new ImportService({} as unknown as PrismaService);
@@ -239,5 +240,61 @@ describe('ImportService (parseo y validación)', () => {
       const rows = service.parse(buffer);
       expect(rows.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('ImportService: reto cerrado (closed-challenge-freeze)', () => {
+  const row = (date: string, email = 'nueva@reto.local'): Record<string, string> => ({
+    email,
+    name: 'Nueva',
+    challengeMonth: '9',
+    challengeYear: '2026',
+    date,
+    exerciseType: 'RUNNING',
+    durationMinutes: '35',
+    status: 'VALIDATED',
+  });
+  const closedMsg = 'El reto 9/2026 está cerrado; no se pueden importar actividades';
+
+  function build(statuses: string[]) {
+    const writes = { userCreate: jest.fn().mockResolvedValue({ id: 'u-new' }), participantCreate: jest.fn(), activityCreate: jest.fn() };
+    let call = 0;
+    const prisma = withLocks(
+      {
+        challenge: { findUnique: jest.fn().mockResolvedValue({ id: 'c9', status: statuses[0], minHeartRateMinutes: 0 }) },
+        user: { findUnique: jest.fn().mockResolvedValue(null), create: writes.userCreate },
+        challengeParticipant: { findUnique: jest.fn().mockResolvedValue(null), create: writes.participantCreate },
+        dailyActivity: { findUnique: jest.fn().mockResolvedValue(null), create: writes.activityCreate },
+      } as unknown as PrismaService,
+      // Cada fila relee el estado bajo el lock: así se simula un cierre a mitad del commit
+      async (id) => ({ id, status: statuses[Math.min(call++, statuses.length - 1)] }),
+    );
+    return { svc: new ImportService(prisma), writes };
+  }
+
+  it('la vista previa marca como inválidas las filas de un reto cerrado', async () => {
+    const { svc } = build(['COMPLETED']);
+    const preview = await svc.previewRows([row('2026-09-02'), row('2026-09-03')]);
+    expect(preview.summary.invalid).toBe(2);
+    expect(preview.rows[0].errors).toContain(closedMsg);
+  });
+
+  it('el commit no crea cuentas, participaciones ni actividades en un reto cerrado', async () => {
+    const { svc, writes } = build(['COMPLETED']);
+    const result = await svc.commitRows([row('2026-09-02')], {}, 'admin');
+    expect(result.errors).toEqual([{ row: 2, message: closedMsg }]);
+    expect(result).toMatchObject({ created: 0, usersCreated: 0, participantsCreated: 0 });
+    expect(writes.userCreate).not.toHaveBeenCalled();
+    expect(writes.participantCreate).not.toHaveBeenCalled();
+    expect(writes.activityCreate).not.toHaveBeenCalled();
+  });
+
+  it('si el reto se cierra a mitad del commit, las filas siguientes van a errors y no cuentan', async () => {
+    const { svc, writes } = build(['ACTIVE', 'COMPLETED']);
+    const result = await svc.commitRows([row('2026-09-02', 'a@reto.local'), row('2026-09-03', 'b@reto.local')], {}, 'admin');
+    expect(result.created).toBe(1);
+    expect(result.usersCreated).toBe(1);
+    expect(result.errors).toEqual([{ row: 3, message: closedMsg }]);
+    expect(writes.activityCreate).toHaveBeenCalledTimes(1);
   });
 });

@@ -392,8 +392,12 @@ async function main() {
   const reactivate = await req('POST', `/challenges/${sid}/activate`, { token: adminTok });
   check('Un reto cerrado no se reactiva (400)', reactivate.status === 400, `status=${reactivate.status}`);
 
-  // Limpieza para que la corrida sea repetible
-  if (decCreated) await req('DELETE', `/activities/${decCreated.id}`, { token: anaTok });
+  // Un reto cerrado es definitivo: su actividad ya no se puede retirar (closed-challenge-freeze).
+  // El reto de prueba se borra entero en la limpieza, con sus actividades.
+  if (decCreated) {
+    const frozen = await req('DELETE', `/activities/${decCreated.id}`, { token: anaTok });
+    check('La actividad de un reto cerrado no se puede retirar (400)', frozen.status === 400, `status=${frozen.status}`);
+  }
   const reopen = await req('PATCH', `/challenges/${sid}`, { token: adminTok, body: { status: 'DRAFT' } });
   check('Un reto cerrado no vuelve a borrador (400)', reopen.status === 400, `status=${reopen.status}`);
   const removed = await deleteTestChallenges([{ month: 12, year: 2026 }]);

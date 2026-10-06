@@ -260,18 +260,20 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.5.0 · 5 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.6.0 · 5 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 5 oct 2026: batería 11 de 11 · 119 de 119 casos aprobados con 493 pruebas</span>
+      <span class="verified">Verificado el 5 oct 2026: batería 11 de 11 · 125 de 125 casos aprobados con 539 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>Sorteo justo y guardado: al cerrar un reto con empate se sortea una sola vez y los ganadores ya no cambian al recargar; solo se cierra un reto activo (pasos 6.2 a 6.4).</li>
+        <li>Reto cerrado: sus actividades ya no se validan, rechazan ni borran, la importación no escribe en él y ninguna escritura en curso cae después del cierre (pasos 6.3 y 7.3).</li>
         <li>Subidas: solo los inscritos en un reto pueden subir fotos y comprobantes, cada archivo va a su carpeta y en formatos permitidos (JPG, PNG, WEBP, HEIC; PDF solo para comprobantes), y no se aceptan imágenes de otros sitios ni de otros participantes (pasos 4.2 y 4.3).</li>
         <li>Operación: /api/health/db responde 503 si la base cae, cada respuesta trae un código X-Request-Id para rastrear errores, y Swagger queda apagado en producción (pasos 8.1 y 8.4).</li>
         <li>Privacidad: el ranking muestra nombres sin emails, y cada participante ve solo su propio estado de pago; el admin sigue viendo todo (paso 6.1).</li>
@@ -576,23 +578,24 @@
           why: 'La regla de desempate se fija al crear el reto.',
           actions: ['Si empatan en el tope tantas personas como cupos de ganador o menos, ganan todas.', 'Si empatan más: <span class="ui">Sorteo</span> elige al azar, <span class="ui">Más km</span> desempata por distancia, <span class="ui">Ganan todos</span> reparte entre los empatados.'],
           expect: 'El aviso de empate y las notas del ranking dicen qué regla se aplicaría y si hubo sorteo.',
-          refs: ['TC-RES-02', 'TC-RES-03', 'TC-SCORE-03']
+          note: 'Mientras el reto está activo, el sorteo es solo una proyección. Al cerrar se sortea una única vez, de forma justa, y los ganadores quedan guardados: ya no cambian al recargar.',
+          refs: ['TC-RES-02', 'TC-RES-03', 'TC-SCORE-03', 'TC-CHAL-17']
         },
         {
           id: '6.3', role: 'admin', title: 'Cerrar el reto', route: '/dashboard/admin/challenges',
           why: 'Al cerrar, el ranking pasa a ser definitivo.',
           actions: ['Pulsa <span class="ui">Cerrar reto</span> y confirma.'],
-          expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores. No se puede volver a activar.',
-          note: 'Un reto cerrado es definitivo: no se puede editar, volver a borrador ni registrar pagos (el premio queda fijo), pero sí registrar su premiación (paso 6.4). Cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
-          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-PART-06', 'TC-FIN-07']
+          expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores; si hace falta sorteo, se hace en ese momento y queda guardado. No se puede volver a activar.',
+          note: 'Un reto cerrado es definitivo: no se puede editar, volver a borrador ni registrar pagos (el premio queda fijo), y sus actividades ya no se validan, rechazan ni borran, ni siquiera por el admin. Revisa las pendientes antes de cerrar. Sí se puede registrar su premiación (paso 6.4). Cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
+          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-CHAL-14', 'TC-CHAL-15', 'TC-CHAL-16', 'TC-CHAL-17', 'TC-PART-06', 'TC-FIN-07']
         },
         {
           id: '6.4', role: 'admin', title: 'Registrar la premiación', route: '/dashboard/results',
           why: 'Para dejar constancia de quién recibió el premio, por ejemplo tras un sorteo presencial.',
           actions: ['En el panel de premiación, marca a las personas premiadas. Vienen marcados los ganadores que dan las reglas del reto (número de ganadores y desempate).', 'Agrega notas (compra del suplemento, sorteo realizado) y pulsa <span class="ui">Guardar premiación</span>.'],
           expect: 'La premiación prevalece sobre el cálculo automático, el premio se reparte entre los premiados y el reto queda cerrado.',
-          note: 'Solo se puede premiar a participantes del reto.',
-          refs: ['TC-RES-04', 'TC-RES-05', 'TC-RES-06']
+          note: 'Solo se puede premiar a participantes de un reto activo o ya cerrado (no de un borrador). Guardar la premiación de un reto activo lo cierra. Sobre un reto cerrado con sorteo automático, la premiación lo reemplaza; la nota "Sorteo automático al cierre" está reservada.',
+          refs: ['TC-RES-04', 'TC-RES-05', 'TC-RES-06', 'TC-CHAL-18']
         },
         {
           id: '6.5', role: 'participante', title: 'Consultar retos cerrados', route: '/dashboard/results',
@@ -606,7 +609,7 @@
     },
     {
       n: '7', id: 'fase-7', title: 'Cargar el historial',
-      intro: 'Para pasar a la plataforma meses llevados a mano en una planilla.',
+      intro: 'Para pasar a la plataforma meses llevados a mano en una planilla. El orden importa, porque un reto cerrado no admite importar: crea el reto, actívalo, importa sus filas y recién después cierra el reto o registra su premiación.',
       steps: [
         {
           id: '7.1', role: 'admin', title: 'Descargar la plantilla', route: '/dashboard/admin/import',
@@ -627,8 +630,8 @@
           why: 'Cada fila se registra como si el participante la hubiera cargado.',
           actions: ['Pulsa <span class="ui">Importar</span>.'],
           expect: 'El resumen indica filas creadas, actualizadas, omitidas, usuarios nuevos e inscripciones nuevas. Repetir la importación no duplica nada.',
-          note: 'Las filas importadas como Pendiente que no cumplan la regla de FC requieren validar con nota.',
-          refs: ['TC-IMP-03', 'TC-IMP-04']
+          note: 'Las filas importadas como Pendiente que no cumplan la regla de FC requieren validar con nota. Las filas de un reto cerrado se rechazan con "El reto M/AAAA está cerrado; no se pueden importar actividades" y no crean cuentas.',
+          refs: ['TC-IMP-03', 'TC-IMP-04', 'TC-IMP-12']
         },
         {
           id: '7.4', role: 'admin', title: 'Importar directo desde Google Sheets', route: '/dashboard/admin/import',

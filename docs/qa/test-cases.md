@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-05** · rama `release/1.5.0` · commit `533244f`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-06** · rama `release/1.6.0` · commit `a374c96`. Detalle en [validation-report.md](validation-report.md).
 
-**119 casos** · 119 aprobados · 0 fallidos · 0 con limitación conocida · 118 automatizados.
+**125 casos** · 125 aprobados · 0 fallidos · 0 con limitación conocida · 124 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,14 +19,14 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 13 | 13 | 0 |
+| [Gestión de retos](#chal) | 18 | 18 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 7 | 7 | 0 |
 | [Carga de archivos](#up) | 6 | 6 | 0 |
-| [Importación masiva](#imp) | 11 | 11 | 0 |
+| [Importación masiva](#imp) | 12 | 12 | 0 |
 | [Interfaz y navegación](#ui) | 11 | 11 | 0 |
 | [Salud del servicio](#health) | 5 | 5 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
@@ -965,6 +965,11 @@
 | [TC-CHAL-11](#tc-chal-11) | Cerrar un reto y no reactivarlo | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-12](#tc-chal-12) | Consultar en la web el ranking de un reto cerrado | Media | Funcional | ✅ Aprobado |
 | [TC-CHAL-13](#tc-chal-13) | Un reto cerrado es definitivo | Alta | Seguridad | ✅ Aprobado |
+| [TC-CHAL-14](#tc-chal-14) | Las actividades de un reto cerrado son definitivas | Alta | Seguridad | ✅ Aprobado |
+| [TC-CHAL-15](#tc-chal-15) | Las escrituras esperan al cierre y nunca caen después | Alta | Seguridad | ✅ Aprobado |
+| [TC-CHAL-16](#tc-chal-16) | Solo se cierra un reto activo, siempre por el mismo paso | Alta | Negativo | ✅ Aprobado |
+| [TC-CHAL-17](#tc-chal-17) | El sorteo es justo y se guarda al cerrar | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-18](#tc-chal-18) | La premiación del admin reemplaza al sorteo automático; la nota está reservada | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1422,6 +1427,204 @@
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | CHAL: un reto cerrado no vuelve a borrador (400) y cerrarlo de nuevo no cambia nada |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | RES: la premiación de un reto cerrado se puede registrar después del cierre |
 | ✅ | Sesiones | `parallel-session-test.mjs` | Un reto cerrado no vuelve a borrador |
+
+<a id="tc-chal-14"></a>
+
+### TC-CHAL-14 · Las actividades de un reto cerrado son definitivas
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Seguridad | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto en COMPLETED con una actividad pendiente y otra validada.
+
+**Datos de prueba:** Validar, rechazar y borrar como admin; borrar como dueño y como extraño
+
+**Pasos**
+
+1. Validar la pendiente y volver a validar la validada.
+2. Rechazar la validada.
+3. Borrar la pendiente como admin, como su dueño y como otro participante.
+
+**Resultado esperado**
+
+- Todo responde 400 "El reto está cerrado; sus actividades son definitivas", también al admin, antes que los chequeos de dueño o de estado.
+- Las actividades y el ranking del reto no cambian.
+- En un reto activo, validar, rechazar y borrar siguen como antes (regla de FC y permisos).
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.service.spec.ts` | validar, rechazar o borrar en un reto cerrado responde 400, también al admin |
+| ✅ | Unitaria | `activities.service.spec.ts` | el reto cerrado va antes que los chequeos de dueño y de estado |
+| ✅ | Unitaria | `activities.service.spec.ts` | en un reto activo, borrar sigue las reglas de siempre |
+| ✅ | Unitaria | `activities.service.spec.ts` | decide con la actividad releída bajo el lock |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: en un reto cerrado nadie valida, rechaza ni borra actividades (400) |
+| ✅ | Sesiones | `parallel-session-test.mjs` | La actividad de un reto cerrado no se puede retirar (400) |
+
+<a id="tc-chal-15"></a>
+
+### TC-CHAL-15 · Las escrituras esperan al cierre y nunca caen después
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Seguridad | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto activo y un cierre en curso (el reto bloqueado por otra transacción).
+
+**Datos de prueba:** Validar mientras otra transacción retiene el bloqueo más de 5 s; escrituras que leyeron ACTIVE cuando el reto ya se cerró
+
+**Pasos**
+
+1. Validar una actividad mientras el reto está bloqueado más de 5 s.
+2. Crear una actividad, inscribir, quitar, registrar un pago, subir un comprobante, cambiar reglas o activar cuando el reto se cerró después del primer chequeo.
+
+**Resultado esperado**
+
+- La validación responde 409 "El reto se está cerrando; vuelve a intentarlo en unos segundos" y la actividad no cambia (nunca 500).
+- Las escrituras se rechazan sin cambios: "El reto no está activo" al crear, "No se puede modificar un reto cerrado" en participantes, pagos y reglas, "Un reto cerrado no puede reactivarse" al activar.
+- Pedir el cierre de nuevo sigue siendo idempotente.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenge-lock.spec.ts` | reconoce el timeout de la transacción y el lock_timeout de Postgres |
+| ✅ | Unitaria | `challenge-lock.spec.ts` | no confunde otros errores con un timeout de lock |
+| ✅ | Unitaria | `challenge-lock.spec.ts` | traduce un timeout de lock a 409 con mensaje legible |
+| ✅ | Unitaria | `challenge-lock.spec.ts` | deja pasar los demás errores y el resultado |
+| ✅ | Unitaria | `challenge-lock.spec.ts` | usa los tiempos de espera de las escrituras por defecto |
+| ✅ | Unitaria | `challenge-lock.spec.ts` | fija el lock_timeout y bloquea la fila en modo compartido o exclusivo |
+| ✅ | Unitaria | `challenge-lock.spec.ts` | un reto inexistente da 404 |
+| ✅ | Unitaria | `activities.service.spec.ts` | crear una actividad cuando el reto se cerró bajo el lock responde "El reto no está activo" |
+| ✅ | Unitaria | `challenges.service.spec.ts` | inscribir, quitar y registrar pagos se rechazan si el reto se cerró bajo el lock |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un cambio de reglas que leyó ACTIVE no cae después del cierre |
+| ✅ | Unitaria | `challenges.service.spec.ts` | pedir el cierre cuando otro cierre ganó la carrera sigue siendo idempotente |
+| ✅ | Unitaria | `challenges.service.spec.ts` | activar un reto que se cerró bajo el lock responde 400 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: si el reto está bloqueado por un cierre más de 5 s, validar responde 409 y no cambia nada |
+
+<a id="tc-chal-16"></a>
+
+### TC-CHAL-16 · Solo se cierra un reto activo, siempre por el mismo paso
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Negativo | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto en borrador con un inscrito y un reto activo.
+
+**Datos de prueba:** POST close, PATCH status COMPLETED y POST awards sobre el borrador; PATCH { status: COMPLETED, pointsPerKm: 5 } sobre el activo
+
+**Pasos**
+
+1. Cerrar el borrador por las tres vías.
+2. Enviar un PATCH de cierre mezclado al activo.
+
+**Resultado esperado**
+
+- Las tres vías responden 400 "Solo se puede cerrar un reto activo"; el borrador sigue en borrador y sin awards.
+- El PATCH mezclado responde 400 "Para cerrar el reto envía solo el estado"; el reto sigue activo y sus reglas no cambian.
+- Solo el estado delega en el mismo paso de cierre que POST close.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador no se cierra ni se premia (400) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un PATCH de cierre con otros campos se rechaza y solo el estado delega en el cierre |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar un reto cerrado no cambia nada ni vuelve a sortear |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | CLOSE: un borrador no se cierra por ninguna vía (400) y sigue en borrador |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | CLOSE: un PATCH de cierre con otros campos se rechaza (400) y no cambia nada |
+
+<a id="tc-chal-17"></a>
+
+### TC-CHAL-17 · El sorteo es justo y se guarda al cerrar
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 6.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto activo con 4 participantes empatados en el tope.
+
+**Datos de prueba:** maxWinners 2 con DRAW; TOTAL_KM con 30, 20, 20 y 10 km
+
+**Pasos**
+
+1. Cerrar el reto con DRAW y leer los resultados varias veces.
+2. Cerrarlo de nuevo.
+3. Cerrar el de TOTAL_KM.
+
+**Resultado esperado**
+
+- Al cerrar se sortea una vez con una permutación uniforme y se guardan los 2 ganadores como awards con la nota "Sorteo automático al cierre".
+- Todas las lecturas devuelven los mismos ganadores, sin sorteo pendiente y con la nota "Ganadores definidos por sorteo automático al cierre.".
+- Cerrar de nuevo no vuelve a sortear.
+- Con TOTAL_KM se guardan el de 30 km y el sorteado entre los de 20 km.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `scoring.spec.ts` | Fisher-Yates con una fuente fija da la permutación esperada |
+| ✅ | Unitaria | `scoring.spec.ts` | las 6 permutaciones de 3 salen con frecuencia uniforme (1/6 ± 0,01) |
+| ✅ | Unitaria | `scoring.spec.ts` | con el randomInt real aparecen las 6 permutaciones |
+| ✅ | Unitaria | `scoring.spec.ts` | asegurados + cupos sorteados = ganadores, con cada regla |
+| ✅ | Unitaria | `results.service.spec.ts` | con las awards del sorteo automático: ganadores fijos, sin sorteo y con su nota |
+| ✅ | Unitaria | `results.service.spec.ts` | computeResults lee con el cliente que recibe (la transacción del cierre) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar con sorteo guarda a todos los ganadores con la nota reservada, calculando dentro de la transacción |
+| ✅ | Unitaria | `challenges.service.spec.ts` | cerrar sin sorteo no crea awards |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | DRAW: al cerrar con empate se sortea una vez y los ganadores no cambian al releer |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | TOTAL_KM: con empate en el corte se guarda al asegurado y al sorteado |
+
+<a id="tc-chal-18"></a>
+
+### TC-CHAL-18 · La premiación del admin reemplaza al sorteo automático; la nota está reservada
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Media | Funcional | 6.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto cerrado con sorteo automático guardado y un reto activo con empate.
+
+**Datos de prueba:** POST awards con la nota " Sorteo automático al cierre "; POST awards con otra nota; POST awards sobre el activo
+
+**Pasos**
+
+1. Registrar awards con la nota reservada.
+2. Registrar la premiación real sobre el cerrado.
+3. Premiar el reto activo.
+4. Premiar a alguien que no participa.
+
+**Resultado esperado**
+
+- La nota reservada responde 400 "Esa nota está reservada para el sorteo automático", también con espacios alrededor.
+- La premiación real reemplaza las awards del sorteo y la nota pasa a "Premiación registrada por el administrador."; el reto sigue cerrado.
+- Premiar un reto activo lo cierra con exactamente esas awards y la nota del admin.
+- Premiar a quien no participa responde 400 (comprobado bajo el bloqueo del cierre).
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `award-challenge.dto.spec.ts` | rechaza la nota del sorteo automático, también con espacios alrededor |
+| ✅ | Unitaria | `award-challenge.dto.spec.ts` | acepta cualquier otra nota |
+| ✅ | Unitaria | `results.service.spec.ts` | con una premiación del admin la nota sigue siendo la de siempre |
+| ✅ | Unitaria | `challenges.service.spec.ts` | premiar un reto activo lo cierra con exactamente esas awards |
+| ✅ | Unitaria | `challenges.service.spec.ts` | premiar un reto cerrado reemplaza las awards sin volver a cerrarlo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | solo se premia a participantes, comprobado bajo el lock |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: la premiación del admin reemplaza al sorteo automático y la nota reservada se rechaza |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: premiar un reto activo lo cierra con exactamente esas awards |
 
 <a id="part"></a>
 
@@ -3243,6 +3446,7 @@
 | [TC-IMP-06](#tc-imp-06) | Google Sheets: estado de la hoja | Media | Integración | ✅ Aprobado |
 | [TC-IMP-07](#tc-imp-07) | Google Sheets: vista previa, hojas y cabeceras | Media | Integración | ✅ Aprobado |
 | [TC-IMP-08](#tc-imp-08) | Google Sheets: fallo de lectura sin importación parcial | Alta | Negativo | ✅ Aprobado |
+| [TC-IMP-12](#tc-imp-12) | La importación no escribe en un reto cerrado | Alta | Funcional | ✅ Aprobado |
 | [TC-IMP-09](#tc-imp-09) | Acentos y eñes en archivos importados | Alta | Regresión | ✅ Aprobado |
 | [TC-IMP-10](#tc-imp-10) | Fechas y decimales en archivos importados | Media | Funcional | ✅ Aprobado |
 | [TC-IMP-11](#tc-imp-11) | Autenticación con cuenta de servicio de Google | Media | Integración | ✅ Aprobado |
@@ -3520,6 +3724,40 @@
 |---|---|---|---|
 | ✅ | Unitaria | `import.service.spec.ts` | fallo de lectura en preview/commit -> 400 con el motivo |
 | ✅ | API e2e | `import-sheet.e2e-spec.ts` | hoja no compartida en commit -> 400 sin importar nada |
+
+<a id="tc-imp-12"></a>
+
+### TC-IMP-12 · La importación no escribe en un reto cerrado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Importación masiva | Alta | Funcional | 7.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto en COMPLETED.
+
+**Datos de prueba:** CSV con una fila de ese reto para una persona sin cuenta
+
+**Pasos**
+
+1. Ver la vista previa.
+2. Confirmar la importación.
+
+**Resultado esperado**
+
+- La vista previa marca la fila como inválida: "El reto M/AAAA está cerrado; no se pueden importar actividades".
+- El commit la informa en errors sin crear cuenta, participación ni actividad, y sin sumarla a los contadores.
+- Si el reto se cierra a mitad de una importación, las filas ya confirmadas quedan y las siguientes van a errors.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `import.service.spec.ts` | la vista previa marca como inválidas las filas de un reto cerrado |
+| ✅ | Unitaria | `import.service.spec.ts` | el commit no crea cuentas, participaciones ni actividades en un reto cerrado |
+| ✅ | Unitaria | `import.service.spec.ts` | si el reto se cierra a mitad del commit, las filas siguientes van a errors y no cuentan |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: la importación no escribe en un reto cerrado ni crea cuentas |
 
 <a id="tc-imp-09"></a>
 
@@ -4199,4 +4437,4 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (69) |
+| ✅ | Sesiones | `parallel-session-test.mjs` | todos los chequeos (70) |

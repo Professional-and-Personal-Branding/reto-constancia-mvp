@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ActivityStatus, ChallengeStatus } from '@prisma/client';
+import { ActivityStatus, ChallengeStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengePayout, collectedTotal, computePayout } from './finance.service';
-import { computeScore, describeScoring, isQualified, selectWinners } from './scoring';
+import { AUTO_DRAW_NOTE, computeScore, describeScoring, isQualified, selectWinners } from './scoring';
 
 export interface ParticipantRanking {
   userId: string;
@@ -49,7 +49,18 @@ export class ResultsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getResults(challengeId: string): Promise<ChallengeResults> {
-    const challenge = await this.prisma.challenge.findUnique({
+    return this.computeResults(this.prisma, challengeId);
+  }
+
+  /**
+   * Calcula los resultados con el cliente dado: el de siempre para las lecturas, o la
+   * transacción del cierre para sortear sobre lo que ve el lock (spec challenge-scoring).
+   */
+  async computeResults(
+    db: Prisma.TransactionClient | PrismaService,
+    challengeId: string,
+  ): Promise<ChallengeResults> {
+    const challenge = await db.challenge.findUnique({
       where: { id: challengeId },
       include: {
         participants: {
@@ -75,7 +86,7 @@ export class ResultsService {
     );
 
     // Trae todas las actividades del reto en una sola query
-    const activities = await this.prisma.dailyActivity.findMany({
+    const activities = await db.dailyActivity.findMany({
       where: { challengeId },
       select: {
         userId: true,
@@ -157,7 +168,11 @@ export class ResultsService {
       notes: [
         ...(scoringNote ? [scoringNote] : []),
         ...(awards.length > 0
-          ? ['Premiación registrada por el administrador.']
+          ? [
+              awards.every((award) => award.notes === AUTO_DRAW_NOTE)
+                ? 'Ganadores definidos por sorteo automático al cierre.'
+                : 'Premiación registrada por el administrador.',
+            ]
           : computed.notes),
       ],
       // El pote es lo recaudado (pagos confirmados); quien no pagó puede ganar igual

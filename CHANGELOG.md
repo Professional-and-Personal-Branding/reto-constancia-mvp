@@ -3,6 +3,55 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.6.0] — 2026-10-05
+
+El reto cerrado pasa a ser definitivo de verdad: nada que alimente su ranking o su pote cambia
+después del cierre, y el sorteo es justo y queda guardado. **No trae migraciones.** Cambios de
+comportamiento para quien use la API, sin efecto en la web de esta versión. Para volver a la
+1.5.0 basta redesplegar la API.
+
+**Integración continua:** imagen `ubuntu-24.04`, Node 22, actions v7, tiempos máximos por job y
+cancelación de corridas viejas en los PR (#53). Los tres jobs (Backend, Frontend y E2E de UI) son
+obligatorios para fusionar en `develop` y `main`.
+
+**Seguridad:** `source-map-js` pasa a 1.2.2 en el frontend (aviso alto GHSA-68fv-2mgg-jv7q en
+producción, vía `next` → `postcss`), con lo que producción vuelve a 0 avisos.
+
+### Cambiado
+
+- **El reto cerrado queda congelado** (cambio `closed-challenge-freeze`, primera parte):
+  - Sus actividades ya no se validan, rechazan ni borran: responden 400 "El reto está cerrado; sus
+    actividades son definitivas", también para el admin.
+  - La importación (archivo y Google Sheets) marca en la vista previa las filas de un reto cerrado
+    y no escribe nada de ellas, ni siquiera cuentas nuevas.
+  - Las escrituras que dependen del estado del reto bloquean su fila y releen el estado, así que
+    ninguna se confirma después del cierre: actividades, participantes, pagos, reglas, activación y
+    cada fila importada.
+  - Si una escritura espera más de 5 s al cierre, responde 409 "El reto se está cerrando; vuelve a
+    intentarlo en unos segundos", nunca 500.
+- **Cambios de comportamiento para quien use la API:**
+  - Validar de nuevo una actividad ya validada de un reto cerrado responde 400; antes no hacía
+    nada.
+  - Borrar una actividad de un reto cerrado responde 400 para todos, también para el admin; antes
+    el admin podía, y el dueño o un extraño recibían 403.
+- **La importación hace una transacción por fila**, para que un cierre pueda intercalarse entre
+  filas. Los contadores cuentan solo las filas confirmadas.
+- **Sorteo justo y guardado al cerrar** (cambio `closed-challenge-freeze`, segunda parte):
+  - El sorteo usa una permutación uniforme (Fisher–Yates con `crypto.randomInt`); antes usaba
+    `Math.random`, que no reparte igual.
+  - Al cerrar un reto que necesita sorteo, se sortea una sola vez dentro del cierre y los ganadores
+    se guardan como premiación con la nota reservada "Sorteo automático al cierre". Las lecturas
+    posteriores devuelven siempre esos ganadores, sin sorteo pendiente.
+  - Una premiación posterior del admin reemplaza al sorteo automático.
+- **Un solo paso de cierre:** `POST /close`, el PATCH con `status: COMPLETED` y `POST /awards`
+  sobre un reto no cerrado pasan por el mismo paso, con bloqueo exclusivo de la fila. Los premiados
+  se comprueban bajo ese bloqueo.
+- **Más cambios de comportamiento para quien use la API:**
+  - Cerrar o premiar un reto en borrador responde 400 "Solo se puede cerrar un reto activo"; antes
+    lo cerraba.
+  - Un PATCH de cierre con otros campos responde 400 "Para cerrar el reto envía solo el estado".
+  - La nota "Sorteo automático al cierre" está reservada en `POST /awards` (400).
+
 ## [1.5.0] — 2026-10-05
 
 La versión con la que se estrena producción: observabilidad básica para operar la API y
