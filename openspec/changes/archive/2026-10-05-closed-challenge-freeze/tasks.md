@@ -22,4 +22,4 @@
 - [x] 3.1 QA catalog: closed-challenge activities final; stored and stable draw; only active challenges close and mixed PATCH rejected; replacing the automatic draw and reserved note; import rows of a closed challenge; lock timeout 409; update TC-CHAL-13; run the validator
 - [x] 3.2 `docs/challenge-rules.md` (what a closed challenge freezes, the stored draw), guide (closing, awarding closes the challenge, phase 7 order: create, activate, import, then "Guardar premiación" on the active challenge)
 - [x] 3.3 `CHANGELOG.md` Sin publicar with the behaviour changes for API callers; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
-- [ ] 3.4 Open PR 2 to `develop`; after merge, archive the change
+- [x] 3.4 Open PR 2 to `develop`; after merge, archive the change
