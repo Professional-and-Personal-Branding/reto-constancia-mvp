@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import request from 'supertest';
 
@@ -127,6 +128,39 @@ describe('Limpieza de archivos subidos (e2e, modo local)', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  describe('reporte de huérfanos (scripts/cloudinary-orphans.mjs)', () => {
+    const script = join(process.cwd(), '..', 'scripts', 'cloudinary-orphans.mjs');
+    const run = (...flags: string[]) =>
+      spawnSync(process.execPath, [script, ...flags], { encoding: 'utf8', env: { ...process.env, CLOUDINARY_FOLDER: 'reto-constancia' } });
+
+    it('CLEAN: en modo local lista el archivo huérfano y no el referenciado, sin borrar nada', async () => {
+      const kept = await upload('activity', 'referenciada.png');
+      const orphan = await upload('activity', 'huerfana.png');
+      const act = await request(http).post('/api/activities').set(auth(ana)).send(activity(`${YEAR}-01-10`, [kept]));
+      expect(act.status).toBe(201);
+
+      const res = run('--local', '--json');
+      expect(res.status).toBe(0);
+      const report = JSON.parse(res.stdout) as { orphans: { id: string; category: string; bytes: number }[]; totalBytes: number };
+      const ids = report.orphans.map((o) => o.id);
+      expect(ids).toContain(orphan.cloudinaryId);
+      expect(ids).not.toContain(kept.cloudinaryId);
+      expect(report.orphans.find((o) => o.id === orphan.cloudinaryId)?.category).toBe('activity');
+      expect(report.totalBytes).toBeGreaterThan(0);
+      expect(existsSync(orphan.path)).toBe(true);
+      rmSync(orphan.path, { force: true });
+    });
+
+    it('CLEAN: sin credenciales de Cloudinary y sin --local sale con código 1 y un mensaje claro', () => {
+      const res = spawnSync(process.execPath, [script], {
+        encoding: 'utf8',
+        env: { ...process.env, CLOUDINARY_CLOUD_NAME: '', CLOUDINARY_API_KEY: '', CLOUDINARY_API_SECRET: '' },
+      });
+      expect(res.status).toBe(1);
+      expect(res.stderr).toContain('--local');
+    });
   });
 
   it('CLEAN: por defecto el comprobante reemplazado se conserva', async () => {
