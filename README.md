@@ -92,7 +92,7 @@ reto-constancia/
 ## Setup local
 
 ### Requisitos
-- Node 20+
+- Node 22 (el proyecto admite 20 a 22; la CI usa 22)
 - pnpm o npm
 - Docker (para Postgres local) o conexión a Supabase
 - Cuenta gratuita de Cloudinary

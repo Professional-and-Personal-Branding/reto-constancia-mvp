@@ -91,7 +91,23 @@ terminar, así que se pueden correr muchas veces sobre la misma base sin ensucia
 - **E2E de UI**: Postgres de servicio, migraciones, seed, build de backend y frontend,
   Chromium y los recorridos de Playwright. Si falla, sube el informe HTML como artefacto.
 
-Las ramas `main` y `develop` están protegidas: sin CI en verde no se puede mergear.
+Configuración común de los tres jobs:
+- **Imagen fija `ubuntu-24.04`.** `ubuntu-latest` cambia de versión sin aviso.
+- **Node 22**, igual que el entorno local. Node 20 ya no tiene soporte.
+- **Actions en su versión 7** (`checkout`, `setup-node`, `upload-artifact`), que corren sobre
+  Node 24.
+- **Tiempo máximo por job:** 20 min el backend, 15 el frontend y 30 el E2E. Un job colgado falla
+  en vez de quedar en cola.
+- **Cancelación en PR:** un push nuevo a un PR cancela su corrida anterior. En `main` y `develop`
+  cada push corre completo.
+
+Las ramas `main` y `develop` están protegidas: los tres jobs (**Backend**, **Frontend** y **E2E
+de UI**) tienen que estar en verde para fusionar.
+
+**Si un job queda cancelado sin haber corrido** (sin runner asignado, 0 pasos), es una falla de
+GitHub al asignar el runner, no del código. Se relanza con "Re-run failed jobs" o
+`gh run rerun <id> --failed`, y no se fusiona hasta que los tres estén en verde. Pasó una vez en
+el PR #52: el relanzamiento quedó en verde.
 
 ## 4. Cuando algo falla
 
