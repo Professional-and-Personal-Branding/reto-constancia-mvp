@@ -272,6 +272,7 @@
     <details class="news">
       <summary>Qué cambió en esta actualización</summary>
       <ul>
+        <li>Cierre asistido: antes de cerrar o guardar la premiación aparece una revisión con las pendientes que no contarán, los impagos, los comprobantes por revisar y la proyección del resultado (pasos 6.3 y 6.4).</li>
         <li>Sorteo justo y guardado: al cerrar un reto con empate se sortea una sola vez y los ganadores ya no cambian al recargar; solo se cierra un reto activo (pasos 6.2 a 6.4).</li>
         <li>Reto cerrado: sus actividades ya no se validan, rechazan ni borran, la importación no escribe en él y ninguna escritura en curso cae después del cierre (pasos 6.3 y 7.3).</li>
         <li>Subidas: solo los inscritos en un reto pueden subir fotos y comprobantes, cada archivo va a su carpeta y en formatos permitidos (JPG, PNG, WEBP, HEIC; PDF solo para comprobantes), y no se aceptan imágenes de otros sitios ni de otros participantes (pasos 4.2 y 4.3).</li>
@@ -584,18 +585,18 @@
         {
           id: '6.3', role: 'admin', title: 'Cerrar el reto', route: '/dashboard/admin/challenges',
           why: 'Al cerrar, el ranking pasa a ser definitivo.',
-          actions: ['Pulsa <span class="ui">Cerrar reto</span> y confirma.'],
+          actions: ['Pulsa <span class="ui">Cerrar reto</span>: se abre la revisión previa con las actividades pendientes, los comprobantes sin pago registrado, quién no pagó y la proyección de ganadores y reparto.', 'Si hay pendientes, valídalas antes (enlace "Ir a validar") o marca <span class="ui">Cerrar de todas formas</span>: no contarán.', 'Confirma con <span class="ui">Cerrar reto</span>.'],
           expect: 'El reto pasa a Cerrado, deja de admitir actividades, inscripciones y bajas, y el resultado queda calculado con sus ganadores; si hace falta sorteo, se hace en ese momento y queda guardado. No se puede volver a activar.',
           note: 'Un reto cerrado es definitivo: no se puede editar, volver a borrador ni registrar pagos (el premio queda fijo), y sus actividades ya no se validan, rechazan ni borran, ni siquiera por el admin. Revisa las pendientes antes de cerrar. Sí se puede registrar su premiación (paso 6.4). Cualquiera puede consultar su resultado final en el Ranking (paso 6.5).',
-          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-CHAL-14', 'TC-CHAL-15', 'TC-CHAL-16', 'TC-CHAL-17', 'TC-PART-06', 'TC-FIN-07']
+          refs: ['TC-CHAL-11', 'TC-CHAL-13', 'TC-CHAL-14', 'TC-CHAL-15', 'TC-CHAL-16', 'TC-CHAL-17', 'TC-CHAL-19', 'TC-CHAL-20', 'TC-PART-06', 'TC-FIN-07']
         },
         {
           id: '6.4', role: 'admin', title: 'Registrar la premiación', route: '/dashboard/results',
           why: 'Para dejar constancia de quién recibió el premio, por ejemplo tras un sorteo presencial.',
-          actions: ['En el panel de premiación, marca a las personas premiadas. Vienen marcados los ganadores que dan las reglas del reto (número de ganadores y desempate).', 'Agrega notas (compra del suplemento, sorteo realizado) y pulsa <span class="ui">Guardar premiación</span>.'],
+          actions: ['En el panel de premiación, marca a las personas premiadas. Vienen marcados los ganadores que dan las reglas del reto (número de ganadores y desempate).', 'Agrega notas (compra del suplemento, sorteo realizado) y pulsa <span class="ui">Guardar premiación</span>: se abre la misma revisión previa del cierre, con los premiados elegidos. Confirma con <span class="ui">Guardar premiación y cerrar</span>.'],
           expect: 'La premiación prevalece sobre el cálculo automático, el premio se reparte entre los premiados y el reto queda cerrado.',
           note: 'Solo se puede premiar a participantes de un reto activo o ya cerrado (no de un borrador). Guardar la premiación de un reto activo lo cierra. Sobre un reto cerrado con sorteo automático, la premiación lo reemplaza; la nota "Sorteo automático al cierre" está reservada.',
-          refs: ['TC-RES-04', 'TC-RES-05', 'TC-RES-06', 'TC-CHAL-18']
+          refs: ['TC-RES-04', 'TC-RES-05', 'TC-RES-06', 'TC-CHAL-18', 'TC-CHAL-20']
         },
         {
           id: '6.5', role: 'participante', title: 'Consultar retos cerrados', route: '/dashboard/results',
@@ -666,7 +667,7 @@
           id: '8.3', role: 'tecnico', title: 'Ver los recorridos de UI en el navegador',
           why: 'Playwright reproduce los recorridos de este manual sobre la web real.',
           cmd: 'cd e2e && npm install && npx playwright install chromium\nnpm test          # sin ventana\nnpm run test:ui   # paso a paso\nnpx playwright test -c playwright.guide.config.ts   # regenera las capturas de este manual',
-          expect: '56 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
+          expect: '59 recorridos en verde (más la preparación de sesiones). La suite de capturas deja las imágenes en <code>docs/guia-capturas/</code>.',
           refs: ['e2e-playwright.md']
         },
         {
@@ -779,6 +780,7 @@
     '6.1': [['16-ranking.jpg', 'Ranking con columna de puntos, el tope en puntos, quién no califica y el premio proyectado.']],
     '6.5': [['17-ranking-cerrado.jpg', 'Reto cerrado: ganadora, premio final y la vuelta al reto activo.']],
     '6.4': [['18-premiacion.jpg', 'Panel de premiación con los ganadores sugeridos por las reglas del reto.']],
+    '6.3': [['27-cierre-asistido.jpg', 'Revisión antes de cerrar: pendientes que no contarán, impagos, comprobantes por revisar y la proyección del resultado.']],
     '7.2': [['19-importar-preview.jpg', 'Vista previa: filas válidas, errores por fila y advertencias, sin guardar nada.']],
     '7.3': [['20-importar-resultado.jpg', 'Resultado de la importación: creadas, omitidas, usuarios e inscripciones nuevas.']],
     '7.4': [['21-importar-sheets.jpg', 'Importación directa pegando el enlace de una hoja de Google Sheets.']]

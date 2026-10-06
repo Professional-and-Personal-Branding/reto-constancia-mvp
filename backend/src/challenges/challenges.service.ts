@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Challenge, ChallengeStatus, Prisma } from '@prisma/client';
+import { ActivityStatus, Challenge, ChallengeStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateChallengeDto } from './dto/create-challenge.dto';
@@ -15,6 +15,8 @@ import { PaymentProofDto } from './dto/payment-proof.dto';
 import { UploadService } from '../upload/upload.service';
 import { CLOSER_TX, LockMode, lockChallenge, withChallengeLock } from './challenge-lock';
 import { ResultsService } from './results.service';
+import type { ParticipantRanking } from './results.service';
+import { computeFinance, computePayout, PaymentState, ChallengePayout } from './finance.service';
 import { AUTO_DRAW_NOTE } from './scoring';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
@@ -30,6 +32,36 @@ export type ChallengeWithParticipants = Prisma.ChallengeGetPayload<{
 }>;
 
 const CLOSED_MESSAGE = 'No se puede modificar un reto cerrado';
+
+/** Lo que implica cerrar un reto activo (spec challenge-lifecycle: close preview). */
+export interface ClosePreview {
+  challengeId: string;
+  challengeName: string;
+  currency: string;
+  feePerParticipant: number;
+  pendingActivities: { count: number; items: { id: string; userId: string; userName: string; date: Date }[] };
+  proofsToReview: { userId: string; name: string; paymentProofUploadedAt: Date | null }[];
+  unpaid: { userId: string; name: string; state: Exclude<PaymentState, 'paid'>; amountPaid: number }[];
+  drawNeeded: boolean;
+  guaranteedWinners: PreviewWinner[];
+  drawCandidates: PreviewWinner[];
+  drawSeats: number;
+  /** Proyección: el cierre vuelve a calcular bajo su propio lock */
+  payout: ChallengePayout;
+}
+
+export interface PreviewWinner {
+  userId: string;
+  name: string;
+  score: number;
+  totalKm: number;
+}
+
+const PENDING_PREVIEW_LIMIT = 50;
+
+function previewWinner(r: ParticipantRanking): PreviewWinner {
+  return { userId: r.userId, name: r.name, score: r.score, totalKm: r.totalKm };
+}
 
 /** Pedir de nuevo el cierre (solo `status: COMPLETED`, el resto sin definir) no cambia nada. */
 function onlyClosing(dto: UpdateChallengeDto): boolean {
@@ -363,6 +395,73 @@ export class ChallengesService {
       throw new BadRequestException('No se puede modificar un reto cerrado');
     }
     return challenge;
+  }
+
+  /**
+   * Resumen de solo lectura antes de cerrar (spec challenge-lifecycle): pendientes que no
+   * contarán, comprobantes sin pago registrado, impagos y la proyección de ganadores y reparto.
+   * No toma locks ni escribe: el cierre vuelve a calcular todo bajo el suyo.
+   */
+  async closePreview(id: string): Promise<ClosePreview> {
+    const challenge = await this.prisma.challenge.findUnique({
+      where: { id },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+    if (!challenge) throw new NotFoundException('Reto no encontrado');
+    if (challenge.status === ChallengeStatus.DRAFT) {
+      throw new BadRequestException('Solo se puede cerrar un reto activo');
+    }
+    if (challenge.status === ChallengeStatus.COMPLETED) {
+      throw new BadRequestException('El reto ya está cerrado');
+    }
+
+    const pendingWhere = { challengeId: id, status: ActivityStatus.PENDING };
+    const [pendingCount, pendingItems, preview] = await Promise.all([
+      this.prisma.dailyActivity.count({ where: pendingWhere }),
+      this.prisma.dailyActivity.findMany({
+        where: pendingWhere,
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+        take: PENDING_PREVIEW_LIMIT,
+        select: { id: true, date: true, userId: true, user: { select: { name: true } } },
+      }),
+      this.results.previewSelection(id),
+    ]);
+
+    const finance = computeFinance(challenge, challenge.participants);
+    const { selection } = preview;
+    const drawSeats = selection.drawSeats ?? 0;
+
+    return {
+      challengeId: challenge.id,
+      challengeName: challenge.name,
+      currency: finance.currency,
+      feePerParticipant: finance.feePerParticipant,
+      pendingActivities: {
+        count: pendingCount,
+        items: pendingItems.map((a) => ({ id: a.id, userId: a.userId, userName: a.user.name, date: a.date })),
+      },
+      proofsToReview: challenge.participants
+        .filter((p) => !p.paid && p.paymentProofUrl)
+        .map((p) => ({ userId: p.userId, name: p.user.name, paymentProofUploadedAt: p.paymentProofUploadedAt })),
+      unpaid: finance.participants
+        .filter((p) => p.state !== 'paid')
+        .map((p) => ({
+          userId: p.userId,
+          name: p.name,
+          state: p.state as Exclude<PaymentState, 'paid'>,
+          amountPaid: p.amountPaid,
+        })),
+      drawNeeded: selection.drawNeeded,
+      guaranteedWinners: selection.guaranteed.map(previewWinner),
+      drawCandidates: (selection.drawPool ?? []).map(previewWinner),
+      drawSeats,
+      payout: computePayout(preview.collected, selection.guaranteed.length + drawSeats, challenge.feePerParticipant),
+    };
   }
 
   /** Cierra un reto activo (idempotente si ya está cerrado) por el paso común de cierre. */

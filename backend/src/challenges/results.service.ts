@@ -3,7 +3,14 @@ import { ActivityStatus, ChallengeStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengePayout, collectedTotal, computePayout } from './finance.service';
-import { AUTO_DRAW_NOTE, computeScore, describeScoring, isQualified, selectWinners } from './scoring';
+import {
+  AUTO_DRAW_NOTE,
+  computeScore,
+  describeScoring,
+  isQualified,
+  selectWinners,
+  WinnerSelection,
+} from './scoring';
 
 export interface ParticipantRanking {
   userId: string;
@@ -44,6 +51,13 @@ export interface ChallengeResults {
   payout: ChallengePayout;
 }
 
+export interface ResultsPreview {
+  results: ChallengeResults;
+  /** Selección sin sortear: asegurados, candidatos y cupos (interno) */
+  selection: WinnerSelection<ParticipantRanking>;
+  collected: number;
+}
+
 @Injectable()
 export class ResultsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -60,6 +74,22 @@ export class ResultsService {
     db: Prisma.TransactionClient | PrismaService,
     challengeId: string,
   ): Promise<ChallengeResults> {
+    return (await this.evaluate(db, challengeId)).results;
+  }
+
+  /**
+   * Resultados más el detalle interno de la selección de ganadores (quiénes ganan sin sorteo,
+   * entre quiénes se sortea y cuántos cupos) y lo recaudado. Lo usa el resumen previo al cierre
+   * (spec challenge-lifecycle); GET /results no expone este detalle.
+   */
+  async previewSelection(challengeId: string): Promise<ResultsPreview> {
+    return this.evaluate(this.prisma, challengeId);
+  }
+
+  private async evaluate(
+    db: Prisma.TransactionClient | PrismaService,
+    challengeId: string,
+  ): Promise<ResultsPreview> {
     const challenge = await db.challenge.findUnique({
       where: { id: challengeId },
       include: {
@@ -154,7 +184,8 @@ export class ResultsService {
         ? ranking.filter((r) => awards.some((award) => award.userId === r.userId))
         : computed.winners;
 
-    return {
+    const collected = collectedTotal(challenge.participants);
+    const results: ChallengeResults = {
       challengeId: challenge.id,
       challengeName: challenge.name,
       status: challenge.status,
@@ -177,11 +208,12 @@ export class ResultsService {
       ],
       // El pote es lo recaudado (pagos confirmados); quien no pagó puede ganar igual
       payout: computePayout(
-        collectedTotal(challenge.participants),
+        collected,
         awards.length > 0 ? awards.length : winners.length,
         challenge.feePerParticipant,
       ),
     };
+    return { results, selection: computed, collected };
   }
 
   /** Cuenta cuántos días del período caen en validDays (referencia para el admin) */

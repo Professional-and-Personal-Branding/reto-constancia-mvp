@@ -246,3 +246,30 @@ export interface SheetStatus {
   range?: string;
   rowCount?: number;
 }
+
+/** Resumen previo al cierre (spec challenge-lifecycle, cambio assisted-challenge-close). */
+export interface ClosePreviewWinner {
+  userId: string;
+  name: string;
+  score: number;
+  totalKm: number;
+}
+
+export interface ClosePreview {
+  challengeId: string;
+  challengeName: string;
+  currency: string;
+  feePerParticipant: number;
+  pendingActivities: {
+    count: number;
+    items: { id: string; userId: string; userName: string; date: string }[];
+  };
+  proofsToReview: { userId: string; name: string; paymentProofUploadedAt: string | null }[];
+  unpaid: { userId: string; name: string; state: 'unpaid' | 'partial'; amountPaid: number }[];
+  drawNeeded: boolean;
+  guaranteedWinners: ClosePreviewWinner[];
+  drawCandidates: ClosePreviewWinner[];
+  drawSeats: number;
+  /** Proyección: al cerrar se vuelve a calcular */
+  payout: { pot: number; winnersCount: number; perWinner: number; monetary: boolean };
+}

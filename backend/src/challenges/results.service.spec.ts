@@ -255,3 +255,43 @@ describe('ResultsService: sorteo guardado al cierre (closed-challenge-freeze)', 
     expect(r.drawNeeded).toBe(true);
   });
 });
+
+describe('ResultsService.previewSelection (assisted-challenge-close)', () => {
+  const four = {
+    ...baseChallenge,
+    participants: ['u1', 'u2', 'u3', 'u4'].map((id) => ({
+      userId: id,
+      paid: id !== 'u4',
+      amountPaid: id !== 'u4' ? '300.00' : null,
+      user: { id, name: id.toUpperCase(), email: `${id}@x` },
+    })),
+  };
+  const acts = (kms: number[]) =>
+    kms.map((km, i) => ({ userId: `u${i + 1}`, status: 'VALIDATED', distanceKm: km }));
+
+  it('con DRAW expone la selección sin sortear: nadie asegurado y 2 cupos entre 4', async () => {
+    const svc = new ResultsService(buildPrismaMock(four, acts([5, 5, 5, 5])));
+    const { selection, collected, results } = await svc.previewSelection('c1');
+    expect(selection).toMatchObject({ drawNeeded: true, guaranteed: [], drawSeats: 2 });
+    expect(selection.drawPool).toHaveLength(4);
+    expect(collected).toBe(900);
+    // El contrato público no cambia: sin campos internos en los resultados
+    expect(results).not.toHaveProperty('guaranteed');
+  });
+
+  it('con TOTAL_KM y empate en el corte: uno asegurado y 1 cupo entre los empatados', async () => {
+    const challenge = { ...four, tiebreakRule: TiebreakRule.TOTAL_KM };
+    const svc = new ResultsService(buildPrismaMock(challenge, acts([30, 20, 20, 20])));
+    const { selection } = await svc.previewSelection('c1');
+    expect(selection.guaranteed.map((w) => w.userId)).toEqual(['u1']);
+    expect(selection.drawPool?.map((w) => w.userId).sort()).toEqual(['u2', 'u3', 'u4']);
+    expect(selection.drawSeats).toBe(1);
+  });
+
+  it('sin empate no hay sorteo y los ganadores están asegurados', async () => {
+    const svc = new ResultsService(buildPrismaMock(four, acts([5, 0, 0, 0]).slice(0, 1)));
+    const { selection } = await svc.previewSelection('c1');
+    expect(selection).toMatchObject({ drawNeeded: false });
+    expect(selection.guaranteed.map((w) => w.userId)).toEqual(['u1']);
+  });
+});

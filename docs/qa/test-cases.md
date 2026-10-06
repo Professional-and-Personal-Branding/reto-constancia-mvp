@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-06** · rama `release/1.6.0` · commit `a374c96`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-06** · rama `feature/assisted-challenge-close` · commit `197a424` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**125 casos** · 125 aprobados · 0 fallidos · 0 con limitación conocida · 124 automatizados.
+**127 casos** · 127 aprobados · 0 fallidos · 0 con limitación conocida · 126 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 18 | 18 | 0 |
+| [Gestión de retos](#chal) | 20 | 20 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -970,6 +970,8 @@
 | [TC-CHAL-16](#tc-chal-16) | Solo se cierra un reto activo, siempre por el mismo paso | Alta | Negativo | ✅ Aprobado |
 | [TC-CHAL-17](#tc-chal-17) | El sorteo es justo y se guarda al cerrar | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-18](#tc-chal-18) | La premiación del admin reemplaza al sorteo automático; la nota está reservada | Media | Funcional | ✅ Aprobado |
+| [TC-CHAL-19](#tc-chal-19) | Resumen previo al cierre (solo lectura, solo admin) | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-20](#tc-chal-20) | Cerrar o premiar desde la web pasa por la revisión previa | Alta | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1625,6 +1627,81 @@
 | ✅ | Unitaria | `challenges.service.spec.ts` | solo se premia a participantes, comprobado bajo el lock |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: la premiación del admin reemplaza al sorteo automático y la nota reservada se rechaza |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: premiar un reto activo lo cierra con exactamente esas awards |
+
+<a id="tc-chal-19"></a>
+
+### TC-CHAL-19 · Resumen previo al cierre (solo lectura, solo admin)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto activo con una actividad pendiente, un impago, un pago parcial y un comprobante sin pago registrado.
+
+**Datos de prueba:** GET /api/challenges/:id/close-preview como admin y como participante; retos en borrador y cerrado; DRAW con 4 empatados; TOTAL_KM con empate en el corte
+
+**Pasos**
+
+1. Pedir el resumen como admin.
+2. Pedirlo para un borrador, para un reto cerrado y como participante.
+
+**Resultado esperado**
+
+- Trae el conteo exacto de pendientes y hasta 50 con nombre y fecha, los comprobantes por revisar, los impagos y parciales, y la proyección: asegurados, candidatos, cupos y reparto.
+- Con DRAW proyecta 2 cupos entre 4 sin asegurados; con TOTAL_KM, el de más km asegurado y 1 cupo entre los empatados.
+- Borrador: 400 "Solo se puede cerrar un reto activo"; cerrado: 400 "El reto ya está cerrado"; participante: 403.
+- No cambia nada: el reto sigue activo y no se guarda ningún sorteo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `results.service.spec.ts` | con DRAW expone la selección sin sortear: nadie asegurado y 2 cupos entre 4 |
+| ✅ | Unitaria | `results.service.spec.ts` | con TOTAL_KM y empate en el corte: uno asegurado y 1 cupo entre los empatados |
+| ✅ | Unitaria | `results.service.spec.ts` | sin empate no hay sorteo y los ganadores están asegurados |
+| ✅ | Unitaria | `challenges.service.spec.ts` | reúne pendientes, comprobantes por revisar, impagos y la proyección |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador o un reto cerrado responden 400 |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: el resumen previo reúne pendientes, comprobantes por revisar, impagos y la proyección, sin cambiar nada |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: con TOTAL_KM y empate en el corte proyecta al asegurado y el cupo sorteado |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: solo para retos activos (400) y solo para el admin (403) |
+
+<a id="tc-chal-20"></a>
+
+### TC-CHAL-20 · Cerrar o premiar desde la web pasa por la revisión previa
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | UI | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador; un reto activo con una actividad pendiente y un impago; otro con un ganador validado.
+
+**Datos de prueba:** Cerrar reto en la lista de retos; Guardar premiación en el ranking; un 409 simulado al cerrar
+
+**Pasos**
+
+1. Pulsar Cerrar reto.
+2. Marcar la casilla y confirmar.
+3. Guardar la premiación del otro reto.
+4. Repetir el cierre con la API respondiendo 409.
+
+**Resultado esperado**
+
+- El diálogo dice que 1 actividad pendiente no contará y bloquea el botón hasta marcar "Cerrar de todas formas"; los impagos aparecen con "Pueden ganar igual" sin bloquear.
+- Ganadores y reparto aparecen como proyección; al confirmar, el reto queda Cerrado.
+- Guardar premiación abre el diálogo con los premiados elegidos y al confirmar cierra el reto con esa premiación.
+- Un 409 se muestra dentro del diálogo con su mensaje y un botón Reintentar.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `12-assisted-close.spec.ts` | si el cierre está en curso (409) el diálogo muestra el mensaje y ofrece reintentar |
+| ✅ | UI | `12-assisted-close.spec.ts` | las pendientes bloquean el cierre hasta confirmarlas; los impagos solo informan |
+| ✅ | UI | `12-assisted-close.spec.ts` | guardar la premiación pasa por la revisión y cierra el reto con esos premiados |
 
 <a id="part"></a>
 

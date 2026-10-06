@@ -174,6 +174,65 @@ describe('Cierre y sorteo guardado (e2e)', () => {
     expect(r.status).toBe('COMPLETED');
   });
 
+  it('PREVIEW: el resumen previo reúne pendientes, comprobantes por revisar, impagos y la proyección, sin cambiar nada', async () => {
+    const id = await tiedChallenge(7, { maxWinners: 2, tiebreakRule: TiebreakRule.DRAW, feePerParticipant: 100 });
+    await prisma.dailyActivity.create({
+      data: {
+        challengeId: id, userId: userId.dora, date: new Date(`${YEAR}-07-06T00:00:00.000Z`),
+        exerciseType: ExerciseType.RUNNING, durationMinutes: 30, status: ActivityStatus.PENDING,
+      },
+    });
+    await prisma.challengeParticipant.update({ where: { challengeId_userId: { challengeId: id, userId: userId.ana } }, data: { paid: true, amountPaid: 100 } });
+    await prisma.challengeParticipant.update({
+      where: { challengeId_userId: { challengeId: id, userId: userId.beto } },
+      data: { paymentProofUrl: 'http://localhost:3000/uploads/x.pdf', paymentProofUploadedAt: new Date() },
+    });
+
+    const res = await request(http).get(`/api/challenges/${id}/close-preview`).set(auth());
+    expect(res.status).toBe(200);
+    expect(res.body.pendingActivities.count).toBe(1);
+    expect(res.body.pendingActivities.items[0].userId).toBe(userId.dora);
+    expect(res.body.proofsToReview.map((p: { userId: string }) => p.userId)).toEqual([userId.beto]);
+    expect(res.body.unpaid.map((p: { userId: string }) => p.userId).sort()).toEqual([userId.beto, userId.carla, userId.dora].sort());
+    expect(res.body).toMatchObject({ drawNeeded: true, drawSeats: 2, guaranteedWinners: [], currency: 'BOB' });
+    expect(res.body.drawCandidates).toHaveLength(4);
+    expect(res.body.payout).toMatchObject({ pot: 100, winnersCount: 2 });
+
+    // Solo lectura: sigue activo, sin awards y la actividad pendiente intacta
+    const after = await prisma.challenge.findUnique({ where: { id } });
+    expect(after?.status).toBe('ACTIVE');
+    expect(await prisma.challengeAward.count({ where: { challengeId: id } })).toBe(0);
+  });
+
+  it('PREVIEW: con TOTAL_KM y empate en el corte proyecta al asegurado y el cupo sorteado', async () => {
+    const id = await tiedChallenge(8, { maxWinners: 2, tiebreakRule: TiebreakRule.TOTAL_KM }, { ana: 30, beto: 20, carla: 20, dora: 20 });
+    const res = await request(http).get(`/api/challenges/${id}/close-preview`).set(auth());
+    expect(res.body.guaranteedWinners.map((w: { userId: string }) => w.userId)).toEqual([userId.ana]);
+    expect(res.body.drawCandidates).toHaveLength(3);
+    expect(res.body.drawSeats).toBe(1);
+    expect(res.body.payout.winnersCount).toBe(2);
+  });
+
+  it('PREVIEW: solo para retos activos (400) y solo para el admin (403)', async () => {
+    const draft = await request(http).post('/api/challenges').set(auth()).send({
+      name: 'E2E Borrador preview', month: 9, year: YEAR,
+      startDate: `${YEAR}-09-01T00:00:00.000Z`, endDate: `${YEAR}-09-28T23:59:59.000Z`,
+    });
+    const draftRes = await request(http).get(`/api/challenges/${draft.body.id}/close-preview`).set(auth());
+    expect(draftRes.status).toBe(400);
+    expect(draftRes.body.message).toBe('Solo se puede cerrar un reto activo');
+
+    const closedId = await tiedChallenge(10, { maxWinners: 2, tiebreakRule: TiebreakRule.SHARE_ALL });
+    await request(http).post(`/api/challenges/${closedId}/close`).set(auth());
+    const closedRes = await request(http).get(`/api/challenges/${closedId}/close-preview`).set(auth());
+    expect(closedRes.status).toBe(400);
+    expect(closedRes.body.message).toBe('El reto ya está cerrado');
+
+    const login = await request(http).post('/api/auth/login').send({ email: 'e2e-draw-ana@reto.local', password: 'Secret123' });
+    const asParticipant = await request(http).get(`/api/challenges/${closedId}/close-preview`).set({ Authorization: `Bearer ${login.body.tokens.accessToken}` });
+    expect(asParticipant.status).toBe(403);
+  });
+
   it('AWARD: premiar un reto activo lo cierra con exactamente esas awards', async () => {
     const id = await tiedChallenge(6, { maxWinners: 2, tiebreakRule: TiebreakRule.DRAW });
     const award = await request(http).post(`/api/challenges/${id}/awards`).set(auth()).send({ userIds: [userId.beto, userId.carla], notes: 'Premio entregado' });

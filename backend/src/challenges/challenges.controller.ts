@@ -129,6 +129,18 @@ export class ChallengesController {
     return this.challenges.activate(id);
   }
 
+  @Get(':id/close-preview')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Resumen previo al cierre (admin, solo lectura): pendientes, comprobantes por revisar, impagos y proyección de ganadores y reparto',
+  })
+  @ApiResponse({ status: 400, description: 'Solo se puede cerrar un reto activo / El reto ya está cerrado' })
+  @ApiResponse({ status: 403, description: 'Solo administradores' })
+  closePreview(@Param('id') id: string) {
+    return this.challenges.closePreview(id);
+  }
+
   @Get(':id/finance')
   @Roles(UserRole.ADMIN)
   @ApiOperation({

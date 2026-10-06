@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { toDayKey } from '@/lib/dates';
 import type { Challenge, TiebreakRule } from '@/lib/types';
+import { CloseChallengeDialog, closeErrorFrom, type CloseError } from '@/components/close-challenge-dialog';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -37,14 +38,21 @@ export default function ChallengesPage() {
     setActionError(Array.isArray(msg) ? msg.join(', ') : msg);
   }
 
+  // Cerrar pasa por la revisión previa (spec challenge-lifecycle, cambio assisted-challenge-close)
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<CloseError | null>(null);
   const closeMut = useMutation({
     mutationFn: (id: string) => api(`/challenges/${id}/close`, { method: 'POST' }),
     onSuccess: () => {
       setActionError(null);
+      setCloseError(null);
+      setClosingId(null);
       qc.invalidateQueries({ queryKey: ['challenges'] });
       qc.invalidateQueries({ queryKey: ['challenge'] });
+      qc.invalidateQueries({ queryKey: ['results'] });
+      qc.invalidateQueries({ queryKey: ['close-preview'] });
     },
-    onError: showError,
+    onError: (e) => setCloseError(closeErrorFrom(e)),
   });
 
   const activateMut = useMutation({
@@ -58,6 +66,17 @@ export default function ChallengesPage() {
 
   return (
     <div className="space-y-8">
+      {closingId && (
+        <CloseChallengeDialog
+          challengeId={closingId}
+          open
+          mode="close"
+          isPending={closeMut.isPending}
+          error={closeError}
+          onConfirm={() => closeMut.mutate(closingId)}
+          onCancel={() => setClosingId(null)}
+        />
+      )}
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-accent text-xs uppercase tracking-[0.2em] font-semibold mb-2">
@@ -135,9 +154,8 @@ export default function ChallengesPage() {
                 {c.status === 'ACTIVE' && (
                   <button
                     onClick={() => {
-                      if (confirm('¿Cerrar este reto y calcular ganadores?')) {
-                        closeMut.mutate(c.id);
-                      }
+                      setCloseError(null);
+                      setClosingId(c.id);
                     }}
                     className="btn-danger text-sm py-1.5 px-3"
                   >
