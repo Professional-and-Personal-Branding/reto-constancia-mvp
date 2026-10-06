@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-06** · rama `feature/assisted-challenge-close` · commit `197a424` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-06** · rama `feature/upload-asset-cleanup` · commit `8a772c0`. Detalle en [validation-report.md](validation-report.md).
 
-**127 casos** · 127 aprobados · 0 fallidos · 0 con limitación conocida · 126 automatizados.
+**130 casos** · 130 aprobados · 0 fallidos · 0 con limitación conocida · 129 automatizados.
 
 ## Cómo leer cada caso
 
@@ -25,7 +25,7 @@
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 7 | 7 | 0 |
-| [Carga de archivos](#up) | 6 | 6 | 0 |
+| [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
 | [Interfaz y navegación](#ui) | 11 | 11 | 0 |
 | [Salud del servicio](#health) | 5 | 5 | 0 |
@@ -3263,6 +3263,9 @@
 | [TC-UP-04](#tc-up-04) | Formatos permitidos por propósito | Alta | Seguridad | ✅ Aprobado |
 | [TC-UP-05](#tc-up-05) | Solo se acepta evidencia propia (fotos y comprobantes) | Alta | Seguridad | ✅ Aprobado |
 | [TC-UP-06](#tc-up-06) | Límite de firmas de subida por minuto | Media | Seguridad | ✅ Aprobado |
+| [TC-UP-07](#tc-up-07) | Retirar una actividad libera sus fotos | Alta | Funcional | ✅ Aprobado |
+| [TC-UP-08](#tc-up-08) | El comprobante reemplazado se conserva salvo configuración | Alta | Funcional | ✅ Aprobado |
+| [TC-UP-09](#tc-up-09) | Reporte de archivos huérfanos | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-up-01"></a>
 
@@ -3508,6 +3511,117 @@
 | ✅ | Unitaria | `http.spec.ts` | usa 30 firmas por minuto por defecto y descarta valores inválidos |
 | ✅ | Unitaria | `upload.controller.spec.ts` | firma con límite configurable: 30 por minuto por defecto y UPLOAD_SIGN_LIMIT si está definido |
 | ✅ | API e2e | `ops-throttle.e2e-spec.ts` | UP: las firmas de subida tienen su propio límite por minuto (UPLOAD_SIGN_LIMIT) |
+
+<a id="tc-up-07"></a>
+
+### TC-UP-07 · Retirar una actividad libera sus fotos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Funcional | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con una actividad PENDIENTE y dos fotos subidas.
+
+**Datos de prueba:** DELETE /api/activities/:id
+
+**Pasos**
+
+1. Retirar la actividad.
+2. Revisar el almacenamiento (Cloudinary o backend/uploads).
+3. Repetir con una foto que otra actividad también usa y con una foto importada (import/...).
+
+**Resultado esperado**
+
+- Responde 204 y las fotos se borran después de guardar el cambio, sin esperar al almacenamiento.
+- Si el almacenamiento falla, la respuesta no cambia y queda un aviso en los Logs solo con el id del archivo.
+- Una foto que otra actividad usa se conserva hasta que se borra la última; las fotos importadas nunca se borran.
+- Si el borrado de la actividad se rechaza (reto cerrado, 403), no se libera nada.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `upload.service.spec.ts` | ok es borrado, not found es no existía, otro resultado lanza y los errores de red se propagan |
+| ✅ | Unitaria | `upload.service.spec.ts` | borra el archivo del id con su extensión |
+| ✅ | Unitaria | `upload.service.spec.ts` | sin archivo o sin carpeta responde no existía |
+| ✅ | Unitaria | `upload.service.spec.ts` | nunca sale de la carpeta de subidas |
+| ✅ | Unitaria | `upload.service.spec.ts` | nunca lanza: un fallo de almacenamiento queda como aviso con el id |
+| ✅ | Unitaria | `upload.service.spec.ts` | no existía no es un aviso |
+| ✅ | Unitaria | `upload.service.spec.ts` | conserva un archivo que otra foto o un comprobante siguen usando |
+| ✅ | Unitaria | `upload.service.spec.ts` | ignora las fotos importadas y los ids repetidos |
+| ✅ | Unitaria | `activities.service.spec.ts` | después de borrar pide liberar las fotos de la actividad |
+| ✅ | Unitaria | `activities.service.spec.ts` | si el borrado se rechaza no libera nada |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad borra sus fotos del almacenamiento y responde 204 |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad |
+
+<a id="tc-up-08"></a>
+
+### TC-UP-08 · El comprobante reemplazado se conserva salvo configuración
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Funcional | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con un comprobante ya subido.
+
+**Datos de prueba:** PATCH /api/challenges/:id/participants/me/payment-proof
+
+**Pasos**
+
+1. Subir un comprobante nuevo.
+2. Repetir con UPLOAD_DELETE_REPLACED_PROOFS=true.
+3. Volver a enviar el mismo comprobante.
+
+**Resultado esperado**
+
+- Por defecto el comprobante anterior se conserva (evidencia financiera).
+- Con UPLOAD_DELETE_REPLACED_PROOFS=true el anterior se libera después de guardar el cambio.
+- Enviar el mismo archivo otra vez no libera nada.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | por defecto conserva el comprobante anterior |
+| ✅ | Unitaria | `challenges.service.spec.ts` | con el borrado activado libera el anterior, y no si es el mismo archivo |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: por defecto el comprobante reemplazado se conserva |
+
+<a id="tc-up-09"></a>
+
+### TC-UP-09 · Reporte de archivos huérfanos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Media | Funcional | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Variables de la API (DATABASE_URL y CLOUDINARY_*), o --local en desarrollo.
+
+**Datos de prueba:** node scripts/cloudinary-orphans.mjs [--local] [--json]
+
+**Pasos**
+
+1. Generar el reporte con un archivo referenciado y uno huérfano.
+2. Generarlo sin credenciales de Cloudinary y sin --local.
+
+**Resultado esperado**
+
+- Lista solo el huérfano, con categoría (activity, payment-proof o legacy), fecha y tamaño total; en Cloudinary, además el uso del plan.
+- No borra nada.
+- Sin credenciales sale con código 1 y sugiere --local.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: en modo local lista el archivo huérfano y no el referenciado, sin borrar nada |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: sin credenciales de Cloudinary y sin --local sale con código 1 y un mensaje claro |
 
 <a id="imp"></a>
 

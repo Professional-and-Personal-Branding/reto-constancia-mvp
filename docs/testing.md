@@ -128,7 +128,7 @@ el PR #52: el relanzamiento quedó en verde.
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 59 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 127 casos de `docs/qa/` están enlazados a 550 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 130 casos de `docs/qa/` están enlazados a 568 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -141,6 +141,25 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-06 · rama `feature/upload-asset-cleanup` (limpieza de archivos)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 130 de 130 casos aprobados (129 automatizados) con 568 pruebas y 0 fallidas:
+- unitarias del backend: 276;
+- unitarias de la web: 16;
+- e2e de API: 127;
+- recorridos de UI: 59, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-UP-07 (retirar una actividad libera sus fotos), TC-UP-08 (el comprobante
+reemplazado se conserva salvo `UPLOAD_DELETE_REPLACED_PROOFS=true`) y TC-UP-09 (reporte de
+huérfanos `scripts/cloudinary-orphans.mjs`, con prueba de humo en modo local). Sin cambios en la
+web ni en la guía.
 
 ### 2026-10-06 · rama `feature/assisted-challenge-close` (cierre asistido)
 

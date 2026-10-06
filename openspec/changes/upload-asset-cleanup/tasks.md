@@ -17,5 +17,5 @@
 ## 4. Docs and verification
 
 - [x] 4.1 Runbook: monthly maintenance (usage, 70 % alert, report, manual decision), variable `UPLOAD_DELETE_REPLACED_PROOFS`; `.env.example`
-- [ ] 4.2 QA catalog cases; `CHANGELOG.md` Sin publicar; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
+- [x] 4.2 QA catalog cases; `CHANGELOG.md` Sin publicar; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
 - [ ] 4.3 Open the PR to `develop` with the 3 CI jobs green; after merge, archive the change
