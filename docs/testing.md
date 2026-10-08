@@ -127,8 +127,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 56 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores y los formatos de subida) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 125 casos de `docs/qa/` están enlazados a 539 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 59 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 130 casos de `docs/qa/` están enlazados a 568 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -141,6 +141,72 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-08 · v1.7.0 (rama `release/1.7.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.**
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **130 de 130 casos aprobados** (129
+automatizados) con 568 pruebas ejecutadas y 0 fallidas.
+
+**Prueba inestable corregida:** la primera corrida del validador falló en TC-AUTH-10 ("si el
+refresh token también es inválido…") con `page.reload: net::ERR_ABORTED`. Una consulta en segundo
+plano llegaba al login antes que la recarga y la abortaba; el resultado (login y sesión borrada)
+era el correcto. La prueba ahora tolera solo ese aborto; pasó 5 de 5 aislada, 3 de 3 con su
+suite y en la segunda corrida completa.
+
+**Dependencias:**
+- El 8 oct aparecieron avisos en **producción** del frontend: `next` ≤ 15.5.26 (2 moderados,
+  GHSA-4jqv-mc3x-m676 y GHSA-mcj8-r9mp-w47p) y `sharp` < 0.35.5 (alto, GHSA-wq5f-xc86-pv6w).
+- Se corrigieron con `next` y `eslint-config-next` 15.5.27 y `npm audit fix --package-lock-only`
+  (`sharp` 0.35.5), sin salto mayor. La batería se corrió con estas versiones.
+- Producción queda en 0 avisos en backend, frontend y e2e.
+- `npm audit` completo: backend 0, e2e 0 y frontend 7 altos más 2 moderados de desarrollo
+  (riesgo aceptado, ver §5).
+- Sin migraciones nuevas.
+
+### 2026-10-06 · rama `feature/upload-asset-cleanup` (limpieza de archivos)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 130 de 130 casos aprobados (129 automatizados) con 568 pruebas y 0 fallidas:
+- unitarias del backend: 276;
+- unitarias de la web: 16;
+- e2e de API: 127;
+- recorridos de UI: 59, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-UP-07 (retirar una actividad libera sus fotos), TC-UP-08 (el comprobante
+reemplazado se conserva salvo `UPLOAD_DELETE_REPLACED_PROOFS=true`) y TC-UP-09 (reporte de
+huérfanos `scripts/cloudinary-orphans.mjs`, con prueba de humo en modo local). Sin cambios en la
+web ni en la guía.
+
+### 2026-10-06 · rama `feature/assisted-challenge-close` (cierre asistido)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 127 de 127 casos aprobados (126 automatizados) con 550 pruebas y 0 fallidas:
+- unitarias del backend: 264;
+- unitarias de la web: 16;
+- e2e de API: 121;
+- recorridos de UI: 59, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-CHAL-19 (resumen previo, solo lectura) y TC-CHAL-20 (revisión previa en la web,
+con bloqueo por pendientes, premiación y 409). Captura nueva: `27-cierre-asistido.jpg`.
+
+**Impacto funcional:** ninguna prueba existente pulsa "Cerrar reto" ni "Guardar premiación" en la
+UI, y todas pasaron sin cambios. `GET /results` mantiene su contrato: los campos internos de la
+selección solo salen por el resumen.
 
 ### 2026-10-05 · v1.6.0 (rama `release/1.6.0`)
 

@@ -677,6 +677,45 @@ export const CASES = [
       A('close-draw.e2e-spec.ts', 'AWARD: premiar un reto activo lo cierra con exactamente esas awards'),
     ],
   },
+  {
+    id: 'TC-CHAL-19', title: 'Resumen previo al cierre (solo lectura, solo admin)', priority: 'Alta', type: 'Funcional', guide: '6.3',
+    pre: ['Un reto activo con una actividad pendiente, un impago, un pago parcial y un comprobante sin pago registrado.'],
+    data: 'GET /api/challenges/:id/close-preview como admin y como participante; retos en borrador y cerrado; DRAW con 4 empatados; TOTAL_KM con empate en el corte',
+    steps: ['Pedir el resumen como admin.', 'Pedirlo para un borrador, para un reto cerrado y como participante.'],
+    expected: [
+      'Trae el conteo exacto de pendientes y hasta 50 con nombre y fecha, los comprobantes por revisar, los impagos y parciales, y la proyección: asegurados, candidatos, cupos y reparto.',
+      'Con DRAW proyecta 2 cupos entre 4 sin asegurados; con TOTAL_KM, el de más km asegurado y 1 cupo entre los empatados.',
+      'Borrador: 400 "Solo se puede cerrar un reto activo"; cerrado: 400 "El reto ya está cerrado"; participante: 403.',
+      'No cambia nada: el reto sigue activo y no se guarda ningún sorteo.',
+    ],
+    auto: [
+      U('results.service.spec.ts', 'con DRAW expone la selección sin sortear: nadie asegurado y 2 cupos entre 4'),
+      U('results.service.spec.ts', 'con TOTAL_KM y empate en el corte: uno asegurado y 1 cupo entre los empatados'),
+      U('results.service.spec.ts', 'sin empate no hay sorteo y los ganadores están asegurados'),
+      U('challenges.service.spec.ts', 'reúne pendientes, comprobantes por revisar, impagos y la proyección'),
+      U('challenges.service.spec.ts', 'un borrador o un reto cerrado responden 400'),
+      A('close-draw.e2e-spec.ts', 'PREVIEW: el resumen previo reúne pendientes, comprobantes por revisar, impagos y la proyección, sin cambiar nada'),
+      A('close-draw.e2e-spec.ts', 'PREVIEW: con TOTAL_KM y empate en el corte proyecta al asegurado y el cupo sorteado'),
+      A('close-draw.e2e-spec.ts', 'PREVIEW: solo para retos activos (400) y solo para el admin (403)'),
+    ],
+  },
+  {
+    id: 'TC-CHAL-20', title: 'Cerrar o premiar desde la web pasa por la revisión previa', priority: 'Alta', type: 'UI', guide: '6.3',
+    pre: ['Sesión de administrador; un reto activo con una actividad pendiente y un impago; otro con un ganador validado.'],
+    data: 'Cerrar reto en la lista de retos; Guardar premiación en el ranking; un 409 simulado al cerrar',
+    steps: ['Pulsar Cerrar reto.', 'Marcar la casilla y confirmar.', 'Guardar la premiación del otro reto.', 'Repetir el cierre con la API respondiendo 409.'],
+    expected: [
+      'El diálogo dice que 1 actividad pendiente no contará y bloquea el botón hasta marcar "Cerrar de todas formas"; los impagos aparecen con "Pueden ganar igual" sin bloquear.',
+      'Ganadores y reparto aparecen como proyección; al confirmar, el reto queda Cerrado.',
+      'Guardar premiación abre el diálogo con los premiados elegidos y al confirmar cierra el reto con esa premiación.',
+      'Un 409 se muestra dentro del diálogo con su mensaje y un botón Reintentar.',
+    ],
+    auto: [
+      W('12-assisted-close.spec.ts', 'si el cierre está en curso (409) el diálogo muestra el mensaje y ofrece reintentar'),
+      W('12-assisted-close.spec.ts', 'las pendientes bloquean el cierre hasta confirmarlas; los impagos solo informan'),
+      W('12-assisted-close.spec.ts', 'guardar la premiación pasa por la revisión y cierra el reto con esos premiados'),
+    ],
+  },
 
   // ───────────────────────────── PART ─────────────────────────────
   {
@@ -1332,6 +1371,61 @@ export const CASES = [
       U('http.spec.ts', 'usa 30 firmas por minuto por defecto y descarta valores inválidos'),
       U('upload.controller.spec.ts', 'firma con límite configurable: 30 por minuto por defecto y UPLOAD_SIGN_LIMIT si está definido'),
       A('ops-throttle.e2e-spec.ts', 'UP: las firmas de subida tienen su propio límite por minuto (UPLOAD_SIGN_LIMIT)'),
+    ],
+  },
+  {
+    id: 'TC-UP-07', title: 'Retirar una actividad libera sus fotos', priority: 'Alta', type: 'Funcional', guide: '8.4',
+    pre: ['Participante inscrito en un reto activo con una actividad PENDIENTE y dos fotos subidas.'], data: 'DELETE /api/activities/:id',
+    steps: ['Retirar la actividad.', 'Revisar el almacenamiento (Cloudinary o backend/uploads).', 'Repetir con una foto que otra actividad también usa y con una foto importada (import/...).'],
+    expected: [
+      'Responde 204 y las fotos se borran después de guardar el cambio, sin esperar al almacenamiento.',
+      'Si el almacenamiento falla, la respuesta no cambia y queda un aviso en los Logs solo con el id del archivo.',
+      'Una foto que otra actividad usa se conserva hasta que se borra la última; las fotos importadas nunca se borran.',
+      'Si el borrado de la actividad se rechaza (reto cerrado, 403), no se libera nada.',
+    ],
+    auto: [
+      U('upload.service.spec.ts', 'ok es borrado, not found es no existía, otro resultado lanza y los errores de red se propagan'),
+      U('upload.service.spec.ts', 'borra el archivo del id con su extensión'),
+      U('upload.service.spec.ts', 'sin archivo o sin carpeta responde no existía'),
+      U('upload.service.spec.ts', 'nunca sale de la carpeta de subidas'),
+      U('upload.service.spec.ts', 'nunca lanza: un fallo de almacenamiento queda como aviso con el id'),
+      U('upload.service.spec.ts', 'no existía no es un aviso'),
+      U('upload.service.spec.ts', 'conserva un archivo que otra foto o un comprobante siguen usando'),
+      U('upload.service.spec.ts', 'ignora las fotos importadas y los ids repetidos'),
+      U('activities.service.spec.ts', 'después de borrar pide liberar las fotos de la actividad'),
+      U('activities.service.spec.ts', 'si el borrado se rechaza no libera nada'),
+      A('asset-cleanup.e2e-spec.ts', 'CLEAN: retirar una actividad borra sus fotos del almacenamiento y responde 204'),
+      A('asset-cleanup.e2e-spec.ts', 'CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última'),
+      A('asset-cleanup.e2e-spec.ts', 'CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad'),
+    ],
+  },
+  {
+    id: 'TC-UP-08', title: 'El comprobante reemplazado se conserva salvo configuración', priority: 'Alta', type: 'Funcional', guide: '8.4',
+    pre: ['Participante inscrito en un reto activo con un comprobante ya subido.'], data: 'PATCH /api/challenges/:id/participants/me/payment-proof',
+    steps: ['Subir un comprobante nuevo.', 'Repetir con UPLOAD_DELETE_REPLACED_PROOFS=true.', 'Volver a enviar el mismo comprobante.'],
+    expected: [
+      'Por defecto el comprobante anterior se conserva (evidencia financiera).',
+      'Con UPLOAD_DELETE_REPLACED_PROOFS=true el anterior se libera después de guardar el cambio.',
+      'Enviar el mismo archivo otra vez no libera nada.',
+    ],
+    auto: [
+      U('challenges.service.spec.ts', 'por defecto conserva el comprobante anterior'),
+      U('challenges.service.spec.ts', 'con el borrado activado libera el anterior, y no si es el mismo archivo'),
+      A('asset-cleanup.e2e-spec.ts', 'CLEAN: por defecto el comprobante reemplazado se conserva'),
+    ],
+  },
+  {
+    id: 'TC-UP-09', title: 'Reporte de archivos huérfanos', priority: 'Media', type: 'Funcional', guide: '8.4',
+    pre: ['Variables de la API (DATABASE_URL y CLOUDINARY_*), o --local en desarrollo.'], data: 'node scripts/cloudinary-orphans.mjs [--local] [--json]',
+    steps: ['Generar el reporte con un archivo referenciado y uno huérfano.', 'Generarlo sin credenciales de Cloudinary y sin --local.'],
+    expected: [
+      'Lista solo el huérfano, con categoría (activity, payment-proof o legacy), fecha y tamaño total; en Cloudinary, además el uso del plan.',
+      'No borra nada.',
+      'Sin credenciales sale con código 1 y sugiere --local.',
+    ],
+    auto: [
+      A('asset-cleanup.e2e-spec.ts', 'CLEAN: en modo local lista el archivo huérfano y no el referenciado, sin borrar nada'),
+      A('asset-cleanup.e2e-spec.ts', 'CLEAN: sin credenciales de Cloudinary y sin --local sale con código 1 y un mensaje claro'),
     ],
   },
 

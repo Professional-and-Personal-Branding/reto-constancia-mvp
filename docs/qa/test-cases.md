@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-06** · rama `release/1.6.0` · commit `a374c96`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-08** · rama `release/1.7.0` · commit `011c47a`. Detalle en [validation-report.md](validation-report.md).
 
-**125 casos** · 125 aprobados · 0 fallidos · 0 con limitación conocida · 124 automatizados.
+**130 casos** · 130 aprobados · 0 fallidos · 0 con limitación conocida · 129 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,13 +19,13 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 18 | 18 | 0 |
+| [Gestión de retos](#chal) | 20 | 20 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 7 | 7 | 0 |
-| [Carga de archivos](#up) | 6 | 6 | 0 |
+| [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
 | [Interfaz y navegación](#ui) | 11 | 11 | 0 |
 | [Salud del servicio](#health) | 5 | 5 | 0 |
@@ -970,6 +970,8 @@
 | [TC-CHAL-16](#tc-chal-16) | Solo se cierra un reto activo, siempre por el mismo paso | Alta | Negativo | ✅ Aprobado |
 | [TC-CHAL-17](#tc-chal-17) | El sorteo es justo y se guarda al cerrar | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-18](#tc-chal-18) | La premiación del admin reemplaza al sorteo automático; la nota está reservada | Media | Funcional | ✅ Aprobado |
+| [TC-CHAL-19](#tc-chal-19) | Resumen previo al cierre (solo lectura, solo admin) | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-20](#tc-chal-20) | Cerrar o premiar desde la web pasa por la revisión previa | Alta | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1625,6 +1627,81 @@
 | ✅ | Unitaria | `challenges.service.spec.ts` | solo se premia a participantes, comprobado bajo el lock |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: la premiación del admin reemplaza al sorteo automático y la nota reservada se rechaza |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | AWARD: premiar un reto activo lo cierra con exactamente esas awards |
+
+<a id="tc-chal-19"></a>
+
+### TC-CHAL-19 · Resumen previo al cierre (solo lectura, solo admin)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto activo con una actividad pendiente, un impago, un pago parcial y un comprobante sin pago registrado.
+
+**Datos de prueba:** GET /api/challenges/:id/close-preview como admin y como participante; retos en borrador y cerrado; DRAW con 4 empatados; TOTAL_KM con empate en el corte
+
+**Pasos**
+
+1. Pedir el resumen como admin.
+2. Pedirlo para un borrador, para un reto cerrado y como participante.
+
+**Resultado esperado**
+
+- Trae el conteo exacto de pendientes y hasta 50 con nombre y fecha, los comprobantes por revisar, los impagos y parciales, y la proyección: asegurados, candidatos, cupos y reparto.
+- Con DRAW proyecta 2 cupos entre 4 sin asegurados; con TOTAL_KM, el de más km asegurado y 1 cupo entre los empatados.
+- Borrador: 400 "Solo se puede cerrar un reto activo"; cerrado: 400 "El reto ya está cerrado"; participante: 403.
+- No cambia nada: el reto sigue activo y no se guarda ningún sorteo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `results.service.spec.ts` | con DRAW expone la selección sin sortear: nadie asegurado y 2 cupos entre 4 |
+| ✅ | Unitaria | `results.service.spec.ts` | con TOTAL_KM y empate en el corte: uno asegurado y 1 cupo entre los empatados |
+| ✅ | Unitaria | `results.service.spec.ts` | sin empate no hay sorteo y los ganadores están asegurados |
+| ✅ | Unitaria | `challenges.service.spec.ts` | reúne pendientes, comprobantes por revisar, impagos y la proyección |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador o un reto cerrado responden 400 |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: el resumen previo reúne pendientes, comprobantes por revisar, impagos y la proyección, sin cambiar nada |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: con TOTAL_KM y empate en el corte proyecta al asegurado y el cupo sorteado |
+| ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: solo para retos activos (400) y solo para el admin (403) |
+
+<a id="tc-chal-20"></a>
+
+### TC-CHAL-20 · Cerrar o premiar desde la web pasa por la revisión previa
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | UI | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador; un reto activo con una actividad pendiente y un impago; otro con un ganador validado.
+
+**Datos de prueba:** Cerrar reto en la lista de retos; Guardar premiación en el ranking; un 409 simulado al cerrar
+
+**Pasos**
+
+1. Pulsar Cerrar reto.
+2. Marcar la casilla y confirmar.
+3. Guardar la premiación del otro reto.
+4. Repetir el cierre con la API respondiendo 409.
+
+**Resultado esperado**
+
+- El diálogo dice que 1 actividad pendiente no contará y bloquea el botón hasta marcar "Cerrar de todas formas"; los impagos aparecen con "Pueden ganar igual" sin bloquear.
+- Ganadores y reparto aparecen como proyección; al confirmar, el reto queda Cerrado.
+- Guardar premiación abre el diálogo con los premiados elegidos y al confirmar cierra el reto con esa premiación.
+- Un 409 se muestra dentro del diálogo con su mensaje y un botón Reintentar.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `12-assisted-close.spec.ts` | si el cierre está en curso (409) el diálogo muestra el mensaje y ofrece reintentar |
+| ✅ | UI | `12-assisted-close.spec.ts` | las pendientes bloquean el cierre hasta confirmarlas; los impagos solo informan |
+| ✅ | UI | `12-assisted-close.spec.ts` | guardar la premiación pasa por la revisión y cierra el reto con esos premiados |
 
 <a id="part"></a>
 
@@ -3186,6 +3263,9 @@
 | [TC-UP-04](#tc-up-04) | Formatos permitidos por propósito | Alta | Seguridad | ✅ Aprobado |
 | [TC-UP-05](#tc-up-05) | Solo se acepta evidencia propia (fotos y comprobantes) | Alta | Seguridad | ✅ Aprobado |
 | [TC-UP-06](#tc-up-06) | Límite de firmas de subida por minuto | Media | Seguridad | ✅ Aprobado |
+| [TC-UP-07](#tc-up-07) | Retirar una actividad libera sus fotos | Alta | Funcional | ✅ Aprobado |
+| [TC-UP-08](#tc-up-08) | El comprobante reemplazado se conserva salvo configuración | Alta | Funcional | ✅ Aprobado |
+| [TC-UP-09](#tc-up-09) | Reporte de archivos huérfanos | Media | Funcional | ✅ Aprobado |
 
 <a id="tc-up-01"></a>
 
@@ -3431,6 +3511,117 @@
 | ✅ | Unitaria | `http.spec.ts` | usa 30 firmas por minuto por defecto y descarta valores inválidos |
 | ✅ | Unitaria | `upload.controller.spec.ts` | firma con límite configurable: 30 por minuto por defecto y UPLOAD_SIGN_LIMIT si está definido |
 | ✅ | API e2e | `ops-throttle.e2e-spec.ts` | UP: las firmas de subida tienen su propio límite por minuto (UPLOAD_SIGN_LIMIT) |
+
+<a id="tc-up-07"></a>
+
+### TC-UP-07 · Retirar una actividad libera sus fotos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Funcional | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con una actividad PENDIENTE y dos fotos subidas.
+
+**Datos de prueba:** DELETE /api/activities/:id
+
+**Pasos**
+
+1. Retirar la actividad.
+2. Revisar el almacenamiento (Cloudinary o backend/uploads).
+3. Repetir con una foto que otra actividad también usa y con una foto importada (import/...).
+
+**Resultado esperado**
+
+- Responde 204 y las fotos se borran después de guardar el cambio, sin esperar al almacenamiento.
+- Si el almacenamiento falla, la respuesta no cambia y queda un aviso en los Logs solo con el id del archivo.
+- Una foto que otra actividad usa se conserva hasta que se borra la última; las fotos importadas nunca se borran.
+- Si el borrado de la actividad se rechaza (reto cerrado, 403), no se libera nada.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `upload.service.spec.ts` | ok es borrado, not found es no existía, otro resultado lanza y los errores de red se propagan |
+| ✅ | Unitaria | `upload.service.spec.ts` | borra el archivo del id con su extensión |
+| ✅ | Unitaria | `upload.service.spec.ts` | sin archivo o sin carpeta responde no existía |
+| ✅ | Unitaria | `upload.service.spec.ts` | nunca sale de la carpeta de subidas |
+| ✅ | Unitaria | `upload.service.spec.ts` | nunca lanza: un fallo de almacenamiento queda como aviso con el id |
+| ✅ | Unitaria | `upload.service.spec.ts` | no existía no es un aviso |
+| ✅ | Unitaria | `upload.service.spec.ts` | conserva un archivo que otra foto o un comprobante siguen usando |
+| ✅ | Unitaria | `upload.service.spec.ts` | ignora las fotos importadas y los ids repetidos |
+| ✅ | Unitaria | `activities.service.spec.ts` | después de borrar pide liberar las fotos de la actividad |
+| ✅ | Unitaria | `activities.service.spec.ts` | si el borrado se rechaza no libera nada |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad borra sus fotos del almacenamiento y responde 204 |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad |
+
+<a id="tc-up-08"></a>
+
+### TC-UP-08 · El comprobante reemplazado se conserva salvo configuración
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Alta | Funcional | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con un comprobante ya subido.
+
+**Datos de prueba:** PATCH /api/challenges/:id/participants/me/payment-proof
+
+**Pasos**
+
+1. Subir un comprobante nuevo.
+2. Repetir con UPLOAD_DELETE_REPLACED_PROOFS=true.
+3. Volver a enviar el mismo comprobante.
+
+**Resultado esperado**
+
+- Por defecto el comprobante anterior se conserva (evidencia financiera).
+- Con UPLOAD_DELETE_REPLACED_PROOFS=true el anterior se libera después de guardar el cambio.
+- Enviar el mismo archivo otra vez no libera nada.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | por defecto conserva el comprobante anterior |
+| ✅ | Unitaria | `challenges.service.spec.ts` | con el borrado activado libera el anterior, y no si es el mismo archivo |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: por defecto el comprobante reemplazado se conserva |
+
+<a id="tc-up-09"></a>
+
+### TC-UP-09 · Reporte de archivos huérfanos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Carga de archivos | Media | Funcional | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Variables de la API (DATABASE_URL y CLOUDINARY_*), o --local en desarrollo.
+
+**Datos de prueba:** node scripts/cloudinary-orphans.mjs [--local] [--json]
+
+**Pasos**
+
+1. Generar el reporte con un archivo referenciado y uno huérfano.
+2. Generarlo sin credenciales de Cloudinary y sin --local.
+
+**Resultado esperado**
+
+- Lista solo el huérfano, con categoría (activity, payment-proof o legacy), fecha y tamaño total; en Cloudinary, además el uso del plan.
+- No borra nada.
+- Sin credenciales sale con código 1 y sugiere --local.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: en modo local lista el archivo huérfano y no el referenciado, sin borrar nada |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: sin credenciales de Cloudinary y sin --local sale con código 1 y un mensaje claro |
 
 <a id="imp"></a>
 

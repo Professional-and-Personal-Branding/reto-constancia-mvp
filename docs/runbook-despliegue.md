@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.6.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.7.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -229,7 +229,9 @@ entrega a los participantes). La 1.5.0 tampoco trae migraciones; para volver a l
 despliegan API y web juntas, porque cambia el contrato de subida, y el Start Command con `exec`
 sigue sirviendo. La 1.6.0 no trae migraciones: volver a la 1.5.0 es solo redesplegar la API (la
 web no cambia). Los premios guardados por el sorteo automático quedan en la base como premiación
-normal.
+normal. La 1.7.0 tampoco trae migraciones; para volver a la 1.6.0 se despliegan API y web juntas,
+porque la web usa el nuevo resumen previo al cierre. Los archivos que la 1.7.0 ya liberó no
+vuelven: sus actividades ya estaban borradas.
 
 ---
 
@@ -254,6 +256,30 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 - `npx prisma migrate dev` (crea migraciones contra la base de producción).
 - `SEED_DEMO=true` (crea usuarios con contraseña conocida).
 
+### 5.3 Mantenimiento mensual del almacenamiento
+
+Desde 1.7 la API libera sola las fotos de una actividad retirada o borrada (después de guardar el
+cambio y sin afectar la respuesta). Los comprobantes de pago reemplazados se conservan, porque son
+evidencia financiera, salvo que se active `UPLOAD_DELETE_REPLACED_PROOFS=true`. Si un borrado
+falla, los Logs muestran `No se pudo borrar el archivo <id>` y el archivo queda huérfano.
+
+Una vez al mes:
+
+1. Cloudinary → Dashboard: revisar el uso del plan. **Al pasar el 70 %**, hacer el paso 2 esa
+   misma semana (no esperar al mes siguiente).
+2. Generar el reporte de huérfanos desde una máquina con las variables de la API (solo lee):
+
+   ```bash
+   DATABASE_URL=... CLOUDINARY_CLOUD_NAME=... CLOUDINARY_API_KEY=... CLOUDINARY_API_SECRET=... node scripts/cloudinary-orphans.mjs
+   ```
+
+   Lista los archivos que ninguna foto ni comprobante usa, con categoría (`activity`,
+   `payment-proof` o `legacy`), fecha, tamaño total y el uso del plan. Sin credenciales sale con
+   código 1.
+3. Decidir a mano: borrar desde la Media Library de Cloudinary las fotos huérfanas (`activity`).
+   Los `payment-proof` y `legacy` se revisan uno por uno antes de borrar; ante la duda, se
+   conservan. El reporte no tiene opción de borrado.
+
 ---
 
 ## 6. Diagnóstico de incidentes
@@ -273,6 +299,7 @@ pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD
 | Subir responde "No participas en este reto" | El usuario no está inscrito en el reto seleccionado | Inscribirlo en Participantes; solo los inscritos pueden subir |
 | Subir responde "Formato no permitido…" | Formato fuera de la lista (actividad: JPG, PNG, WEBP, HEIC; comprobante: además PDF) | Esperado; convertir el archivo |
 | El comprobante en PDF responde 401 al abrirlo | Entrega de PDF apagada en Cloudinary | Settings → Security → "Allow delivery of PDF and ZIP files" |
+| Logs con "No se pudo borrar el archivo …" | Cloudinary no respondió al liberar una foto retirada | El usuario no se ve afectado; el archivo sale en el reporte mensual de huérfanos (§5.3) |
 | Muchos 429 al subir fotos | Límite de firmas por minuto o `TRUST_PROXY` mal configurado | Revisar `TRUST_PROXY`; subir `UPLOAD_SIGN_LIMIT` si hace falta |
 | Editar un reto responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: su resultado es definitivo | Esperado desde 1.3: no se edita ni se reabre; la premiación sí se puede registrar |
 | Registrar un pago responde "No se puede modificar un reto cerrado" | El reto ya está cerrado: no acepta pagos ni comprobantes | Esperado: el pago tardío se registra en el reto siguiente |
@@ -312,6 +339,7 @@ sobre `ERROR`. La respuesta de toda petición trae el código en la cabecera `X-
 | `PUBLIC_URL` | No | `https://reto-api.seenode.app` | URL pública de los archivos en el modo local de subidas (sin Cloudinary) |
 | `UPLOAD_SIGN_LIMIT` | No | `30` | Firmas de subida por cliente y minuto |
 | `UPLOAD_MAX_BYTES` | No | `10485760` | Tamaño máximo que la web valida antes de subir (10 MB) |
+| `UPLOAD_DELETE_REPLACED_PROOFS` | No | `false` | `true` borra el comprobante anterior al reemplazarlo; por defecto se conserva como evidencia (§5.3) |
 
 ### Web
 

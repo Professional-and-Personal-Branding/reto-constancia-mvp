@@ -353,3 +353,39 @@ describe('ActivitiesService: reto cerrado (closed-challenge-freeze)', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('ActivitiesService.remove: libera las fotos (upload-asset-cleanup)', () => {
+  function build(ch: unknown) {
+    const activity = {
+      id: 'act1',
+      challengeId: 'c1',
+      userId: 'u1',
+      status: ActivityStatus.PENDING,
+      challenge: ch,
+      photos: [{ cloudinaryId: 'reto-constancia/c1/u1/activity/a' }, { cloudinaryId: 'reto-constancia/c1/u1/activity/hr' }],
+    };
+    const { prisma } = buildPrisma({ activity, challenge: ch });
+    const remove = jest.fn().mockResolvedValue(undefined);
+    (prisma as unknown as { dailyActivity: Record<string, unknown> }).dailyActivity.delete = remove;
+    const uploads = localUploads();
+    const later = jest.spyOn(uploads, 'deleteAssetsLater').mockResolvedValue(undefined);
+    const svc = new ActivitiesService(prisma, new ChallengesService(prisma, uploads, new ResultsService(prisma)), uploads);
+    return { svc, later, remove };
+  }
+
+  it('después de borrar pide liberar las fotos de la actividad', async () => {
+    const { svc, later, remove } = build(challenge);
+    await svc.remove('act1', 'u1', UserRole.PARTICIPANT);
+    expect(remove).toHaveBeenCalled();
+    expect(later).toHaveBeenCalledWith(['reto-constancia/c1/u1/activity/a', 'reto-constancia/c1/u1/activity/hr']);
+  });
+
+  it('si el borrado se rechaza no libera nada', async () => {
+    const closed = build({ ...challenge, status: ChallengeStatus.COMPLETED });
+    await expect(closed.svc.remove('act1', 'u1', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(BadRequestException);
+    expect(closed.later).not.toHaveBeenCalled();
+    const stranger = build(challenge);
+    await expect(stranger.svc.remove('act1', 'otro', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(stranger.later).not.toHaveBeenCalled();
+  });
+});

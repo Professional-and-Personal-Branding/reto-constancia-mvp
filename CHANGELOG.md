@@ -3,6 +3,43 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+## [1.7.0] — 2026-10-08
+
+Cerrar un reto ahora pasa por una revisión previa, y el almacenamiento de archivos deja de crecer
+con fotos que ya nadie usa. **No trae migraciones.** Variable nueva opcional
+`UPLOAD_DELETE_REPLACED_PROOFS` (por defecto los comprobantes reemplazados se conservan). Para
+volver a la 1.6.0 se redespliegan API y web juntas.
+
+**Seguridad:** `next` pasa a 15.5.27 (avisos moderados GHSA-4jqv-mc3x-m676 y GHSA-mcj8-r9mp-w47p,
+envenenamiento de caché SSG/ISR) y `sharp` a 0.35.5 (aviso alto GHSA-wq5f-xc86-pv6w en librsvg),
+ambos en producción del frontend; producción vuelve a 0 avisos.
+
+### Añadido
+
+- **Cierre asistido** (cambio `assisted-challenge-close`):
+  - Antes de "Cerrar reto" y de "Guardar premiación", la web muestra una revisión con las
+    actividades pendientes que no contarán, los comprobantes subidos sin pago registrado, quién no
+    pagó o pagó en parte, y la proyección de ganadores, sorteo y reparto.
+  - Con pendientes, el botón queda bloqueado hasta marcar "Cerrar de todas formas". Los impagos
+    solo informan, porque quien no pagó puede ganar.
+  - Reemplaza el `confirm()` del navegador.
+  - Los errores del cierre y de la premiación se ven dentro del diálogo (antes la premiación no
+    mostraba sus errores), con "Reintentar" si el cierre está en curso (409).
+  - Nuevo endpoint `GET /api/challenges/:id/close-preview`: solo admin, solo lectura y solo para
+    retos activos.
+- **Limpieza de archivos** (cambio `upload-asset-cleanup`):
+  - Retirar o borrar una actividad libera sus fotos del almacenamiento después de guardar el
+    cambio. La respuesta (204) no cambia aunque el borrado falle: queda un aviso en los Logs.
+  - Nunca se borra un archivo que otra foto o un comprobante sigue usando, ni las fotos importadas
+    (`import/...`).
+  - Los comprobantes de pago reemplazados se conservan por defecto; nueva variable opcional
+    `UPLOAD_DELETE_REPLACED_PROOFS=true` para liberarlos.
+  - Nuevo `scripts/cloudinary-orphans.mjs`: reporte de solo lectura de archivos huérfanos
+    (Cloudinary o `--local`), con categoría, tamaño total y uso del plan. Mantenimiento mensual en
+    el runbook (§5.3).
+
 ## [1.6.0] — 2026-10-05
 
 El reto cerrado pasa a ser definitivo de verdad: nada que alimente su ranking o su pote cambia

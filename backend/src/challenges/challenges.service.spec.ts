@@ -537,3 +537,104 @@ describe('ChallengesService: paso único de cierre y sorteo guardado (closed-cha
     expect(writes.createMany).toHaveBeenCalled();
   });
 });
+
+describe('ChallengesService.closePreview (assisted-challenge-close)', () => {
+  const participant = (userId: string, paid: boolean, amountPaid: string | null, proof = false) => ({
+    userId,
+    paid,
+    amountPaid,
+    paidAt: paid ? new Date('2026-05-02') : null,
+    paymentProofUrl: proof ? `https://x/${userId}.pdf` : null,
+    paymentProofUploadedAt: proof ? new Date('2026-05-03') : null,
+    user: { id: userId, name: userId.toUpperCase(), email: `${userId}@x` },
+  });
+  function build(status: ChallengeStatus) {
+    const challenge = {
+      id: 'c',
+      name: 'Reto',
+      status,
+      currency: 'BOB',
+      feePerParticipant: '100.00',
+      budgetTotal: null,
+      participants: [participant('a', true, '100.00'), participant('b', false, null, true), participant('c', true, '50.00')],
+    };
+    const writes = { update: jest.fn(), createMany: jest.fn() };
+    const prisma = {
+      challenge: { findUnique: jest.fn().mockResolvedValue(challenge), update: writes.update },
+      challengeAward: { createMany: writes.createMany },
+      dailyActivity: {
+        count: jest.fn().mockResolvedValue(3),
+        findMany: jest.fn().mockResolvedValue([{ id: 'x', userId: 'a', date: new Date('2026-05-04'), user: { name: 'A' } }]),
+      },
+    } as unknown as PrismaService;
+    const row = (userId: string, km: number) => ({ userId, name: userId.toUpperCase(), score: 1, totalKm: km });
+    const previewSelection = jest.fn().mockResolvedValue({
+      collected: 150,
+      results: {},
+      selection: { drawNeeded: true, guaranteed: [row('a', 30)], drawPool: [row('b', 20), row('c', 20)], drawSeats: 1, winners: [], notes: [] },
+    });
+    const svc = new ChallengesService(prisma, localUploads(), { previewSelection } as unknown as ResultsService);
+    return { svc, writes };
+  }
+
+  it('reúne pendientes, comprobantes por revisar, impagos y la proyección', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE);
+    const p = await svc.closePreview('c');
+    expect(p.pendingActivities.count).toBe(3);
+    expect(p.pendingActivities.items[0]).toMatchObject({ userId: 'a', userName: 'A' });
+    expect(p.proofsToReview).toEqual([{ userId: 'b', name: 'B', paymentProofUploadedAt: new Date('2026-05-03') }]);
+    expect(p.unpaid).toEqual([
+      { userId: 'b', name: 'B', state: 'unpaid', amountPaid: 0 },
+      { userId: 'c', name: 'C', state: 'partial', amountPaid: 50 },
+    ]);
+    expect(p).toMatchObject({ drawNeeded: true, drawSeats: 1, currency: 'BOB', feePerParticipant: 100 });
+    expect(p.guaranteedWinners.map((w) => w.userId)).toEqual(['a']);
+    expect(p.drawCandidates.map((w) => w.userId)).toEqual(['b', 'c']);
+    expect(p.payout).toEqual({ pot: 150, winnersCount: 2, perWinner: 75, monetary: true });
+    // Solo lectura
+    expect(writes.update).not.toHaveBeenCalled();
+    expect(writes.createMany).not.toHaveBeenCalled();
+  });
+
+  it('un borrador o un reto cerrado responden 400', async () => {
+    await expect(build(ChallengeStatus.DRAFT).svc.closePreview('c')).rejects.toThrow('Solo se puede cerrar un reto activo');
+    await expect(build(ChallengeStatus.COMPLETED).svc.closePreview('c')).rejects.toThrow('El reto ya está cerrado');
+  });
+});
+
+describe('ChallengesService.uploadPaymentProof: comprobante reemplazado (upload-asset-cleanup)', () => {
+  const proof = (name: string) => {
+    const asset = ownedAsset({ challengeId: 'c', userId: 'u', purpose: 'payment-proof', name });
+    return { paymentProofUrl: asset.url, paymentProofCloudinaryId: asset.cloudinaryId };
+  };
+  function build(flag: boolean, previousId: string | null) {
+    const prisma = withLocks({
+      challenge: { findUnique: jest.fn().mockResolvedValue({ id: 'c', status: ChallengeStatus.ACTIVE, feePerParticipant: '100' }) },
+      challengeParticipant: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'p', paymentProofCloudinaryId: previousId }),
+        update: jest.fn().mockResolvedValue({ id: 'p' }),
+      },
+    } as unknown as PrismaService);
+    const uploads = localUploads();
+    jest.spyOn(uploads, 'deleteReplacedProofs', 'get').mockReturnValue(flag);
+    const later = jest.spyOn(uploads, 'deleteAssetsLater').mockResolvedValue(undefined);
+    return { svc: new ChallengesService(prisma, uploads, new ResultsService(prisma)), later };
+  }
+  afterEach(() => jest.restoreAllMocks());
+
+  it('por defecto conserva el comprobante anterior', async () => {
+    const { svc, later } = build(false, proof('viejo').paymentProofCloudinaryId);
+    await svc.uploadPaymentProof('c', 'u', proof('nuevo'));
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it('con el borrado activado libera el anterior, y no si es el mismo archivo', async () => {
+    const old = proof('viejo').paymentProofCloudinaryId;
+    const on = build(true, old);
+    await on.svc.uploadPaymentProof('c', 'u', proof('nuevo'));
+    expect(on.later).toHaveBeenCalledWith([old]);
+    const same = build(true, old);
+    await same.svc.uploadPaymentProof('c', 'u', proof('viejo'));
+    expect(same.later).not.toHaveBeenCalled();
+  });
+});
