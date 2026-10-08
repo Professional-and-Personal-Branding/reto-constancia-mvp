@@ -5,6 +5,20 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Acta del reto cerrado en CSV** (cambio `challenge-export-csv`):
+  - Nuevo `GET /api/challenges/:id/export?format=csv`: solo admin, solo retos cerrados (400 en
+    otro estado), solo lectura. Una fila por participante en el orden del ranking, con días, km,
+    puntaje, estado y monto de pago, si ganó (según la premiación guardada) y su premio.
+  - Archivo UTF-8 con BOM, separado por comas, con los textos que empiezan con `=`, `+`, `-` o `@`
+    neutralizados contra fórmulas, y nombre `acta-reto-AAAA-MM.csv`. No incluye enlaces a
+    comprobantes.
+  - En el Ranking de un reto cerrado, el admin ve **Descargar acta (CSV)**.
+  - Runbook §5.4: acta mensual como copia del resultado fuera de Seenode (no reemplaza los
+    respaldos de la base).
+  - Sin migraciones ni variables nuevas.
+
 ## [1.7.0] — 2026-10-08
 
 Cerrar un reto ahora pasa por una revisión previa, y el almacenamiento de archivos deja de crecer

@@ -127,8 +127,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 59 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 130 casos de `docs/qa/` están enlazados a 568 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 62 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 132 casos de `docs/qa/` están enlazados a 591 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -141,6 +141,25 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-08 · rama `feature/challenge-export-csv` (acta del reto cerrado en CSV)
+
+Base reiniciada con `npx prisma migrate reset --force`. Se recompilaron API y web antes de los
+recorridos de UI, porque Playwright sirve los builds ya compilados.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 132 de 132 casos aprobados (131 automatizados) con 591 pruebas y 0 fallidas:
+- unitarias del backend: 289;
+- unitarias de la web: 17;
+- e2e de API: 133;
+- recorridos de UI: 62, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-CHAL-21 (acta en CSV por la API: solo admin, solo cerrados, solo lectura,
+neutralización de fórmulas, BOM) y TC-CHAL-22 (descarga desde el Ranking y error visible). Guía:
+paso 6.6. Sin migraciones ni variables nuevas.
 
 ### 2026-10-08 · v1.7.0 (rama `release/1.7.0`)
 

@@ -638,3 +638,89 @@ describe('ChallengesService.uploadPaymentProof: comprobante reemplazado (upload-
     expect(same.later).not.toHaveBeenCalled();
   });
 });
+
+describe('ChallengesService.exportCsv (challenge-export)', () => {
+  const member = (userId: string, name: string, paid: boolean, amountPaid: string | null) => ({
+    userId,
+    paid,
+    amountPaid,
+    paidAt: paid ? new Date('2026-05-02T10:00:00.000Z') : null,
+    paymentProofUrl: `https://x/${userId}.pdf`,
+    user: { id: userId, name, email: `${userId}@x` },
+  });
+  function build(status: ChallengeStatus, found = true) {
+    const challenge = {
+      id: 'c',
+      name: 'Reto Mayo',
+      month: 5,
+      year: 2026,
+      status,
+      currency: 'BOB',
+      feePerParticipant: '100.00',
+      budgetTotal: null,
+      participants: [member('a', 'Ana', true, '100.00'), member('b', '=Bruno', true, '40.00'), member('c', 'Carla', false, null)],
+    };
+    const write = jest.fn();
+    const prisma = {
+      challenge: { findUnique: jest.fn().mockResolvedValue(found ? challenge : null), update: write },
+      challengeAward: { createMany: write },
+    } as unknown as PrismaService;
+    const rank = (userId: string, name: string, score: number) => ({
+      userId,
+      name,
+      email: `${userId}@x`,
+      validatedDays: score,
+      pendingDays: 0,
+      rejectedDays: 1,
+      totalKm: 10,
+      paid: true,
+      score,
+      qualified: true,
+    });
+    const getResults = jest.fn().mockResolvedValue({
+      ranking: [rank('b', '=Bruno', 9), rank('a', 'Ana', 8), rank('c', 'Carla', 3)],
+      awards: [{ userId: 'a', name: 'Ana', email: 'a@x', awardedAt: new Date(), notes: 'Sorteo automático al cierre' }],
+      payout: { pot: 140, winnersCount: 1, perWinner: 140, monetary: true },
+    });
+    const svc = new ChallengesService(prisma, localUploads(), { getResults } as unknown as ResultsService);
+    return { svc, write, getResults };
+  }
+
+  it('arma el acta en el orden del ranking con pagos, premiación guardada y premio', async () => {
+    const { svc, write } = build(ChallengeStatus.COMPLETED);
+    const { filename, content } = await svc.exportCsv('c');
+    expect(filename).toBe('acta-reto-2026-05.csv');
+    const [header, bruno, ana, carla] = content.split('\r\n');
+    expect(header.startsWith('reto,periodo,moneda,cuota,pote,posicion,nombre,email')).toBe(true);
+    // Texto con forma de fórmula neutralizado; no es ganador aunque encabece el ranking
+    expect(bruno).toContain(",1,'=Bruno,");
+    expect(bruno).toContain(',parcial,');
+    expect(bruno).toContain(',40.00,2026-05-02,no,,');
+    expect(ana).toContain(',2,Ana,');
+    expect(ana).toContain(',pagado,100.00,2026-05-02,si,Sorteo automático al cierre,140.00');
+    expect(carla).toContain(',pendiente,0.00,,no,,');
+    expect(content).toContain('Reto Mayo,2026-05,BOB,100.00,140.00,');
+    // No incluye enlaces de comprobantes ni escribe nada
+    expect(content).not.toContain('https://x/');
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('un borrador, un reto activo o uno inexistente no se exportan', async () => {
+    await expect(build(ChallengeStatus.DRAFT).svc.exportCsv('c')).rejects.toThrow('Solo se puede exportar el acta de un reto cerrado');
+    await expect(build(ChallengeStatus.ACTIVE).svc.exportCsv('c')).rejects.toBeInstanceOf(BadRequestException);
+    const missing = build(ChallengeStatus.COMPLETED, false);
+    await expect(missing.svc.exportCsv('c')).rejects.toBeInstanceOf(NotFoundException);
+    expect(missing.getResults).not.toHaveBeenCalled();
+  });
+
+  it('sin premiación guardada nadie figura como ganador ni lleva premio', async () => {
+    const { svc, getResults } = build(ChallengeStatus.COMPLETED);
+    getResults.mockResolvedValueOnce({
+      ranking: [{ userId: 'a', name: 'Ana', email: 'a@x', validatedDays: 0, pendingDays: 0, rejectedDays: 0, totalKm: 0, paid: true, score: 0, qualified: false }],
+      awards: [],
+      payout: { pot: 0, winnersCount: 0, perWinner: 0, monetary: true },
+    });
+    const { content } = await svc.exportCsv('c');
+    expect(content.split('\r\n')[1]).toContain(',no,,');
+  });
+});
