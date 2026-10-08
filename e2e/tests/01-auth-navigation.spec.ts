@@ -128,7 +128,11 @@ test.describe('Sesión de administración', () => {
       window.localStorage.setItem('reto.tokens', JSON.stringify(tokens));
     });
 
-    await page.reload();
+    // Una consulta en segundo plano puede llevar al login antes que la recarga y abortarla:
+    // ambos caminos terminan en el mismo lugar, que es lo que se verifica abajo
+    await page.reload().catch((e: Error) => {
+      if (!e.message.includes('ERR_ABORTED')) throw e;
+    });
     await page.waitForURL('**/login');
     expect(await page.evaluate(() => window.localStorage.getItem('reto.tokens'))).toBeNull();
   });
