@@ -1,11 +1,11 @@
 ## 1. Builder and endpoint
 
-- [ ] 1.1 `challenges/challenge-export.ts`: `buildChallengeCsv` (columns, quoting, formula neutralising, BOM added by the caller); unit tests for accents, commas, quotes, line breaks, `=`/`+`/`-`/`@` cells, money and date formats, winners and prize, empty challenge
-- [ ] 1.2 Service method joining `getResults` and `getFinance` (winners from stored awards; `404` and `400` rules) and the `GET :id/export` route with `@Roles(ADMIN)`, `format` validation, headers and file name (D5); unit tests
+- [x] 1.1 `challenges/challenge-export.ts`: `buildChallengeCsv` (columns, quoting, formula neutralising, BOM added by the caller); unit tests for accents, commas, quotes, line breaks, `=`/`+`/`-`/`@` cells, money and date formats, winners and prize, empty challenge
+- [x] 1.2 Service method joining `getResults` and `getFinance` (winners from stored awards; `404` and `400` rules) and the `GET :id/export` route with `@Roles(ADMIN)`, `format` validation, headers and file name (D5); unit tests
 
 ## 2. API e2e
 
-- [ ] 2.1 `backend/test/challenge-export.e2e-spec.ts`: participant `403`, active `400`, unknown format `400`, missing `404`, closed `200` with BOM, header, rows in ranking order, payment states, stored draw winner flagged and no proof links; the challenge data is unchanged afterwards
+- [x] 2.1 `backend/test/challenge-export.e2e-spec.ts`: participant `403`, active `400`, unknown format `400`, missing `404`, closed `200` with BOM, header, rows in ranking order, payment states, stored draw winner flagged and no proof links; the challenge data is unchanged afterwards
 
 ## 3. Web
 

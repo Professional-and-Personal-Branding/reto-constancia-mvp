@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,15 +9,19 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 
 import { ChallengeWithParticipants, ChallengesService } from './challenges.service';
 import { ChallengeResults, ResultsService } from './results.service';
@@ -38,6 +43,9 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
+
+/** Marca de orden de bytes: hace que Excel lea el CSV como UTF-8 y conserve los acentos. */
+const CSV_BOM = '\uFEFF';
 
 @ApiTags('challenges')
 @ApiBearerAuth()
@@ -139,6 +147,30 @@ export class ChallengesController {
   @ApiResponse({ status: 403, description: 'Solo administradores' })
   closePreview(@Param('id') id: string) {
     return this.challenges.closePreview(id);
+  }
+
+  @Get(':id/export')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Acta del reto cerrado en CSV (admin): una fila por participante con ranking, pago y premio. Solo lectura',
+  })
+  @ApiQuery({ name: 'format', enum: ['csv'], required: false })
+  async exportChallenge(
+    @Param('id') id: string,
+    @Query('format') format: string | undefined,
+    @Res() res: Response,
+  ) {
+    if (format !== undefined && format !== 'csv') {
+      throw new BadRequestException('Formato no soportado: usa format=csv');
+    }
+    const { filename, content } = await this.challenges.exportCsv(id);
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'no-store',
+    });
+    res.send(CSV_BOM + content);
   }
 
   @Get(':id/finance')

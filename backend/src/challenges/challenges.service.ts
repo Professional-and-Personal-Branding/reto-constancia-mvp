@@ -18,6 +18,7 @@ import { ResultsService } from './results.service';
 import type { ParticipantRanking } from './results.service';
 import { computeFinance, computePayout, PaymentState, ChallengePayout } from './finance.service';
 import { AUTO_DRAW_NOTE } from './scoring';
+import { buildChallengeCsv, ExportParticipant, exportFilename } from './challenge-export';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
 export const participantsInclude = {
@@ -413,6 +414,66 @@ export class ChallengesService {
    * contarán, comprobantes sin pago registrado, impagos y la proyección de ganadores y reparto.
    * No toma locks ni escribe: el cierre vuelve a calcular todo bajo el suyo.
    */
+  /**
+   * Acta del reto cerrado en CSV (spec challenge-export). Solo lee: ranking y premiación
+   * guardada de los resultados, estado de pago de las finanzas, ambos del mismo reto.
+   */
+  async exportCsv(id: string): Promise<{ filename: string; content: string }> {
+    const challenge = await this.prisma.challenge.findUnique({
+      where: { id },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+      },
+    });
+    if (!challenge) throw new NotFoundException('Reto no encontrado');
+    if (challenge.status !== ChallengeStatus.COMPLETED) {
+      throw new BadRequestException('Solo se puede exportar el acta de un reto cerrado');
+    }
+
+    const results = await this.results.getResults(id);
+    const finance = computeFinance(challenge, challenge.participants);
+    const payments = new Map(finance.participants.map((p) => [p.userId, p]));
+    const awards = new Map(results.awards.map((a) => [a.userId, a]));
+
+    const participants: ExportParticipant[] = results.ranking.map((r) => {
+      const payment = payments.get(r.userId);
+      const award = awards.get(r.userId);
+      return {
+        name: r.name,
+        email: r.email,
+        validatedDays: r.validatedDays,
+        pendingDays: r.pendingDays,
+        rejectedDays: r.rejectedDays,
+        totalKm: r.totalKm,
+        score: r.score,
+        qualified: r.qualified,
+        paymentState: payment?.state ?? 'unpaid',
+        amountPaid: payment?.amountPaid ?? 0,
+        paidAt: payment?.paidAt ?? null,
+        winner: !!award,
+        awardNote: award?.notes ?? null,
+        prize: award && results.payout.monetary ? results.payout.perWinner : null,
+      };
+    });
+
+    return {
+      filename: exportFilename(challenge.year, challenge.month),
+      content: buildChallengeCsv(
+        {
+          name: challenge.name,
+          year: challenge.year,
+          month: challenge.month,
+          currency: challenge.currency,
+          fee: finance.feePerParticipant,
+          pot: results.payout.pot,
+        },
+        participants,
+      ),
+    };
+  }
+
   async closePreview(id: string): Promise<ClosePreview> {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id },
