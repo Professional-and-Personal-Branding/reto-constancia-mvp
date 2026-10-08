@@ -5,6 +5,17 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.7.0] — 2026-10-08
+
+Cerrar un reto ahora pasa por una revisión previa, y el almacenamiento de archivos deja de crecer
+con fotos que ya nadie usa. **No trae migraciones.** Variable nueva opcional
+`UPLOAD_DELETE_REPLACED_PROOFS` (por defecto los comprobantes reemplazados se conservan). Para
+volver a la 1.6.0 se redespliegan API y web juntas.
+
+**Seguridad:** `next` pasa a 15.5.27 (avisos moderados GHSA-4jqv-mc3x-m676 y GHSA-mcj8-r9mp-w47p,
+envenenamiento de caché SSG/ISR) y `sharp` a 0.35.5 (aviso alto GHSA-wq5f-xc86-pv6w en librsvg),
+ambos en producción del frontend; producción vuelve a 0 avisos.
+
 ### Añadido
 
 - **Cierre asistido** (cambio `assisted-challenge-close`):

@@ -142,6 +142,32 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-08 · v1.7.0 (rama `release/1.7.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **11 de 11 pasos en verde.**
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **130 de 130 casos aprobados** (129
+automatizados) con 568 pruebas ejecutadas y 0 fallidas.
+
+**Prueba inestable corregida:** la primera corrida del validador falló en TC-AUTH-10 ("si el
+refresh token también es inválido…") con `page.reload: net::ERR_ABORTED`. Una consulta en segundo
+plano llegaba al login antes que la recarga y la abortaba; el resultado (login y sesión borrada)
+era el correcto. La prueba ahora tolera solo ese aborto; pasó 5 de 5 aislada, 3 de 3 con su
+suite y en la segunda corrida completa.
+
+**Dependencias:**
+- El 8 oct aparecieron avisos en **producción** del frontend: `next` ≤ 15.5.26 (2 moderados,
+  GHSA-4jqv-mc3x-m676 y GHSA-mcj8-r9mp-w47p) y `sharp` < 0.35.5 (alto, GHSA-wq5f-xc86-pv6w).
+- Se corrigieron con `next` y `eslint-config-next` 15.5.27 y `npm audit fix --package-lock-only`
+  (`sharp` 0.35.5), sin salto mayor. La batería se corrió con estas versiones.
+- Producción queda en 0 avisos en backend, frontend y e2e.
+- `npm audit` completo: backend 0, e2e 0 y frontend 7 altos más 2 moderados de desarrollo
+  (riesgo aceptado, ver §5).
+- Sin migraciones nuevas.
+
 ### 2026-10-06 · rama `feature/upload-asset-cleanup` (limpieza de archivos)
 
 Base reiniciada con `npx prisma migrate reset --force`.

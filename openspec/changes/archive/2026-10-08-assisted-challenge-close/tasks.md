@@ -21,4 +21,4 @@
 
 - [x] 4.1 Guide steps 6.3 and 6.4 (checklist, projection, pending acknowledgement) and a capture of the dialog in the guide capture suite
 - [x] 4.2 `CHANGELOG.md` Sin publicar; reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`; record in `docs/testing.md`
-- [ ] 4.3 Open the PR to `develop` with the 3 CI jobs green; after merge, archive the change
+- [x] 4.3 Open the PR to `develop` with the 3 CI jobs green; after merge, archive the change

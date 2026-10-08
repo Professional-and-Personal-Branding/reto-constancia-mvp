@@ -1,7 +1,7 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-06 06:25 (UTC)
-- **Código:** rama `feature/upload-asset-cleanup`, commit `8a772c0`
+- **Fecha:** 2026-10-08 07:15 (UTC)
+- **Código:** rama `release/1.7.0`, commit `011c47a`
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs`
 
@@ -15,12 +15,12 @@ Se ejecutaron **568 pruebas** automatizadas: 568 pasaron y 0 fallaron.
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 276 | 276 | 0 | 8.2 s | 2026-10-06 06:24 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 16 | 16 | 0 | 689 ms | 2026-10-06 06:24 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 127 | 127 | 0 | 18.3 s | 2026-10-06 06:24 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 60 | 60 | 0 | 45.0 s | 2026-10-06 06:25 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 19 | 19 | 0 | 23.1 s | 2026-10-06 06:25 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.1 s | 2026-10-06 06:25 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 276 | 276 | 0 | 8.7 s | 2026-10-08 07:13 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 16 | 16 | 0 | 642 ms | 2026-10-08 07:13 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 127 | 127 | 0 | 18.4 s | 2026-10-08 07:13 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 60 | 60 | 0 | 51.6 s | 2026-10-08 07:14 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 19 | 19 | 0 | 24.2 s | 2026-10-08 07:15 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.1 s | 2026-10-08 07:15 |
 
 ## Casos por prioridad
 
