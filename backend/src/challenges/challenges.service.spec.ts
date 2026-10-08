@@ -601,3 +601,40 @@ describe('ChallengesService.closePreview (assisted-challenge-close)', () => {
     await expect(build(ChallengeStatus.COMPLETED).svc.closePreview('c')).rejects.toThrow('El reto ya está cerrado');
   });
 });
+
+describe('ChallengesService.uploadPaymentProof: comprobante reemplazado (upload-asset-cleanup)', () => {
+  const proof = (name: string) => {
+    const asset = ownedAsset({ challengeId: 'c', userId: 'u', purpose: 'payment-proof', name });
+    return { paymentProofUrl: asset.url, paymentProofCloudinaryId: asset.cloudinaryId };
+  };
+  function build(flag: boolean, previousId: string | null) {
+    const prisma = withLocks({
+      challenge: { findUnique: jest.fn().mockResolvedValue({ id: 'c', status: ChallengeStatus.ACTIVE, feePerParticipant: '100' }) },
+      challengeParticipant: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'p', paymentProofCloudinaryId: previousId }),
+        update: jest.fn().mockResolvedValue({ id: 'p' }),
+      },
+    } as unknown as PrismaService);
+    const uploads = localUploads();
+    jest.spyOn(uploads, 'deleteReplacedProofs', 'get').mockReturnValue(flag);
+    const later = jest.spyOn(uploads, 'deleteAssetsLater').mockResolvedValue(undefined);
+    return { svc: new ChallengesService(prisma, uploads, new ResultsService(prisma)), later };
+  }
+  afterEach(() => jest.restoreAllMocks());
+
+  it('por defecto conserva el comprobante anterior', async () => {
+    const { svc, later } = build(false, proof('viejo').paymentProofCloudinaryId);
+    await svc.uploadPaymentProof('c', 'u', proof('nuevo'));
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it('con el borrado activado libera el anterior, y no si es el mismo archivo', async () => {
+    const old = proof('viejo').paymentProofCloudinaryId;
+    const on = build(true, old);
+    await on.svc.uploadPaymentProof('c', 'u', proof('nuevo'));
+    expect(on.later).toHaveBeenCalledWith([old]);
+    const same = build(true, old);
+    await same.svc.uploadPaymentProof('c', 'u', proof('viejo'));
+    expect(same.later).not.toHaveBeenCalled();
+  });
+});

@@ -9,7 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { extname, join } from 'path';
+import { basename, dirname, extname, join, resolve, sep } from 'path';
+
+import { PrismaService } from '../prisma/prisma.service';
 import {
   ALLOWED_FORMATS,
   allowedExtensions,
@@ -37,6 +39,8 @@ export interface CloudinarySignature {
   /** true cuando el backend simula Cloudinary guardando en disco (modo local/dev). */
   local?: boolean;
 }
+
+export type DeleteOutcome = 'deleted' | 'not_found';
 
 export interface EvidenceOwner {
   challengeId: string;
@@ -66,7 +70,11 @@ export class UploadService implements OnModuleInit {
   /** Carpeta física donde se guardan los archivos en modo local. */
   private readonly uploadsDir = join(process.cwd(), 'uploads');
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    // Opcional para las pruebas que no tocan la base; en la app siempre lo inyecta Nest
+    private readonly prisma?: PrismaService,
+  ) {}
 
   onModuleInit(): void {
     const cloud = this.config.get<string>('CLOUDINARY_CLOUD_NAME');
@@ -238,21 +246,79 @@ export class UploadService implements OnModuleInit {
     }
   }
 
-  async deleteAsset(publicId: string): Promise<void> {
+  /**
+   * Borra un archivo guardado (spec upload-guardrails): 'deleted' si existía, 'not_found' si no;
+   * cualquier otro resultado lanza. En modo local busca el archivo del id con su extensión y
+   * nunca sale de la carpeta de subidas.
+   */
+  async deleteAsset(publicId: string): Promise<DeleteOutcome> {
     if (this.localMode) {
-      try {
-        await fs.rm(join(this.uploadsDir, publicId), { force: true });
-      } catch (e) {
-        this.logger.warn(
-          `No se pudo borrar local ${publicId}: ${(e as Error).message}`,
-        );
+      const root = resolve(this.uploadsDir);
+      const dir = resolve(root, dirname(publicId));
+      if (dir !== root && !dir.startsWith(root + sep)) {
+        throw new Error(`Ruta fuera de la carpeta de subidas: ${publicId}`);
       }
-      return;
+      let entries: string[];
+      try {
+        entries = await fs.readdir(dir);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'ENOENT') return 'not_found';
+        throw e;
+      }
+      const prefix = `${basename(publicId)}.`;
+      const file = entries.find((f) => f.startsWith(prefix));
+      if (!file) return 'not_found';
+      await fs.rm(join(dir, file));
+      return 'deleted';
     }
-    try {
-      await cloudinary.uploader.destroy(publicId);
-    } catch (e) {
-      this.logger.warn(`No se pudo borrar ${publicId}: ${(e as Error).message}`);
-    }
+    // Los PDF de comprobantes también se suben como image (spec upload-guardrails)
+    const res = (await cloudinary.uploader.destroy(publicId, {
+      resource_type: 'image',
+      invalidate: true,
+    })) as { result?: string };
+    if (res?.result === 'ok') return 'deleted';
+    if (res?.result === 'not found') return 'not_found';
+    throw new Error(`destroy respondió ${res?.result ?? 'sin resultado'}`);
+  }
+
+  /** Solo archivos subidos por la plataforma: nunca las fotos importadas (import/...). */
+  isManagedId(publicId: string): boolean {
+    return publicId.startsWith(`${this.baseFolder}/`) && !publicId.includes('..');
+  }
+
+  /** Borrar comprobantes reemplazados exige activarlo (evidencia financiera, spec challenge-finance). */
+  get deleteReplacedProofs(): boolean {
+    return this.config.get<string>('UPLOAD_DELETE_REPLACED_PROOFS') === 'true';
+  }
+
+  /**
+   * Libera archivos que ya nadie usa, después de que el cambio en la base se confirmó. Nunca
+   * lanza ni bloquea al usuario: el llamador no la espera. Omite los ids que otra foto o un
+   * comprobante siguen usando, y registra los fallos solo con el id (sin datos personales).
+   */
+  async deleteAssetsLater(publicIds: string[]): Promise<void> {
+    const prisma = this.prisma;
+    const ids = [...new Set(publicIds.filter((id) => !!id && this.isManagedId(id)))];
+    if (!prisma || ids.length === 0) return;
+
+    const outcomes = await Promise.allSettled(
+      ids.map(async (id): Promise<DeleteOutcome | 'referenced'> => {
+        const [photos, proofs] = await Promise.all([
+          prisma.activityPhoto.count({ where: { cloudinaryId: id } }),
+          prisma.challengeParticipant.count({ where: { paymentProofCloudinaryId: id } }),
+        ]);
+        if (photos + proofs > 0) return 'referenced';
+        return this.deleteAsset(id);
+      }),
+    );
+    outcomes.forEach((outcome, i) => {
+      if (outcome.status === 'rejected') {
+        this.logger.warn(`No se pudo borrar el archivo ${ids[i]}: ${(outcome.reason as Error)?.message ?? outcome.reason}`);
+      } else if (outcome.value === 'referenced') {
+        this.logger.debug(`Archivo ${ids[i]} conservado: todavía está en uso`);
+      } else if (outcome.value === 'not_found') {
+        this.logger.debug(`Archivo ${ids[i]} ya no existía`);
+      }
+    });
   }
 }
