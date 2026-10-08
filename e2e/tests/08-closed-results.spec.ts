@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-import { api, createActivity, e2eDate, enroll, markPaid, setupChallenge, STATE, tokens } from '../fixtures/api';
+import { api, createActivity, E2E_YEAR, e2eDate, enroll, markPaid, setupChallenge, STATE, tokens } from '../fixtures/api';
 
 /**
  * Resultados de retos cerrados en el Ranking (spec challenge-lifecycle, closed-challenge-results).
- * Casos cubiertos: TC-CHAL-12.
+ * Casos cubiertos: TC-CHAL-12 y TC-CHAL-22 (acta en CSV).
  */
 const MONTH = 11;
 const NAME = 'E2E Playwright · reto cerrado';
@@ -70,6 +70,12 @@ test.describe('Participante', () => {
     await expect(page.locator('.card').filter({ hasText: /Ganador/ })).toContainText('Ana Constante');
   });
 
+  test('el participante no ve la descarga del acta', async ({ page }) => {
+    await page.goto(`/dashboard/results?reto=${challengeId}`);
+    await expect(page.locator('main')).toContainText(`${NAME} · cerrado el`);
+    await expect(page.getByRole('button', { name: /Descargar acta/ })).toHaveCount(0);
+  });
+
   test('una dirección con un reto desconocido muestra el ranking activo', async ({ page }) => {
     await page.goto('/dashboard/results?reto=no-existe');
     await expect(page.getByRole('heading', { name: 'Ranking' })).toBeVisible();
@@ -91,6 +97,40 @@ test.describe('Participante', () => {
 
 test.describe('Administrador', () => {
   test.use({ storageState: STATE.admin });
+
+  test('el acta del reto cerrado se descarga en CSV con el ranking, el pago y el premio', async ({ page }) => {
+    await page.goto(`/dashboard/results?reto=${challengeId}`);
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Descargar acta (CSV)' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe(`acta-reto-${E2E_YEAR}-${MONTH}.csv`);
+    const stream = await download.createReadStream();
+    let text = '';
+    for await (const chunk of stream) text += chunk.toString('utf8');
+    expect(text.charCodeAt(0)).toBe(0xfeff);
+    const rows = text.slice(1).split('\r\n').filter(Boolean);
+    expect(rows[0]).toContain('reto,periodo,moneda,cuota,pote,posicion,nombre,email');
+    const ana = rows.find((r) => r.includes('Ana Constante'));
+    expect(ana).toBeTruthy();
+    expect(ana).toContain(`${NAME},${E2E_YEAR}-${MONTH},BOB,300.00,300.00,1,Ana Constante,ana@reto.local`);
+    expect(ana).toContain(',pagado,300.00,');
+    expect(ana?.endsWith(',si,Premio entregado en la reunión del grupo,300.00')).toBe(true);
+    await expect(page.locator('main').getByRole('alert')).toHaveCount(0);
+  });
+
+  test('si la descarga falla, el error se ve junto al botón', async ({ page }) => {
+    await page.route('**/api/challenges/*/export*', (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Solo se puede exportar el acta de un reto cerrado' }),
+      }),
+    );
+    await page.goto(`/dashboard/results?reto=${challengeId}`);
+    await page.getByRole('button', { name: 'Descargar acta (CSV)' }).click();
+    await expect(page.locator('main').getByRole('alert')).toContainText('Solo se puede exportar el acta de un reto cerrado');
+  });
 
   test('un reto cerrado se consulta en solo lectura, sin panel de premiación', async ({ page }) => {
     await page.goto(`/dashboard/results?reto=${challengeId}`);

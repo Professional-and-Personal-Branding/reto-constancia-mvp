@@ -26,6 +26,8 @@ export class ApiError extends Error {
 interface ApiOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   auth?: boolean;
+  /** 'blob' devuelve el archivo tal cual (descargas); por defecto se lee JSON */
+  as?: 'json' | 'blob';
 }
 
 let refreshPromise: Promise<AuthTokens> | null = null;
@@ -66,7 +68,7 @@ export async function api<T = unknown>(
   path: string,
   opts: ApiOptions = {},
 ): Promise<T> {
-  const { body, auth = true, headers, ...rest } = opts;
+  const { body, auth = true, as = 'json', headers, ...rest } = opts;
   const tokens = getTokens();
 
   const buildHeaders = (token?: string): HeadersInit => ({
@@ -110,5 +112,6 @@ export async function api<T = unknown>(
   }
 
   if (res.status === 204) return undefined as T;
+  if (as === 'blob') return (await res.blob()) as T;
   return (await res.json()) as T;
 }

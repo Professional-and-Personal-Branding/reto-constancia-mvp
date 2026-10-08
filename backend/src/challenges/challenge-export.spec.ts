@@ -87,16 +87,15 @@ describe('buildChallengeCsv (spec challenge-export)', () => {
     expect(row).toContain('," Ana ",');
   });
 
-  it.each(['=1+1', '+54', '-2', '@SUMA(A1)', '\tcelda', '\rcelda'])(
-    'neutraliza un texto que una planilla leería como fórmula: %j',
-    (value) => {
+  it('neutraliza un texto que una planilla leería como fórmula (=, +, -, @, tabulación y retorno)', () => {
+    for (const value of ['=1+1', '+54', '-2', '@SUMA(A1)', '\tcelda', '\rcelda']) {
       const csv = buildChallengeCsv({ ...challenge, name: value }, [participant({ name: value, email: value, awardNote: value })]);
       const dataRow = csv.slice(csv.indexOf('\r\n') + 2);
       // El apóstrofo va delante y el texto original sigue a continuación (entre comillas si hace falta)
       expect(dataRow).toContain(`'${value}`);
       expect(dataRow.startsWith(value)).toBe(false);
-    },
-  );
+    }
+  });
 
   it('una fórmula con comillas queda neutralizada y bien citada', () => {
     const name = '=HYPERLINK("http://x","y")';

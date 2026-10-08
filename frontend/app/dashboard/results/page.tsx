@@ -4,9 +4,10 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { formatDay } from '@/lib/dates';
+import { exportFilename, saveBlob } from '@/lib/export';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { useClosedChallenges } from '@/lib/use-closed-challenges';
 import type { Challenge, ChallengeResults, ParticipantRanking } from '@/lib/types';
@@ -65,6 +66,24 @@ function Results() {
     },
     onError: (e) => setAwardError(closeErrorFrom(e)),
   });
+
+  // Acta del reto cerrado en CSV, solo para el admin (spec challenge-export)
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  async function downloadRecord() {
+    if (!challenge) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const blob = await api<Blob>(`/challenges/${challenge.id}/export?format=csv`, { as: 'blob' });
+      saveBlob(blob, exportFilename(challenge.year, challenge.month));
+    } catch (e) {
+      const body = e instanceof ApiError ? (e.body as { message?: unknown } | null) : null;
+      setExportError(typeof body?.message === 'string' ? body.message : 'No se pudo descargar el acta');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const openClosed = (id: string) => router.push(id ? `${RESULTS_PATH}?reto=${id}` : RESULTS_PATH);
 
@@ -174,6 +193,18 @@ function Results() {
                     ` · pote ${results.payout.pot} ${challenge.currency} recaudado` +
                     (results.status === 'COMPLETED' ? '' : ' · proyectado')}
           </p>
+        )}
+        {user?.role === 'ADMIN' && isClosedView && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-ghost text-sm py-1.5 px-3" onClick={downloadRecord} disabled={exporting}>
+              {exporting ? 'Descargando…' : 'Descargar acta (CSV)'}
+            </button>
+            {exportError && (
+              <p role="alert" className="text-bad text-sm">
+                {exportError}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
