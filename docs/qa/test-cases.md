@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-08** · rama `release/1.7.0` · commit `011c47a`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-08** · rama `feature/challenge-export-csv` · commit `4f59834`. Detalle en [validation-report.md](validation-report.md).
 
-**130 casos** · 130 aprobados · 0 fallidos · 0 con limitación conocida · 129 automatizados.
+**132 casos** · 132 aprobados · 0 fallidos · 0 con limitación conocida · 131 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 20 | 20 | 0 |
+| [Gestión de retos](#chal) | 22 | 22 | 0 |
 | [Participantes y pagos](#part) | 6 | 6 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -972,6 +972,8 @@
 | [TC-CHAL-18](#tc-chal-18) | La premiación del admin reemplaza al sorteo automático; la nota está reservada | Media | Funcional | ✅ Aprobado |
 | [TC-CHAL-19](#tc-chal-19) | Resumen previo al cierre (solo lectura, solo admin) | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-20](#tc-chal-20) | Cerrar o premiar desde la web pasa por la revisión previa | Alta | UI | ✅ Aprobado |
+| [TC-CHAL-21](#tc-chal-21) | Acta del reto cerrado en CSV (solo admin, solo lectura) | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-22](#tc-chal-22) | Descargar el acta desde el ranking de un reto cerrado | Media | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1702,6 +1704,96 @@
 | ✅ | UI | `12-assisted-close.spec.ts` | si el cierre está en curso (409) el diálogo muestra el mensaje y ofrece reintentar |
 | ✅ | UI | `12-assisted-close.spec.ts` | las pendientes bloquean el cierre hasta confirmarlas; los impagos solo informan |
 | ✅ | UI | `12-assisted-close.spec.ts` | guardar la premiación pasa por la revisión y cierra el reto con esos premiados |
+
+<a id="tc-chal-21"></a>
+
+### TC-CHAL-21 · Acta del reto cerrado en CSV (solo admin, solo lectura)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 6.6 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto en COMPLETED con tres participantes: una paga completo y gana, otra paga parte y su nombre empieza con "=", otra no pagó.
+
+**Datos de prueba:** GET /api/challenges/:id/export?format=csv con sesión de administrador; con un participante; con un reto activo; con format=xlsx; con un id inexistente
+
+**Pasos**
+
+1. Descargar el acta del reto cerrado como administrador.
+2. Pedirla como participante y sin sesión.
+3. Pedirla de un reto en borrador y de uno activo, con un formato desconocido y con un id inexistente.
+4. Descargar el acta de un reto cerrado sin participantes.
+5. Comparar los datos del reto antes y después de descargarla.
+
+**Resultado esperado**
+
+- 200 con text/csv; charset=utf-8, nombre acta-reto-AAAA-MM.csv, el archivo empieza con la marca BOM y trae la cabecera fija y una fila por participante en el orden del ranking.
+- Cada fila trae el reto, periodo, moneda, cuota, pote, posición, días, km, puntaje, estado de pago (pagado, parcial, pendiente), monto y fecha de pago; la persona premiada figura como ganador con su nota y el premio.
+- El nombre que empieza con "=" sale con un apóstrofo delante y entre comillas, y un nombre con coma o acentos se conserva entero.
+- Un participante recibe 403 y sin sesión 401; un reto en borrador o activo 400 ("Solo se puede exportar el acta de un reto cerrado"); un formato distinto de csv 400; un id inexistente 404.
+- Un reto cerrado sin participantes entrega solo la cabecera.
+- No incluye enlaces a los comprobantes y no cambia ningún dato del reto.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenge-export.spec.ts` | trae la cabecera fija y una fila por participante, con CRLF al final de cada línea |
+| ✅ | Unitaria | `challenge-export.spec.ts` | sin participantes solo trae la cabecera |
+| ✅ | Unitaria | `challenge-export.spec.ts` | formatea reto, periodo, dinero, km, fechas y booleanos |
+| ✅ | Unitaria | `challenge-export.spec.ts` | numera la posición en el orden recibido y marca estado de pago y ganadores con su premio |
+| ✅ | Unitaria | `challenge-export.spec.ts` | cita las celdas con comas, comillas o saltos de línea y conserva los acentos |
+| ✅ | Unitaria | `challenge-export.spec.ts` | cita los textos con espacios al borde |
+| ✅ | Unitaria | `challenge-export.spec.ts` | neutraliza un texto que una planilla leería como fórmula (=, +, -, @, tabulación y retorno) |
+| ✅ | Unitaria | `challenge-export.spec.ts` | una fórmula con comillas queda neutralizada y bien citada |
+| ✅ | Unitaria | `challenge-export.spec.ts` | no prefija los números: un puntaje negativo seguiría siendo un número |
+| ✅ | Unitaria | `challenge-export.spec.ts` | sale solo del año y el mes |
+| ✅ | Unitaria | `challenges.service.spec.ts` | arma el acta en el orden del ranking con pagos, premiación guardada y premio |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador, un reto activo o uno inexistente no se exportan |
+| ✅ | Unitaria | `challenges.service.spec.ts` | sin premiación guardada nadie figura como ganador ni lleva premio |
+| ✅ | API e2e | `challenge-export.e2e-spec.ts` | EXPORT: un participante recibe 403 y sin sesión 401 |
+| ✅ | API e2e | `challenge-export.e2e-spec.ts` | EXPORT: un reto activo o en borrador responde 400, un formato desconocido 400 y uno inexistente 404 |
+| ✅ | API e2e | `challenge-export.e2e-spec.ts` | EXPORT: el reto cerrado se descarga como CSV con BOM, cabecera y una fila por participante en orden de ranking |
+| ✅ | API e2e | `challenge-export.e2e-spec.ts` | EXPORT: el pago, la premiación guardada y el premio salen de lo que muestra la plataforma |
+| ✅ | API e2e | `challenge-export.e2e-spec.ts` | EXPORT: no incluye enlaces de comprobantes y no cambia ningún dato del reto |
+| ✅ | API e2e | `challenge-export.e2e-spec.ts` | EXPORT: un reto cerrado sin participantes entrega solo la cabecera |
+
+<a id="tc-chal-22"></a>
+
+### TC-CHAL-22 · Descargar el acta desde el ranking de un reto cerrado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Media | UI | 6.6 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Un reto en COMPLETED con la premiación de Ana registrada (cuota 300 BOB, pagada por Ana).
+
+**Datos de prueba:** Ranking del reto cerrado como administrador y como participante; una respuesta 400 simulada
+
+**Pasos**
+
+1. Como participante, abrir el ranking del reto cerrado.
+2. Como administrador, abrir el mismo ranking y pulsar "Descargar acta (CSV)".
+3. Repetir con la API respondiendo 400.
+
+**Resultado esperado**
+
+- El participante no ve la descarga del acta.
+- El administrador descarga acta-reto-2025-11.csv con la marca BOM, la cabecera y la fila de Ana: pagado, 300.00, ganadora con su nota y el premio de 300.00.
+- Si la descarga falla, el mensaje de la API se ve junto al botón.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `08-closed-results.spec.ts` | el participante no ve la descarga del acta |
+| ✅ | UI | `08-closed-results.spec.ts` | el acta del reto cerrado se descarga en CSV con el ranking, el pago y el premio |
+| ✅ | UI | `08-closed-results.spec.ts` | si la descarga falla, el error se ve junto al botón |
+| ✅ | Web (unitaria) | `export.test.ts` | el nombre del acta sale del año y el mes con dos dígitos |
 
 <a id="part"></a>
 

@@ -13,6 +13,6 @@
 
 ## 4. Docs and verification
 
-- [ ] 4.1 Runbook: monthly routine step (export the record, keep it private, how to open it in Excel); guide ranking section; `docs/testing.md`; CHANGELOG under "Sin publicar"
-- [ ] 4.2 QA catalog cases linked to every new test ("Pruebas sin caso: 0"); reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`
+- [x] 4.1 Runbook: monthly routine step (export the record, keep it private, how to open it in Excel); guide ranking section; `docs/testing.md`; CHANGELOG under "Sin publicar"
+- [x] 4.2 QA catalog cases linked to every new test ("Pruebas sin caso: 0"); reset the DB; `node scripts/run-tests.mjs` (11/11) and `node scripts/validate-test-cases.mjs`
 - [ ] 4.3 Open the PR to `develop` with the 3 CI jobs green; after merge, archive the change
