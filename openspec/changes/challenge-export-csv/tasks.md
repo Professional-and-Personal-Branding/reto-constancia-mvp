@@ -9,7 +9,7 @@
 
 ## 3. Web
 
-- [ ] 3.1 "Descargar acta (CSV)" on the ranking page for admins on closed challenges, with the download helper and error text; Playwright journey (admin downloads and the file name and header are checked; participant has no button)
+- [x] 3.1 "Descargar acta (CSV)" on the ranking page for admins on closed challenges, with the download helper and error text; Playwright journey (admin downloads and the file name and header are checked; participant has no button)
 
 ## 4. Docs and verification
 

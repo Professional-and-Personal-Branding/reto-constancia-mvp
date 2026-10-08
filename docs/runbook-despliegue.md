@@ -280,6 +280,20 @@ Una vez al mes:
    Los `payment-proof` y `legacy` se revisan uno por uno antes de borrar; ante la duda, se
    conservan. El reporte no tiene opción de borrado.
 
+### 5.4 Acta mensual del reto cerrado
+
+Después de cerrar cada reto, exporta su acta: es la copia del resultado que queda fuera de
+Seenode (quién participó, quién pagó, quién ganó y el premio). No reemplaza el respaldo de §5.1.
+
+1. En la web, entra a **Ranking**, elige el reto en **Retos cerrados** y pulsa
+   **Descargar acta (CSV)**. Se descarga `acta-reto-AAAA-MM.csv`.
+2. Guárdala en un lugar privado (Drive personal o similar): trae emails y montos pagados.
+3. Si Excel la abre en una sola columna, usa **Datos > Desde texto/CSV**, codificación UTF-8 y
+   coma como separador. Google Sheets la abre bien con **Archivo > Importar**.
+
+Por la API: `GET /api/challenges/:id/export?format=csv` con sesión de administrador. Solo
+funciona con retos cerrados (400 en cualquier otro estado) y no modifica nada.
+
 ---
 
 ## 6. Diagnóstico de incidentes

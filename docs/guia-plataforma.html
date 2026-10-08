@@ -605,6 +605,14 @@
           expect: 'Se ve el ranking final, el bloque de ganadores y el premio final por ganador, sin la marca "proyectado". El reto elegido en el encabezado no cambia.',
           note: 'La dirección del reto cerrado (<code>/dashboard/results?reto=…</code>) se puede compartir. Es de solo lectura para todos, también para el administrador. Si no hay ningún reto activo, el Ranking muestra directamente los retos cerrados.',
           refs: ['TC-CHAL-12']
+        },
+        {
+          id: '6.6', role: 'admin', title: 'Descargar el acta de un reto cerrado', route: '/dashboard/results',
+          why: 'Para guardar fuera de la plataforma el resultado del mes: quién participó, quién pagó y quién ganó.',
+          actions: ['En Ranking, elige el reto en <span class="ui">Retos cerrados</span>.', 'Pulsa <span class="ui">Descargar acta (CSV)</span>.'],
+          expect: 'Se descarga <code>acta-reto-AAAA-MM.csv</code> con una fila por participante en el orden del ranking: días, km, puntaje, estado y monto de pago, si ganó y su premio.',
+          note: 'Solo la ve el administrador y solo en retos cerrados, porque su resultado ya no cambia. Contiene emails y pagos: guárdala en un lugar privado. En Excel, ábrela con <span class="ui">Datos &gt; Desde texto/CSV</span> y codificación UTF-8 si todo aparece en una columna. No reemplaza los respaldos de la base de datos.',
+          refs: ['TC-CHAL-21', 'TC-CHAL-22']
         }
       ]
     },
