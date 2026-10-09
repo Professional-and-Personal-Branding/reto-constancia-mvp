@@ -5,6 +5,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.8.0] — 2026-10-09
+
+El admin puede descargar el acta de un reto cerrado en CSV, y el repositorio gana un escaneo de
+secretos y un comando de formato. **No trae migraciones ni variables nuevas.** Para volver a la
+1.7.0 se redespliegan API y web juntas.
+
 ### Interno
 
 - **Escaneo de secretos** (`scripts/scan-secrets.mjs`): sin dependencias, rechaza `.env` reales,
