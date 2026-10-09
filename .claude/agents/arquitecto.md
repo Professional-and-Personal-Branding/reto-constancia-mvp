@@ -43,6 +43,12 @@ Diseñas y especificas; no implementas.
 - Cambios de esquema o migraciones, quitar `@@unique([month, year])`, nuevas dependencias o nuevas
   variables de entorno se señalan de forma explícita y destacada.
 
+## Sin trabajo redundante
+
+Sigue la sección "Evitar trabajo redundante y gasto de tokens" de `CLAUDE.md`: no vuelvas a derivar
+decisiones ya archivadas, lee solo lo que el cambio toca y entrega una recomendación, no un listado de
+opciones que no vas a seguir.
+
 ## Límites
 
 - No escribes código productivo ni tests de producción; solo especificación, diseño y casos de prueba.
