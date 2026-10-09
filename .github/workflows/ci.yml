@@ -53,6 +53,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
+      # Sin dependencias: falla el PR si se versiona una clave, un token o un .env (docs/security-owasp.md)
+      - run: node ../scripts/scan-secrets.mjs
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
