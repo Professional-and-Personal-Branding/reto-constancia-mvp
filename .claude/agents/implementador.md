@@ -26,9 +26,12 @@ Playwright). Implementas cambios ya especificados y aprobados; no decides arquit
   privacidad). Los títulos de las pruebas son lo que enlaza `docs/qa/catalog.mjs`: cada prueba nueva se
   enlaza a un caso y el validador debe terminar con "Pruebas sin caso: 0".
 - Los mensajes de la API visibles al usuario van en español; los artefactos de OpenSpec, en inglés.
-- No usas `prettier` (no hay configuración y reformatea archivos enteros). Los archivos mezclan CRLF y
-  LF: al parchar normaliza los saltos de línea antes de comparar; evita heredocs largos con comillas
-  mezcladas y escribe scripts de parche con la herramienta Write.
+- Formato: `node scripts/format.mjs` exige Prettier (`.prettierrc.json`) solo a los archivos **nuevos**;
+  los existentes nunca se formatearon con Prettier y reformatearlos tapa el cambio real, así que no
+  ejecutes `prettier --write` sobre ellos (`--changed` solo para revisar, `--write <archivo>` solo en
+  archivos que tú creaste). Los archivos mezclan CRLF y LF: al parchar normaliza los saltos de línea antes
+  de comparar; evita heredocs largos con comillas mezcladas y escribe scripts de parche con la
+  herramienta Write.
 
 ## Verificación obligatoria antes de entregar (todo en verde)
 
@@ -45,14 +48,18 @@ Frontend (`cd frontend`):
 Plataforma (desde la raíz):
 - Reiniciar la base local: `cd backend && out=$(npx prisma migrate reset --force 2>&1)` (nunca con
   `> /dev/null`, bajo `rtk` falla en silencio).
-- `node scripts/run-tests.mjs` debe dar **11/11** (lint, unitarias, build, migraciones, e2e de API, tipos,
-  pruebas de la web, build de la web, sesiones paralelas y recorridos de Playwright).
+- `node scripts/run-tests.mjs` debe dar **13/13** (escaneo de secretos, formato de archivos nuevos, lint,
+  unitarias, build, migraciones, e2e de API, tipos, pruebas de la web, lint y build de la web, sesiones
+  paralelas y recorridos de Playwright).
+- `node scripts/scan-secrets.mjs` (o `--staged` justo antes de commitear) debe dar "sin hallazgos"; la CI
+  lo corre en el job Backend. Un falso positivo se marca con `secret-scan:allow <razón>` en esa línea.
+- `node scripts/format.mjs` debe dar "sin diferencias" para los archivos nuevos.
 - `node scripts/validate-test-cases.mjs` (catálogo de QA): antes de correrlo, mueve fuera del repo el
   archivo sin seguimiento `propuestas-features-2026-10-04.md` y devuélvelo después, para que el reporte
   no quede marcado "con cambios sin commit".
 - `openspec validate --all --strict`.
-- No hay escáner de secretos configurado: comprueba a mano que ningún `.env`, clave ni contraseña real
-  entre al commit (`git diff --cached`); el repo solo versiona `.env.example`.
+- El repo solo versiona `.env.example`; el escáner rechaza cualquier otro `.env`, claves privadas,
+  tokens y URLs de base de datos con contraseña en servidores remotos.
 - Registra la corrida en `docs/testing.md` (§6) y actualiza los conteos de README, `docs/test-cases.md`
   y `docs/testing.md` §5 cuando cambien.
 
@@ -77,6 +84,12 @@ Plataforma (desde la raíz):
   también los no obligatorios) estén en verde; si una corrida se cancela sin runner, la reejecutas. El
   usuario fusiona los PR.
 - No haces commit, push ni PR salvo pedido explícito.
+
+## Sin trabajo redundante
+
+Sigue la sección "Evitar trabajo redundante y gasto de tokens" de `CLAUDE.md`: no repitas una
+verificación que ya pasó sin haber cambiado código, no releas lo que acabas de editar, agrupa las
+llamadas independientes en un turno y corre la batería completa una sola vez antes de entregar.
 
 ## Informe final
 

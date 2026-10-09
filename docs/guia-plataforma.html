@@ -667,7 +667,7 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los casos del catálogo',
+          cmd: 'node scripts/run-tests.mjs              # 13 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los casos del catálogo',
           expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },

@@ -142,6 +142,21 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-08 · rama `chore/dev-guardrails` (escaneo de secretos y formato)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 13 de 13 pasos en verde. Los dos nuevos, que corren primero y sin base de datos:
+- `node scripts/scan-secrets.mjs`: sin hallazgos en los archivos versionados. Se comprobó en un
+  repositorio aparte que detecta un `.env`, una clave de AWS, un token de GitHub, una URL de base
+  de datos con contraseña en un servidor remoto, un `*_SECRET` con valor real y una clave privada
+  (6 de 6), y que `secret-scan:allow` omite una línea.
+- `node scripts/format.mjs`: sin diferencias en los archivos nuevos. El código existente no se
+  formatea (casi todos los archivos difieren de Prettier), por eso solo se exige a lo nuevo.
+
+El catálogo de QA no cambia (132 casos, 591 pruebas): son herramientas del repositorio, no del
+producto. La CI corre el escaneo de secretos en el job Backend, sin sumar jobs nuevos.
+
 ### 2026-10-08 · rama `feature/challenge-export-csv` (acta del reto cerrado en CSV)
 
 Base reiniciada con `npx prisma migrate reset --force`. Se recompilaron API y web antes de los

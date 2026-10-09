@@ -85,6 +85,17 @@ tokens con una vigencia inesperada.
 **CI.** El paso `npm audit --omit=dev` falla desde nivel **moderado** en backend y frontend, para
 que cualquier aviso nuevo aparezca en el PR que lo introduce.
 
+## Escaneo de secretos
+
+`node scripts/scan-secrets.mjs` revisa los archivos versionados (o `--staged`, el índice antes de
+commitear), sin dependencias. Rechaza archivos `.env` reales (solo se versiona `.env.example`),
+claves privadas (`.pem`, `.key`, bloques `BEGIN PRIVATE KEY`), claves de AWS, Google y GitHub, tokens
+de Slack, claves `sk-`, URLs de Cloudinary con secreto, JWT, URLs de base de datos con contraseña en
+un servidor remoto y asignaciones `*_SECRET`, `*_PASSWORD` o `*_TOKEN` con un valor largo que no es un
+ejemplo. Corre en la CI (job Backend) y en la batería local, y nunca imprime el valor completo. Un
+falso positivo se marca con `secret-scan:allow <razón>` en la misma línea. Si un secreto real llega a
+versionarse, rótalo: borrarlo del historial no lo vuelve a hacer privado.
+
 ## Protecciones específicas de producción
 
 - **Subida de archivos**: el simulador local solo funciona fuera de producción. Con

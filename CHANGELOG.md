@@ -5,6 +5,18 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Interno
+
+- **Escaneo de secretos** (`scripts/scan-secrets.mjs`): sin dependencias, rechaza `.env` reales,
+  claves privadas, tokens, JWT y URLs de base de datos con contraseña en servidores remotos.
+  Corre en el job Backend de la CI y en la batería local.
+- **Comando de formato** (`scripts/format.mjs`, Prettier configurado en `.prettierrc.json`): exige
+  el formato solo a los archivos nuevos, porque el código existente nunca se formateó y
+  reformatearlo de golpe taparía los cambios reales. `--changed` revisa también los modificados y
+  `--write` formatea.
+- La batería local pasa de 11 a 13 pasos (los dos anteriores).
+- Regla de trabajo "Evitar trabajo redundante y gasto de tokens" en `CLAUDE.md`.
+
 ### Añadido
 
 - **Acta del reto cerrado en CSV** (cambio `challenge-export-csv`):
