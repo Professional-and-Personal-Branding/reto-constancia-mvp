@@ -1,6 +1,6 @@
 {
   "name": "reto-constancia-backend",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "API NestJS para el reto mensual de constancia",
   "engines": {
     "node": ">=20 <23"
@@ -79,6 +79,7 @@
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.2",
     "jest": "^30.5.2",
+    "prettier": "^3.9.9",
     "supertest": "^7.0.0",
     "ts-jest": "^29.4.14",
     "ts-loader": "^9.6.2",

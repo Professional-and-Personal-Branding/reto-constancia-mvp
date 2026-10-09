@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.7.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.8.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -231,7 +231,8 @@ sigue sirviendo. La 1.6.0 no trae migraciones: volver a la 1.5.0 es solo redespl
 web no cambia). Los premios guardados por el sorteo automático quedan en la base como premiación
 normal. La 1.7.0 tampoco trae migraciones; para volver a la 1.6.0 se despliegan API y web juntas,
 porque la web usa el nuevo resumen previo al cierre. Los archivos que la 1.7.0 ya liberó no
-vuelven: sus actividades ya estaban borradas.
+vuelven: sus actividades ya estaban borradas. La 1.8.0 tampoco trae migraciones; para volver a la
+1.7.0 se despliegan API y web juntas, porque la web llama al endpoint nuevo del acta.
 
 ---
 
@@ -279,6 +280,20 @@ Una vez al mes:
 3. Decidir a mano: borrar desde la Media Library de Cloudinary las fotos huérfanas (`activity`).
    Los `payment-proof` y `legacy` se revisan uno por uno antes de borrar; ante la duda, se
    conservan. El reporte no tiene opción de borrado.
+
+### 5.4 Acta mensual del reto cerrado
+
+Después de cerrar cada reto, exporta su acta: es la copia del resultado que queda fuera de
+Seenode (quién participó, quién pagó, quién ganó y el premio). No reemplaza el respaldo de §5.1.
+
+1. En la web, entra a **Ranking**, elige el reto en **Retos cerrados** y pulsa
+   **Descargar acta (CSV)**. Se descarga `acta-reto-AAAA-MM.csv`.
+2. Guárdala en un lugar privado (Drive personal o similar): trae emails y montos pagados.
+3. Si Excel la abre en una sola columna, usa **Datos > Desde texto/CSV**, codificación UTF-8 y
+   coma como separador. Google Sheets la abre bien con **Archivo > Importar**.
+
+Por la API: `GET /api/challenges/:id/export?format=csv` con sesión de administrador. Solo
+funciona con retos cerrados (400 en cualquier otro estado) y no modifica nada.
 
 ---
 

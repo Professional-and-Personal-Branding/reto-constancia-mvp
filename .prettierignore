@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+.qa-results/
+test-results/
+playwright-report/
+backend/uploads/
+backend/prisma/migrations/
+docs/guia-plataforma.html
+docs/guia-plataforma.standalone.html
+docs/qa/
+openspec/
+package-lock.json

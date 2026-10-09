@@ -5,6 +5,38 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.8.0] — 2026-10-09
+
+El admin puede descargar el acta de un reto cerrado en CSV, y el repositorio gana un escaneo de
+secretos y un comando de formato. **No trae migraciones ni variables nuevas.** Para volver a la
+1.7.0 se redespliegan API y web juntas.
+
+### Interno
+
+- **Escaneo de secretos** (`scripts/scan-secrets.mjs`): sin dependencias, rechaza `.env` reales,
+  claves privadas, tokens, JWT y URLs de base de datos con contraseña en servidores remotos.
+  Corre en el job Backend de la CI y en la batería local.
+- **Comando de formato** (`scripts/format.mjs`, Prettier configurado en `.prettierrc.json`): exige
+  el formato solo a los archivos nuevos, porque el código existente nunca se formateó y
+  reformatearlo de golpe taparía los cambios reales. `--changed` revisa también los modificados y
+  `--write` formatea.
+- La batería local pasa de 11 a 13 pasos (los dos anteriores).
+- Regla de trabajo "Evitar trabajo redundante y gasto de tokens" en `CLAUDE.md`.
+
+### Añadido
+
+- **Acta del reto cerrado en CSV** (cambio `challenge-export-csv`):
+  - Nuevo `GET /api/challenges/:id/export?format=csv`: solo admin, solo retos cerrados (400 en
+    otro estado), solo lectura. Una fila por participante en el orden del ranking, con días, km,
+    puntaje, estado y monto de pago, si ganó (según la premiación guardada) y su premio.
+  - Archivo UTF-8 con BOM, separado por comas, con los textos que empiezan con `=`, `+`, `-` o `@`
+    neutralizados contra fórmulas, y nombre `acta-reto-AAAA-MM.csv`. No incluye enlaces a
+    comprobantes.
+  - En el Ranking de un reto cerrado, el admin ve **Descargar acta (CSV)**.
+  - Runbook §5.4: acta mensual como copia del resultado fuera de Seenode (no reemplaza los
+    respaldos de la base).
+  - Sin migraciones ni variables nuevas.
+
 ## [1.7.0] — 2026-10-08
 
 Cerrar un reto ahora pasa por una revisión previa, y el almacenamiento de archivos deja de crecer

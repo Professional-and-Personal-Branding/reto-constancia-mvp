@@ -127,8 +127,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 59 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 130 casos de `docs/qa/` están enlazados a 568 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 62 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 132 casos de `docs/qa/` están enlazados a 591 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -141,6 +141,57 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-09 · v1.8.0 (rama `release/1.8.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde** (incluye el escaneo de
+secretos y el formato de los archivos nuevos).
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **132 de 132 casos aprobados** (131
+automatizados) con 591 pruebas ejecutadas y 0 fallidas.
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones
+nuevas.
+
+**Nota:** el archivo de OpenSpec dejó el spec `challenge-export` con el Purpose genérico que escribe
+`openspec archive`; se reemplazó por uno real y `openspec validate --all --strict` pasa (10 de 10).
+
+### 2026-10-08 · rama `chore/dev-guardrails` (escaneo de secretos y formato)
+
+Base reiniciada con `npx prisma migrate reset --force`.
+
+**Batería:** 13 de 13 pasos en verde. Los dos nuevos, que corren primero y sin base de datos:
+- `node scripts/scan-secrets.mjs`: sin hallazgos en los archivos versionados. Se comprobó en un
+  repositorio aparte que detecta un `.env`, una clave de AWS, un token de GitHub, una URL de base
+  de datos con contraseña en un servidor remoto, un `*_SECRET` con valor real y una clave privada
+  (6 de 6), y que `secret-scan:allow` omite una línea.
+- `node scripts/format.mjs`: sin diferencias en los archivos nuevos. El código existente no se
+  formatea (casi todos los archivos difieren de Prettier), por eso solo se exige a lo nuevo.
+
+El catálogo de QA no cambia (132 casos, 591 pruebas): son herramientas del repositorio, no del
+producto. La CI corre el escaneo de secretos en el job Backend, sin sumar jobs nuevos.
+
+### 2026-10-08 · rama `feature/challenge-export-csv` (acta del reto cerrado en CSV)
+
+Base reiniciada con `npx prisma migrate reset --force`. Se recompilaron API y web antes de los
+recorridos de UI, porque Playwright sirve los builds ya compilados.
+
+**Batería:** 11 de 11 pasos en verde.
+
+**Catálogo:** 132 de 132 casos aprobados (131 automatizados) con 591 pruebas y 0 fallidas:
+- unitarias del backend: 289;
+- unitarias de la web: 17;
+- e2e de API: 133;
+- recorridos de UI: 62, más la preparación;
+- capturas de la guía: 18, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-CHAL-21 (acta en CSV por la API: solo admin, solo cerrados, solo lectura,
+neutralización de fórmulas, BOM) y TC-CHAL-22 (descarga desde el Ranking y error visible). Guía:
+paso 6.6. Sin migraciones ni variables nuevas.
 
 ### 2026-10-08 · v1.7.0 (rama `release/1.7.0`)
 

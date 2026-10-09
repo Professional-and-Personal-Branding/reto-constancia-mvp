@@ -260,12 +260,12 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.7.0 · 8 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.8.0 · 9 oct 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 8 oct 2026: batería 11 de 11 · 130 de 130 casos aprobados con 568 pruebas</span>
+      <span class="verified">Verificado el 9 oct 2026: batería 13 de 13 · 132 de 132 casos aprobados con 591 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
@@ -605,6 +605,14 @@
           expect: 'Se ve el ranking final, el bloque de ganadores y el premio final por ganador, sin la marca "proyectado". El reto elegido en el encabezado no cambia.',
           note: 'La dirección del reto cerrado (<code>/dashboard/results?reto=…</code>) se puede compartir. Es de solo lectura para todos, también para el administrador. Si no hay ningún reto activo, el Ranking muestra directamente los retos cerrados.',
           refs: ['TC-CHAL-12']
+        },
+        {
+          id: '6.6', role: 'admin', title: 'Descargar el acta de un reto cerrado', route: '/dashboard/results',
+          why: 'Para guardar fuera de la plataforma el resultado del mes: quién participó, quién pagó y quién ganó.',
+          actions: ['En Ranking, elige el reto en <span class="ui">Retos cerrados</span>.', 'Pulsa <span class="ui">Descargar acta (CSV)</span>.'],
+          expect: 'Se descarga <code>acta-reto-AAAA-MM.csv</code> con una fila por participante en el orden del ranking: días, km, puntaje, estado y monto de pago, si ganó y su premio.',
+          note: 'Solo la ve el administrador y solo en retos cerrados, porque su resultado ya no cambia. Contiene emails y pagos: guárdala en un lugar privado. En Excel, ábrela con <span class="ui">Datos &gt; Desde texto/CSV</span> y codificación UTF-8 si todo aparece en una columna. No reemplaza los respaldos de la base de datos.',
+          refs: ['TC-CHAL-21', 'TC-CHAL-22']
         }
       ]
     },
@@ -659,7 +667,7 @@
         {
           id: '8.2', role: 'tecnico', title: 'Correr la batería completa',
           why: 'Antes de cada release, un solo comando valida toda la plataforma.',
-          cmd: 'node scripts/run-tests.mjs              # 11 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los casos del catálogo',
+          cmd: 'node scripts/run-tests.mjs              # 13 pasos\nnode scripts/run-tests.mjs --quick      # sin base de datos\nnode scripts/validate-test-cases.mjs    # valida los casos del catálogo',
           expect: 'Lint, unitarias, build, migraciones, e2e de API, tipos, unitarias y build de la web, sesiones paralelas y recorridos de UI en verde. El validador cruza cada caso de <code>docs/qa/</code> con sus pruebas y regenera el catálogo y el reporte. Solo necesita Postgres.',
           refs: ['testing.md', 'qa/validation-report.md']
         },
