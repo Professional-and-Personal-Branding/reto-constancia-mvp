@@ -30,6 +30,14 @@ const NAMES: Record<string, string> = {
 
 let challengeId = '';
 
+/** Deja a Ana sin pago registrado (su comprobante queda por revisar) o con el pago completo. */
+async function setAnaPaid(paid: boolean) {
+  await api('PATCH', `/challenges/${challengeId}/participants/${tokens().participantId}/payment`, {
+    token: tokens().admin,
+    body: { paid },
+  });
+}
+
 async function shot(page: Page, file: string, target?: ReturnType<Page['locator']>) {
   const path = join(SHOTS, file);
   // Espera a que carguen las fotos (vienen de un host externo) antes de fotografiar
@@ -216,6 +224,18 @@ test.describe('Participante', () => {
     await shot(page, '09-comprobante.jpg');
   });
 
+  test('estado de pago propio: comprobante en revisión', async ({ page }) => {
+    await setAnaPaid(false);
+    try {
+      await pick(page, '/dashboard');
+      const proof = page.locator('section').filter({ hasText: 'Comprobante de pago' });
+      await expect(proof).toContainText('Estado: comprobante en revisión · subido el');
+      await shot(page, '29-estado-pago.jpg', proof);
+    } finally {
+      await setAnaPaid(true);
+    }
+  });
+
   test('mis actividades con validada, pendiente y rechazada', async ({ page }) => {
     await pick(page, '/dashboard');
     const list = page.locator('main');
@@ -371,6 +391,21 @@ test.describe('Administrador', () => {
     await expect(page.locator('main')).toContainText('Parcial');
     await expect(page.locator('main')).toContainText('Ver comprobante de pago');
     await shot(page, '08-participantes-finanzas.jpg');
+  });
+
+  test('cola de comprobantes por revisar', async ({ page }) => {
+    await setAnaPaid(false);
+    try {
+      await pick(page, '/dashboard/admin/participants');
+      await page.getByRole('button', { name: 'Comprobantes por revisar: 1' }).click();
+      const filters = page.getByRole('group', { name: 'Filtrar inscritos' });
+      await expect(filters.getByRole('button', { name: 'Por revisar (1)' })).toHaveAttribute('aria-pressed', 'true');
+      const row = page.getByLabel('Participante Ana Constante');
+      await expect(row).toContainText('Comprobante por revisar · subido el');
+      await shot(page, '28-cola-comprobantes.jpg', page.locator('main'));
+    } finally {
+      await setAnaPaid(true);
+    }
   });
 
   test('registrar un pago parcial', async ({ page }) => {

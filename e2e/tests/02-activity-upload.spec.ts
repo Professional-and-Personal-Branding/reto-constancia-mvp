@@ -19,6 +19,7 @@ test.beforeAll(async () => {
   const challenge = await setupChallenge({
     month: MONTH,
     name: 'E2E Playwright · subida',
+    feePerParticipant: 50,
     minHeartRateMinutes: 20,
   });
   await enroll(challenge.id, tokens().participantId);

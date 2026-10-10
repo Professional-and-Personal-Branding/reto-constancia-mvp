@@ -25,11 +25,11 @@ function paymentLabel(me: MyParticipation, fee: string, currency: string): strin
       return 'pagado';
     case 'in_review': {
       const date = me.paymentProofUploadedAt ? ` · subido el ${formatUploadDate(me.paymentProofUploadedAt)}` : '';
-      const recorded = me.paid ? ` · Registrado ${me.amountPaid ?? 0} de ${fee} ${currency}` : '';
+      const recorded = me.paid ? ` · Registrado ${Number(me.amountPaid ?? 0)} de ${Number(fee)} ${currency}` : '';
       return `comprobante en revisión${date}${recorded}`;
     }
     case 'partial':
-      return `pago parcial · pagaste ${me.amountPaid ?? 0} de ${fee} ${currency}, faltan ${amountOwed(parseFloat(fee), me.amountPaid)}`;
+      return `pago parcial · pagaste ${Number(me.amountPaid ?? 0)} de ${Number(fee)} ${currency}, faltan ${amountOwed(parseFloat(fee), me.amountPaid)}`;
     default:
       return 'pendiente de pago';
   }
