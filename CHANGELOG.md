@@ -5,6 +5,26 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Conciliación de pagos** (cambio `payment-reconciliation`): el admin ve qué comprobantes esperan
+  su revisión y cada participante sabe en qué punto está su pago. **Sin migración, sin dependencias
+  y sin variables nuevas**; API y web se despliegan juntas.
+  - Regla derivada, nunca guardada: hay un *comprobante por revisar* cuando el reto cobra cuota,
+    existe un comprobante y ningún pago registrado lo cubre (el pago no está registrado, o es
+    parcial y el comprobante se subió después del último pago). Registrar el pago lo saca de la
+    cola; desmarcarlo con el comprobante guardado lo devuelve. No suma a lo recaudado.
+  - `GET /api/challenges/:id/finance` añade `proofsToReview` y, por fila, `proofToReview` y
+    `proofUploadedAt` (el resto no cambia). El resumen previo al cierre usa la misma regla: un pago
+    parcial con un comprobante más nuevo ahora aparece también en `proofsToReview`.
+  - `me` (lecturas de retos) añade `paymentStatus`: `pending`, `in_review`, `partial` o `paid`,
+    calculado en el servidor solo para la inscripción propia; `me` pasa de seis a siete claves.
+  - Web, participantes del admin: tarjeta **Por revisar**, filtros Todos / Por revisar / Sin pagar /
+    Parciales / Pagados con contador, e insignia "Comprobante por revisar · subido el ...".
+  - Web, participante: "pendiente de pago", "comprobante en revisión", "pago parcial" (con lo que
+    falta) y "pagado"; un reto sin cuota dice "Este reto no tiene cuota" y oculta el botón de subir.
+  - Casos de QA TC-FIN-08, TC-FIN-09 y TC-PART-07; actualizados TC-SEC-07, TC-PART-05 y TC-CHAL-19.
+
 ## [1.8.0] — 2026-10-09
 
 El admin puede descargar el acta de un reto cerrado en CSV, y el repositorio gana un escaneo de

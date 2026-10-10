@@ -468,15 +468,15 @@
         {
           id: '3.3', role: 'admin', title: 'Registrar los pagos', route: '/dashboard/admin/participants',
           why: 'El sistema concilia la cuota con lo cobrado.',
-          actions: ['Pulsa <span class="ui">Marcar pagado</span>: aparece <span class="ui">Monto recibido</span> con la cuota completa.', 'Si pagó una parte, escribe el monto; luego pulsa <span class="ui">Guardar pago</span>.', 'Pulsa <span class="ui">Marcar impago</span> para revertirlo; se borran el monto y la fecha.'],
-          expect: 'Con la cuota completa el chip pasa a "Pagado"; con menos, a "Parcial" con lo que falta, y el resumen financiero se actualiza al instante. Un monto en cero no se guarda.',
-          note: 'Solo cuenta como recaudado lo que el administrador registra; un comprobante subido no suma por sí solo. Con el reto cerrado ya no se registran pagos: un pago tardío va al reto siguiente.',
-          refs: ['TC-PART-04', 'TC-FIN-01', 'TC-FIN-07']
+          actions: ['Pulsa <span class="ui">Marcar pagado</span>: aparece <span class="ui">Monto recibido</span> con la cuota completa.', 'Si pagó una parte, escribe el monto; luego pulsa <span class="ui">Guardar pago</span>.', 'Pulsa <span class="ui">Marcar impago</span> para revertirlo; se borran el monto y la fecha.', 'Para saber quién espera tu revisión, mira la tarjeta <span class="ui">Por revisar</span> (o elige el filtro <span class="ui">Por revisar</span> sobre la lista de inscritos): cada fila muestra <span class="ui">Comprobante por revisar</span> con la fecha de subida y <span class="ui">Ver comprobante de pago</span>. Con los otros filtros ves Sin pagar, Parciales y Pagados, cada uno con su contador.'],
+          expect: 'Con la cuota completa el chip pasa a "Pagado"; con menos, a "Parcial" con lo que falta, y el resumen financiero se actualiza al instante. Un monto en cero no se guarda. Al registrar el pago, el participante sale de "Por revisar" y la tarjeta baja.',
+          note: 'Solo cuenta como recaudado lo que el administrador registra; un comprobante subido no suma por sí solo. Un comprobante vuelve a "Por revisar" si el participante sube uno nuevo después de un pago parcial, o si desmarcas el pago. Un comprobante inválido se queda en la cola hasta que el participante lo reemplace o registres un pago. Con el reto cerrado ya no se registran pagos: un pago tardío va al reto siguiente.',
+          refs: ['TC-PART-04', 'TC-FIN-01', 'TC-FIN-07', 'TC-FIN-08', 'TC-FIN-09']
         },
         {
           id: '3.4', role: 'admin', title: 'Leer el resumen financiero', route: '/dashboard/admin/participants',
           why: 'Saber de un vistazo cuánto se cobró frente a la meta del reto.',
-          actions: ['Revisa las cuatro tarjetas: <span class="ui">Esperado</span> (cuota por inscritos), <span class="ui">Recaudado</span>, <span class="ui">Pendiente</span> y <span class="ui">Presupuesto</span>.'],
+          actions: ['Revisa las cinco tarjetas: <span class="ui">Esperado</span> (cuota por inscritos), <span class="ui">Recaudado</span>, <span class="ui">Pendiente</span>, <span class="ui">Presupuesto</span> y <span class="ui">Por revisar</span> (comprobantes que aún no tienen un pago registrado).'],
           expect: 'Las tarjetas se actualizan al marcar o desmarcar un pago. Presupuesto dice "Cubierto" o cuánto falta, y si es automático (cuota × inscritos, se recalcula solo) o ajustado a mano.',
           note: 'Solo cuenta como recaudado lo que el administrador marcó como pagado; un comprobante subido no suma por sí solo. Lo recaudado es lo que se reparte como premio; el presupuesto es la meta.',
           refs: ['TC-FIN-02', 'TC-FIN-03', 'TC-FIN-05']
@@ -498,10 +498,10 @@
         {
           id: '4.2', role: 'participante', title: 'Subir el comprobante de pago', route: '/dashboard',
           why: 'Para que el administrador confirme el pago de la cuota.',
-          actions: ['Pulsa <span class="ui">Subir comprobante</span> y elige una imagen (JPG, PNG, WEBP o HEIC) o un PDF, de hasta 10 MB.', 'Para cambiarlo, pulsa <span class="ui">Reemplazar comprobante</span>.'],
-          expect: 'El administrador ve "Ver comprobante de pago" en tu fila de Participantes y marca el pago.',
-          note: 'Solo puedes subir el comprobante de un reto en el que estás inscrito, y se guarda en tu carpeta de ese reto. El administrador registra el pago pero no sube comprobantes por ti.',
-          refs: ['TC-PART-05', 'TC-UP-04', 'TC-UP-05']
+          actions: ['Pulsa <span class="ui">Subir comprobante</span> y elige una imagen (JPG, PNG, WEBP o HEIC) o un PDF, de hasta 10 MB.', 'Para cambiarlo, pulsa <span class="ui">Reemplazar comprobante</span>.', 'Lee el <span class="ui">Estado</span> del bloque: "pendiente de pago" (sube tu comprobante), "comprobante en revisión" con la fecha de subida, "pago parcial" con lo que pagaste y lo que falta, o "pagado".'],
+          expect: 'El administrador ve "Ver comprobante de pago" en tu fila de Participantes, lo encuentra en su cola "Por revisar" y registra el pago; entonces tu estado pasa a "pago parcial" o "pagado".',
+          note: 'Solo puedes subir el comprobante de un reto en el que estás inscrito, y se guarda en tu carpeta de ese reto. El administrador registra el pago pero no sube comprobantes por ti. Solo ves tu propio estado de pago. En un reto sin cuota el bloque dice "Este reto no tiene cuota" y no ofrece subir comprobante.',
+          refs: ['TC-PART-05', 'TC-PART-07', 'TC-UP-04', 'TC-UP-05']
         },
         {
           id: '4.3', role: 'participante', title: 'Registrar la actividad del día', route: '/dashboard/upload',
@@ -721,6 +721,8 @@
     ['Inscribir y quitar participantes', '3.1', 'auto'],
     ['Marcar pago, impago y pago parcial con el monto recibido', '3.3', 'auto'],
     ['Resumen financiero y cobertura del presupuesto', '3.4', 'auto'],
+    ['Cola de comprobantes por revisar con filtros y contadores', '3.3', 'auto'],
+    ['Estado de pago propio del participante (pendiente, en revisión, parcial, pagado)', '4.2', 'auto'],
     ['Presupuesto automático (cuota × inscritos) o ajustado a mano', '2.1', 'auto'],
     ['Panel personal con cuenta regresiva y posición', '4.1', 'auto'],
     ['Comprobante de pago del participante', '4.2', 'auto'],
@@ -759,7 +761,7 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
@@ -772,11 +774,17 @@
     '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],
     '2.4': [['07-selector-reto.jpg', 'Con varios retos activos, el selector de la cabecera elige con cuál trabajar.']],
     '2.3': [['24-editar-reto.jpg', 'Edición de un reto activo: valores actuales, mes y año fijos, y el aviso de que el ranking se recalcula.']],
-    '3.3': [['25-pago-parcial.jpg', 'Pago parcial: el monto viene con la cuota y se corrige antes de guardar.']],
+    '3.3': [
+      ['28-cola-comprobantes.jpg', 'Cola de comprobantes: la tarjeta Por revisar, los filtros con contador y la insignia con la fecha de subida.'],
+      ['25-pago-parcial.jpg', 'Pago parcial: el monto viene con la cuota y se corrige antes de guardar.']
+    ],
     '4.5': [['26-retirar-actividad.jpg', 'Retirar pide confirmación en la misma fila; las validadas y rechazadas no tienen el botón.']],
     '3.4': [['08-participantes-finanzas.jpg', 'Inscritos, estado de pago y resumen financiero: recaudado, pendiente y cobertura del presupuesto.']],
     '4.1': [['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.']],
-    '4.2': [['09-comprobante.jpg', 'El comprobante subido queda visible para el participante y el administrador.']],
+    '4.2': [
+      ['09-comprobante.jpg', 'El comprobante subido queda visible para el participante y el administrador.'],
+      ['29-estado-pago.jpg', 'Estado de pago propio: con el comprobante subido y sin pago registrado dice "comprobante en revisión".']
+    ],
     '4.3': [
       ['10-subir-bloqueado.jpg', 'Con menos minutos de FC que el mínimo y sin captura, el envío queda bloqueado y se explica por qué.'],
       ['11-subir-listo.jpg', 'Con fotos y la regla de FC cumplida, el formulario queda listo para enviar.']

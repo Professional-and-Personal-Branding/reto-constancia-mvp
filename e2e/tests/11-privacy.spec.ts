@@ -12,12 +12,13 @@ import {
   setupChallenge,
   STATE,
   tokens,
+  uploadPaymentProof,
 } from '../fixtures/api';
 import { selectChallenge } from '../fixtures/ui';
 
 /**
  * Privacidad de los participantes (cambio participant-data-privacy).
- * Casos cubiertos: TC-SEC-06 a TC-SEC-11.
+ * Casos cubiertos: TC-SEC-06 a TC-SEC-11 y TC-PART-07.
  *
  * Usa solo los tokens del setup (límite de 5 logins por minuto): Bruno, el "otro"
  * participante del seed, y su actividad los prepara el admin.
@@ -25,7 +26,7 @@ import { selectChallenge } from '../fixtures/ui';
 const MONTH = 2;
 const BRUNO = 'bruno@reto.local';
 const PAYMENT_KEYS = ['paid', 'paidAt', 'amountPaid', 'paymentProofUrl', 'paymentProofCloudinaryId', 'paymentProofUploadedAt'];
-const OWN_KEYS = ['amountPaid', 'joinedAt', 'paid', 'paidAt', 'paymentProofUploadedAt', 'paymentProofUrl'];
+const OWN_KEYS = ['amountPaid', 'joinedAt', 'paid', 'paidAt', 'paymentProofUploadedAt', 'paymentProofUrl', 'paymentStatus'];
 
 let challengeId = '';
 let brunoId = '';
@@ -148,6 +149,46 @@ test.describe('Web del participante', () => {
     await selectChallenge(page, challengeId, '/dashboard');
     const proof = page.locator('section').filter({ hasText: 'Comprobante de pago' });
     await expect(proof).toContainText('Estado: pagado');
+  });
+
+  test('el dashboard muestra pendiente de pago, comprobante en revisión, pago parcial y pagado', async ({ page }) => {
+    const { participantId } = tokens();
+    const proof = page.locator('section').filter({ hasText: 'Comprobante de pago' });
+    // Sin pago ni comprobante
+    await markPaid(challengeId, participantId, false);
+    await selectChallenge(page, challengeId, '/dashboard');
+    await expect(proof).toContainText('Estado: pendiente de pago');
+    await expect(proof).toContainText('Sube tu comprobante para que el administrador lo revise');
+    await expect(proof.getByRole('button', { name: 'Subir comprobante' })).toBeVisible();
+
+    // Comprobante subido, pago sin registrar
+    await uploadPaymentProof(challengeId, 'privacidad-estado');
+    await page.reload();
+    await expect(proof).toContainText('Estado: comprobante en revisión · subido el');
+    await expect(proof.getByRole('button', { name: 'Reemplazar comprobante' })).toBeVisible();
+
+    // Pago parcial registrado después del comprobante
+    await markPaid(challengeId, participantId, true, 20);
+    await page.reload();
+    await expect(proof).toContainText('Estado: pago parcial · pagaste 20 de 50 BOB, faltan 30');
+
+    // Pago completo
+    await markPaid(challengeId, participantId, true, 50);
+    await page.reload();
+    await expect(proof).toContainText('Estado: pagado');
+  });
+
+  test('un reto gratuito dice que no tiene cuota y no ofrece subir comprobante', async ({ page }) => {
+    const { admin } = tokens();
+    await api('PATCH', `/challenges/${challengeId}`, { token: admin, body: { feePerParticipant: 0 } });
+    try {
+      await selectChallenge(page, challengeId, '/dashboard');
+      const proof = page.locator('section').filter({ hasText: 'Comprobante de pago' });
+      await expect(proof).toContainText('Este reto no tiene cuota');
+      await expect(proof.getByRole('button', { name: /comprobante/i })).toHaveCount(0);
+    } finally {
+      await api('PATCH', `/challenges/${challengeId}`, { token: admin, body: { feePerParticipant: 50 } });
+    }
   });
 });
 

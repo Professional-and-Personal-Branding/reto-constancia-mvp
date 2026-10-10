@@ -176,12 +176,28 @@ export async function enroll(challengeId: string, userId: string): Promise<void>
   });
 }
 
-export async function markPaid(challengeId: string, userId: string, paid: boolean): Promise<void> {
+export async function markPaid(
+  challengeId: string,
+  userId: string,
+  paid: boolean,
+  amountPaid?: number,
+): Promise<void> {
   const { admin } = tokens();
   await api('PATCH', `/challenges/${challengeId}/participants/${userId}/payment`, {
     token: admin,
-    body: { paid },
+    body: { paid, amountPaid },
   });
+}
+
+/** El participante del setup sube un comprobante de pago propio (payment-reconciliation). */
+export async function uploadPaymentProof(challengeId: string, name: string): Promise<void> {
+  const { participant, participantId } = tokens();
+  const asset = ownedAsset(challengeId, participantId, name, 'payment-proof', 'pdf');
+  const res = await api('PATCH', `/challenges/${challengeId}/participants/me/payment-proof`, {
+    token: participant,
+    body: { paymentProofUrl: asset.url, paymentProofCloudinaryId: asset.cloudinaryId },
+  });
+  if (res.status !== 200) throw new Error(`No se pudo subir el comprobante: ${res.status}`);
 }
 
 /** Crea una actividad del participante por API (para poblar rankings y validaciones). */

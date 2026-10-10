@@ -8,6 +8,8 @@ import {
   FinanceParticipantInput,
   FinanceService,
   paymentState,
+  participantPaymentStatus,
+  proofToReview,
 } from './finance.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -45,6 +47,64 @@ describe('paymentState', () => {
   });
 });
 
+const T1 = new Date('2026-05-02T10:00:00Z');
+const T2 = new Date('2026-05-03T10:00:00Z');
+
+describe('proofToReview (payment-reconciliation D1)', () => {
+  const url = 'https://x/p.pdf';
+  it('comprobante sin pago registrado: por revisar', () => {
+    expect(proofToReview(120, false, 0, null, url, T1)).toBe(true);
+  });
+  it('registrar el pago completo lo saca de la cola', () => {
+    expect(proofToReview(120, true, 120, T2, url, T1)).toBe(false);
+  });
+  it('pago parcial con comprobante más nuevo: vuelve a la cola', () => {
+    expect(proofToReview(120, true, 60, T1, url, T2)).toBe(true);
+  });
+  it('pago parcial con comprobante más viejo: no está por revisar', () => {
+    expect(proofToReview(120, true, 60, T2, url, T1)).toBe(false);
+  });
+  it('fechas iguales cuentan como cubierto', () => {
+    expect(proofToReview(120, true, 60, T1, url, T1)).toBe(false);
+  });
+  it('comprobante posterior a un pago completo: no entra', () => {
+    expect(proofToReview(120, true, 120, T1, url, T2)).toBe(false);
+  });
+  it('desmarcar el pago con comprobante guardado lo devuelve a la cola', () => {
+    expect(proofToReview(120, false, 0, null, url, T1)).toBe(true);
+  });
+  it('reto gratuito: nunca', () => {
+    expect(proofToReview(0, false, 0, null, url, T1)).toBe(false);
+  });
+  it('sin comprobante: nunca', () => {
+    expect(proofToReview(120, false, 0, null, null, null)).toBe(false);
+    expect(proofToReview(120, true, 60, T1, null, null)).toBe(false);
+  });
+});
+
+describe('participantPaymentStatus (payment-reconciliation D2)', () => {
+  const url = 'https://x/p.pdf';
+  it('pending: sin pago ni comprobante', () => {
+    expect(participantPaymentStatus(120, false, 0, null, null, null)).toBe('pending');
+  });
+  it('in_review: comprobante sin pago registrado', () => {
+    expect(participantPaymentStatus(120, false, 0, null, url, T1)).toBe('in_review');
+  });
+  it('in_review también con pago parcial y comprobante más nuevo', () => {
+    expect(participantPaymentStatus(120, true, 60, T1, url, T2)).toBe('in_review');
+  });
+  it('partial: pago parcial sin nada por revisar', () => {
+    expect(participantPaymentStatus(120, true, 60, T2, url, T1)).toBe('partial');
+    expect(participantPaymentStatus(120, true, 60, T1, null, null)).toBe('partial');
+  });
+  it('paid: pago completo, aunque suba otro comprobante', () => {
+    expect(participantPaymentStatus(120, true, 120, T1, url, T2)).toBe('paid');
+  });
+  it('paid siempre en un reto gratuito', () => {
+    expect(participantPaymentStatus(0, false, 0, null, url, T1)).toBe('paid');
+  });
+});
+
 describe('computeFinance', () => {
   it('pagos mixtos: 3 completos, 1 parcial, 1 impago', () => {
     const f = computeFinance(challenge, [
@@ -71,6 +131,34 @@ describe('computeFinance', () => {
       'unpaid',
     ]);
     expect(f.currency).toBe('BOB');
+  });
+
+  it('cola de comprobantes: cuenta, marcas por fila y totales sin cambio (D4)', () => {
+    const proofA = { paymentProofUrl: 'https://x/a.pdf', paymentProofUploadedAt: T1 };
+    const proofB = { paymentProofUrl: 'https://x/b.pdf', paymentProofUploadedAt: T2 };
+    const rows = [
+      participant('u1', true, 120),
+      participant('u2', true, 120),
+      participant('u3', true, 120),
+      participant('u4', true, 60),
+      participant('u5', false, null),
+    ];
+    const without = computeFinance(challenge, rows);
+    const f = computeFinance(challenge, [
+      rows[0],
+      rows[1],
+      { ...rows[2], ...proofA }, // pago completo: el comprobante no entra
+      { ...rows[3], ...proofB }, // parcial (pago 05-02 00:00), comprobante 05-03: entra
+      { ...rows[4], ...proofA }, // sin pago registrado: entra
+    ]);
+    expect(f.proofsToReview).toBe(2);
+    expect(f.participants.map((p) => p.proofToReview)).toEqual([false, false, false, true, true]);
+    expect(f.participants[3].proofUploadedAt).toEqual(T2);
+    expect(f.participants[0].proofUploadedAt).toBeNull();
+    expect(without.proofsToReview).toBe(0);
+    expect(f.counts).toEqual(without.counts);
+    expect(f.collectedTotal).toBe(without.collectedTotal);
+    expect(f.pendingTotal).toBe(without.pendingTotal);
   });
 
   it('presupuesto cubierto con excedente', () => {
