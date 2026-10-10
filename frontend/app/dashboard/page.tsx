@@ -8,13 +8,32 @@ import { useAuth } from '@/lib/auth-context';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
+import { amountOwed, formatUploadDate } from '@/lib/payment';
 import type {
   ChallengeParticipant,
+  MyParticipation,
   DailyActivity,
   ChallengeResults,
 } from '@/lib/types';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+/** Etiqueta del estado de pago propio; el servidor decide el estado (payment-reconciliation). */
+function paymentLabel(me: MyParticipation, fee: string, currency: string): string {
+  switch (me.paymentStatus) {
+    case 'paid':
+      return 'pagado';
+    case 'in_review': {
+      const date = me.paymentProofUploadedAt ? ` · subido el ${formatUploadDate(me.paymentProofUploadedAt)}` : '';
+      const recorded = me.paid ? ` · Registrado ${me.amountPaid ?? 0} de ${fee} ${currency}` : '';
+      return `comprobante en revisión${date}${recorded}`;
+    }
+    case 'partial':
+      return `pago parcial · pagaste ${me.amountPaid ?? 0} de ${fee} ${currency}, faltan ${amountOwed(parseFloat(fee), me.amountPaid)}`;
+    default:
+      return 'pendiente de pago';
+  }
+}
 
 function formatDate(iso: string): string {
   return formatDay(iso, { day: '2-digit', month: 'short' });
@@ -127,6 +146,7 @@ export default function DashboardPage() {
   const pendingCount = activities?.filter((a) => a.status === 'PENDING').length ?? 0;
   const myRank = results?.ranking.find((r) => r.userId === user?.id);
   const myParticipation = challenge.me;
+  const isFreeChallenge = parseFloat(challenge.feePerParticipant) <= 0;
 
   return (
     <div className="space-y-8">
@@ -196,10 +216,21 @@ export default function DashboardPage() {
               <h2 className="display text-2xl tracking-wider">
                 Comprobante de pago
               </h2>
-              <p className="text-sm text-ink-dim mt-1">
-                Cuota: {challenge.feePerParticipant} {challenge.currency} · Estado:{' '}
-                {myParticipation.paid ? 'pagado' : 'pendiente de validación'}
-              </p>
+              {isFreeChallenge ? (
+                <p className="text-sm text-ink-dim mt-1">Este reto no tiene cuota</p>
+              ) : (
+                <>
+                  <p className="text-sm text-ink-dim mt-1">
+                    Cuota: {challenge.feePerParticipant} {challenge.currency} · Estado:{' '}
+                    {paymentLabel(myParticipation, challenge.feePerParticipant, challenge.currency)}
+                  </p>
+                  {myParticipation.paymentStatus === 'pending' && (
+                    <p className="text-sm text-ink-dim mt-1">
+                      Sube tu comprobante para que el administrador lo revise
+                    </p>
+                  )}
+                </>
+              )}
               {myParticipation.paymentProofUrl && (
                 <a
                   href={myParticipation.paymentProofUrl}
@@ -214,6 +245,7 @@ export default function DashboardPage() {
                 <p className="text-bad text-sm mt-2">{paymentError}</p>
               )}
             </div>
+            {!isFreeChallenge && (
             <div>
               <input
                 ref={paymentInputRef}
@@ -239,6 +271,7 @@ export default function DashboardPage() {
                     : 'Subir comprobante'}
               </button>
             </div>
+            )}
           </div>
         </section>
       )}
