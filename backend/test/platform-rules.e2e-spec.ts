@@ -119,8 +119,8 @@ describe('Reglas de la plataforma (e2e)', () => {
 
   // ---------------- Privacidad (cambio participant-data-privacy) ----------------
 
-  const PAYMENT_KEYS = ['paid', 'paidAt', 'amountPaid', 'paymentProofUrl', 'paymentProofCloudinaryId', 'paymentProofUploadedAt'];
-  const OWN_KEYS = ['amountPaid', 'joinedAt', 'paid', 'paidAt', 'paymentProofUploadedAt', 'paymentProofUrl'];
+  const PAYMENT_KEYS = ['paid', 'paidAt', 'amountPaid', 'paymentProofUrl', 'paymentProofCloudinaryId', 'paymentProofUploadedAt', 'paymentStatus', 'proofToReview'];
+  const OWN_KEYS = ['amountPaid', 'joinedAt', 'paid', 'paidAt', 'paymentProofUploadedAt', 'paymentProofUrl', 'paymentStatus'];
 
   it('SEC: un participante no recibe la lista de inscritos y su pago va en me', async () => {
     const list = await request(http).get('/api/challenges/active/list').set(auth(token.ana));
@@ -130,6 +130,7 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(mine.isParticipant).toBe(true);
     expect(Object.keys(mine.me).sort()).toEqual(OWN_KEYS);
     expect(mine.me.paid).toBe(false);
+    expect(mine.me.paymentStatus).toBe('pending');
 
     const detail = await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.ana));
     expect(detail.status).toBe(200);
@@ -422,6 +423,61 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(res.body.paymentProofUrl).toBe(proofFor('ana', 'comprobante').paymentProofUrl);
     expect(res.body.paymentProofUploadedAt).toBeTruthy();
     expect(res.body.paid).toBe(false); // el comprobante no marca el pago: lo confirma el admin
+  });
+
+  it('PAY: me.paymentStatus recorre pending, in_review, partial y paid, y nadie ve el de otro', async () => {
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 25));
+    const statusOf = async (who: 'ana' | 'bruno') => {
+      const list = await request(http).get('/api/challenges/active/list').set(auth(token[who]));
+      return list.body.find((c: { id: string }) => c.id === challengeId).me.paymentStatus as string;
+    };
+    const pay = (body: Record<string, unknown>) =>
+      request(http).patch(`/api/challenges/${challengeId}/participants/${id.ana}/payment`).set(auth(token.admin)).send(body);
+
+    // Ana subió su comprobante en la prueba anterior; Bruno no ha subido nada
+    expect(await statusOf('ana')).toBe('in_review');
+    expect(await statusOf('bruno')).toBe('pending');
+
+    await pause();
+    expect((await pay({ paid: true, amountPaid: 50 })).status).toBe(200);
+    expect(await statusOf('ana')).toBe('partial'); // el pago es posterior al comprobante
+
+    await pause();
+    const second = await request(http)
+      .patch(`/api/challenges/${challengeId}/participants/me/payment-proof`)
+      .set(auth(token.ana))
+      .send(proofFor('ana', 'segundo'));
+    expect(second.status).toBe(200);
+    expect(await statusOf('ana')).toBe('in_review'); // comprobante nuevo tras un pago parcial
+
+    await pause();
+    expect((await pay({ paid: true, amountPaid: 100 })).status).toBe(200);
+    expect(await statusOf('ana')).toBe('paid');
+
+    // Nadie más ve el estado de otro: un solo paymentStatus (el propio) en cada lectura
+    const reads = [
+      await request(http).get('/api/challenges/active/list').set(auth(token.bruno)),
+      await request(http).get(`/api/challenges/${challengeId}`).set(auth(token.bruno)),
+      await request(http).get('/api/challenges/active').set(auth(token.bruno)),
+    ];
+    for (const read of reads) expect(JSON.stringify(read.body).match(/paymentStatus/g)).toHaveLength(1);
+    const ranking = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.bruno));
+    expect(JSON.stringify(ranking.body)).not.toMatch(/paymentStatus|proofToReview/);
+
+    // Desmarcar el pago con el comprobante guardado lo devuelve a revisión; la cola y el resumen coinciden
+    await pause();
+    expect((await pay({ paid: false })).status).toBe(200);
+    expect(await statusOf('ana')).toBe('in_review');
+    const preview = await request(http).get(`/api/challenges/${challengeId}/close-preview`).set(auth(token.admin));
+    const finance = await request(http).get(`/api/challenges/${challengeId}/finance`).set(auth(token.admin));
+    const queue = (preview.body.proofsToReview as { userId: string }[]).map((p) => p.userId).sort();
+    const flagged = (finance.body.participants as { userId: string; proofToReview: boolean }[])
+      .filter((p) => p.proofToReview)
+      .map((p) => p.userId)
+      .sort();
+    expect(queue).toEqual([id.ana]);
+    expect(flagged).toEqual(queue);
+    expect(finance.body.proofsToReview).toBe(1);
   });
 
   // ---------------- Actividades ----------------

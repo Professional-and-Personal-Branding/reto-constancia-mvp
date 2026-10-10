@@ -556,7 +556,13 @@ describe('ChallengesService.closePreview (assisted-challenge-close)', () => {
       currency: 'BOB',
       feePerParticipant: '100.00',
       budgetTotal: null,
-      participants: [participant('a', true, '100.00'), participant('b', false, null, true), participant('c', true, '50.00')],
+      participants: [
+        participant('a', true, '100.00'),
+        participant('b', false, null, true),
+        participant('c', true, '50.00'),
+        { ...participant('d', true, '50.00'), paymentProofUrl: 'https://x/d.pdf', paymentProofUploadedAt: new Date('2026-05-04') },
+        { ...participant('e', true, '50.00', true), paymentProofUploadedAt: new Date('2026-05-01') },
+      ],
     };
     const writes = { update: jest.fn(), createMany: jest.fn() };
     const prisma = {
@@ -582,10 +588,16 @@ describe('ChallengesService.closePreview (assisted-challenge-close)', () => {
     const p = await svc.closePreview('c');
     expect(p.pendingActivities.count).toBe(3);
     expect(p.pendingActivities.items[0]).toMatchObject({ userId: 'a', userName: 'A' });
-    expect(p.proofsToReview).toEqual([{ userId: 'b', name: 'B', paymentProofUploadedAt: new Date('2026-05-03') }]);
+    // b: sin pago; d: pago parcial con comprobante posterior (payment-reconciliation). e: comprobante anterior al pago, no entra.
+    expect(p.proofsToReview).toEqual([
+      { userId: 'b', name: 'B', paymentProofUploadedAt: new Date('2026-05-03') },
+      { userId: 'd', name: 'D', paymentProofUploadedAt: new Date('2026-05-04') },
+    ]);
     expect(p.unpaid).toEqual([
       { userId: 'b', name: 'B', state: 'unpaid', amountPaid: 0 },
       { userId: 'c', name: 'C', state: 'partial', amountPaid: 50 },
+      { userId: 'd', name: 'D', state: 'partial', amountPaid: 50 },
+      { userId: 'e', name: 'E', state: 'partial', amountPaid: 50 },
     ]);
     expect(p).toMatchObject({ drawNeeded: true, drawSeats: 1, currency: 'BOB', feePerParticipant: 100 });
     expect(p.guaranteedWinners.map((w) => w.userId)).toEqual(['a']);
