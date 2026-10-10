@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-09** · rama `release/1.8.0` · commit `0c91e39` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-10** · rama `feature/payment-reconciliation` · commit `58f6a7f` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**132 casos** · 132 aprobados · 0 fallidos · 0 con limitación conocida · 131 automatizados.
+**135 casos** · 135 aprobados · 0 fallidos · 0 con limitación conocida · 134 automatizados.
 
 ## Cómo leer cada caso
 
@@ -20,11 +20,11 @@
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 22 | 22 | 0 |
-| [Participantes y pagos](#part) | 6 | 6 | 0 |
+| [Participantes y pagos](#part) | 7 | 7 | 0 |
 | [Actividades y validación](#act) | 19 | 19 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
-| [Finanzas](#fin) | 7 | 7 | 0 |
+| [Finanzas](#fin) | 9 | 9 | 0 |
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
 | [Interfaz y navegación](#ui) | 11 | 11 | 0 |
@@ -719,14 +719,15 @@
 **Resultado esperado**
 
 - Ningún reto trae la lista de inscritos; cada uno trae isParticipant.
-- me trae solo paid, paidAt, amountPaid, paymentProofUrl, paymentProofUploadedAt y joinedAt, con los valores de Ana.
+- me trae solo paid, paidAt, amountPaid, paymentProofUrl, paymentProofUploadedAt, joinedAt y paymentStatus (siete claves), con los valores de Ana.
 - El inicio muestra "Estado: pagado" en el comprobante de pago.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Unitaria | `privacy.spec.ts` | devuelve solo los seis campos propios, sin el id de Cloudinary |
+| ✅ | Unitaria | `privacy.spec.ts` | devuelve los seis campos propios más paymentStatus, sin el id de Cloudinary |
+| ✅ | Unitaria | `privacy.spec.ts` | participante: el estado de pago de otra persona no aparece en ninguna parte |
 | ✅ | Unitaria | `privacy.spec.ts` | participante inscrito: sin participants, con su me e isParticipant |
 | ✅ | Unitaria | `privacy.spec.ts` | una columna nueva del inscrito no se filtra en me |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | SEC: un participante no recibe la lista de inscritos y su pago va en me |
@@ -1640,7 +1641,7 @@
 
 **Precondiciones**
 
-- Un reto activo con una actividad pendiente, un impago, un pago parcial y un comprobante sin pago registrado.
+- Un reto activo con una actividad pendiente, un impago, un pago parcial, un comprobante sin pago registrado y un pago parcial con un comprobante posterior.
 
 **Datos de prueba:** GET /api/challenges/:id/close-preview como admin y como participante; retos en borrador y cerrado; DRAW con 4 empatados; TOTAL_KM con empate en el corte
 
@@ -1651,7 +1652,8 @@
 
 **Resultado esperado**
 
-- Trae el conteo exacto de pendientes y hasta 50 con nombre y fecha, los comprobantes por revisar, los impagos y parciales, y la proyección: asegurados, candidatos, cupos y reparto.
+- Trae el conteo exacto de pendientes y hasta 50 con nombre y fecha, los comprobantes por revisar (sin pago registrado, o con pago parcial y un comprobante posterior), los impagos y parciales, y la proyección: asegurados, candidatos, cupos y reparto.
+- Los comprobantes por revisar son exactamente los de la cola del resumen financiero (proofToReview).
 - Con DRAW proyecta 2 cupos entre 4 sin asegurados; con TOTAL_KM, el de más km asegurado y 1 cupo entre los empatados.
 - Borrador: 400 "Solo se puede cerrar un reto activo"; cerrado: 400 "El reto ya está cerrado"; participante: 403.
 - No cambia nada: el reto sigue activo y no se guarda ningún sorteo.
@@ -1665,6 +1667,7 @@
 | ✅ | Unitaria | `results.service.spec.ts` | sin empate no hay sorteo y los ganadores están asegurados |
 | ✅ | Unitaria | `challenges.service.spec.ts` | reúne pendientes, comprobantes por revisar, impagos y la proyección |
 | ✅ | Unitaria | `challenges.service.spec.ts` | un borrador o un reto cerrado responden 400 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | PAY: me.paymentStatus recorre pending, in_review, partial y paid, y nadie ve el de otro |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: el resumen previo reúne pendientes, comprobantes por revisar, impagos y la proyección, sin cambiar nada |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: con TOTAL_KM y empate en el corte proyecta al asegurado y el cupo sorteado |
 | ✅ | API e2e | `close-draw.e2e-spec.ts` | PREVIEW: solo para retos activos (400) y solo para el admin (403) |
@@ -1806,6 +1809,7 @@
 | [TC-PART-03](#tc-part-03) | Quitar a un participante | Media | Funcional | ✅ Aprobado |
 | [TC-PART-04](#tc-part-04) | Registrar el pago de un participante | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-05](#tc-part-05) | Comprobante de pago del participante | Media | Funcional | ✅ Aprobado |
+| [TC-PART-07](#tc-part-07) | Estado de pago propio en el inicio del participante | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-06](#tc-part-06) | Reto cerrado: sin altas ni bajas | Media | Negativo | ✅ Aprobado |
 
 <a id="tc-part-01"></a>
@@ -1952,15 +1956,64 @@
 
 - Se guarda paymentProofUrl y aparece "Ver comprobante cargado".
 - El comprobante no marca el pago: paid sigue en false hasta que el admin lo marca.
-- El admin ve "Ver comprobante de pago".
+- El admin ve "Ver comprobante de pago" y el comprobante entra en su cola "Por revisar".
+- El inicio del participante dice "Estado: comprobante en revisión" con la fecha de subida.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | PART: el participante sube su comprobante de pago |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | cola de comprobantes: un comprobante entra, registrar el pago lo saca y nunca suma al recaudado |
+| ✅ | UI | `11-privacy.spec.ts` | el dashboard muestra pendiente de pago, comprobante en revisión, pago parcial y pagado |
 | ✅ | Guía | `capture.spec.ts` | comprobante de pago disponible para el participante |
 | ✅ | Guía | `capture.spec.ts` | participantes con resumen financiero |
+
+<a id="tc-part-07"></a>
+
+### TC-PART-07 · Estado de pago propio en el inicio del participante
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | Funcional | 4.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto con cuota 50 y Ana inscrita.
+- Un reto gratuito.
+
+**Datos de prueba:** Ana sin comprobante ni pago; con comprobante; con pago de 20; con pago de 50; reto con cuota 0
+
+**Pasos**
+
+1. Abrir el inicio como Ana en cada estado.
+2. Leer me.paymentStatus de GET /api/challenges/active/list.
+3. Abrir el inicio en un reto sin cuota.
+
+**Resultado esperado**
+
+- Sin nada: "Estado: pendiente de pago", pide subir el comprobante y ofrece "Subir comprobante"; paymentStatus pending.
+- Con comprobante y sin pago: "Estado: comprobante en revisión" con la fecha de subida; in_review.
+- Con 20 de 50 registrados: "Estado: pago parcial · pagaste 20 de 50 BOB, faltan 30"; partial. Un comprobante posterior a ese pago vuelve a in_review.
+- Con 50 de 50: "Estado: pagado"; paid.
+- Reto sin cuota: "Este reto no tiene cuota", paymentStatus paid y sin botón de subir comprobante.
+- Nadie ve el estado de pago de otra persona: solo me lo trae.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `finance.service.spec.ts` | pending: sin pago ni comprobante |
+| ✅ | Unitaria | `finance.service.spec.ts` | in_review: comprobante sin pago registrado |
+| ✅ | Unitaria | `finance.service.spec.ts` | in_review también con pago parcial y comprobante más nuevo |
+| ✅ | Unitaria | `finance.service.spec.ts` | partial: pago parcial sin nada por revisar |
+| ✅ | Unitaria | `finance.service.spec.ts` | paid: pago completo, aunque suba otro comprobante |
+| ✅ | Unitaria | `finance.service.spec.ts` | paid siempre en un reto gratuito |
+| ✅ | Unitaria | `privacy.spec.ts` | paymentStatus: pending, in_review, partial y paid según el pago propio |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | PAY: me.paymentStatus recorre pending, in_review, partial y paid, y nadie ve el de otro |
+| ✅ | UI | `11-privacy.spec.ts` | el dashboard muestra pendiente de pago, comprobante en revisión, pago parcial y pagado |
+| ✅ | UI | `11-privacy.spec.ts` | un reto gratuito dice que no tiene cuota y no ofrece subir comprobante |
+| ✅ | Guía | `capture.spec.ts` | estado de pago propio: comprobante en revisión |
 
 <a id="tc-part-06"></a>
 
@@ -3082,6 +3135,8 @@
 | [TC-FIN-05](#tc-fin-05) | Finanzas en la web | Media | UI | ✅ Aprobado |
 | [TC-FIN-06](#tc-fin-06) | Presupuesto automático o fijado a mano | Alta | Funcional | ✅ Aprobado |
 | [TC-FIN-07](#tc-fin-07) | Los pagos se cierran con el reto | Alta | Seguridad | ✅ Aprobado |
+| [TC-FIN-08](#tc-fin-08) | Comprobante por revisar: regla derivada y resumen financiero | Alta | Funcional | ✅ Aprobado |
+| [TC-FIN-09](#tc-fin-09) | Cola de comprobantes del admin en la web | Alta | UI | ✅ Aprobado |
 
 <a id="tc-fin-01"></a>
 
@@ -3342,6 +3397,91 @@
 | ✅ | Unitaria | `challenges.service.spec.ts` | un reto cerrado no admite registrar ni borrar pagos |
 | ✅ | Unitaria | `challenges.service.spec.ts` | un reto cerrado no admite subir comprobantes de pago |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | FIN: un reto cerrado no admite pagos ni comprobantes y su pote no cambia |
+
+<a id="tc-fin-08"></a>
+
+### TC-FIN-08 · Comprobante por revisar: regla derivada y resumen financiero
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Finanzas | Alta | Funcional | 3.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto con cuota 120 y participantes con comprobante subido.
+
+**Datos de prueba:** Comprobante sin pago; pago de 120; pago de 60 y un comprobante nuevo; pago de 60 con comprobante anterior; comprobante tras un pago completo; pago desmarcado con comprobante; reto gratuito; fechas iguales
+
+**Pasos**
+
+1. Subir el comprobante y consultar GET /api/challenges/:id/finance como admin.
+2. Registrar 120, desmarcar, registrar 60 y subir otro comprobante, consultando cada vez.
+3. Consultar como participante.
+
+**Resultado esperado**
+
+- Comprobante sin pago registrado: proofToReview true y proofsToReview suma 1; lo recaudado y lo pendiente no cambian.
+- Registrar el pago completo lo saca de la cola; desmarcarlo con el comprobante guardado lo devuelve.
+- Con 60 registrados un comprobante más nuevo vuelve a la cola (el estado sigue siendo partial); uno más viejo o de la misma fecha no.
+- Un comprobante tras un pago completo, un reto gratuito o la ausencia de comprobante nunca entran en la cola.
+- Cada fila trae proofToReview y proofUploadedAt; el participante recibe 403.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `finance.service.spec.ts` | comprobante sin pago registrado: por revisar |
+| ✅ | Unitaria | `finance.service.spec.ts` | registrar el pago completo lo saca de la cola |
+| ✅ | Unitaria | `finance.service.spec.ts` | pago parcial con comprobante más nuevo: vuelve a la cola |
+| ✅ | Unitaria | `finance.service.spec.ts` | pago parcial con comprobante más viejo: no está por revisar |
+| ✅ | Unitaria | `finance.service.spec.ts` | fechas iguales cuentan como cubierto |
+| ✅ | Unitaria | `finance.service.spec.ts` | comprobante posterior a un pago completo: no entra |
+| ✅ | Unitaria | `finance.service.spec.ts` | desmarcar el pago con comprobante guardado lo devuelve a la cola |
+| ✅ | Unitaria | `finance.service.spec.ts` | reto gratuito: nunca |
+| ✅ | Unitaria | `finance.service.spec.ts` | sin comprobante: nunca |
+| ✅ | Unitaria | `finance.service.spec.ts` | cola de comprobantes: cuenta, marcas por fila y totales sin cambio (D4) |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | cola de comprobantes: un comprobante entra, registrar el pago lo saca y nunca suma al recaudado |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | PAY: me.paymentStatus recorre pending, in_review, partial y paid, y nadie ve el de otro |
+
+<a id="tc-fin-09"></a>
+
+### TC-FIN-09 · Cola de comprobantes del admin en la web
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Finanzas | Alta | UI | 3.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto con cuota 120 y Ana con un comprobante subido sin pago registrado.
+
+**Datos de prueba:** Participantes (admin): tarjeta Por revisar, filtros con contadores, pago completo y pago parcial
+
+**Pasos**
+
+1. Abrir Participantes.
+2. Pulsar la tarjeta Por revisar.
+3. Registrar el pago completo de Ana.
+4. Repetir con un pago parcial de 60.
+
+**Resultado esperado**
+
+- La tarjeta "Por revisar" dice 1 (resaltada) y los filtros Todos, Por revisar, Sin pagar, Parciales y Pagados traen su contador.
+- Al pulsar la tarjeta solo se listan los de la cola, el comprobante más antiguo primero, con "Comprobante por revisar · subido el <fecha>" y "Ver comprobante de pago".
+- Tras registrar el pago completo la tarjeta dice 0 y Ana aparece en Pagados.
+- Con un pago parcial de 60 sale de la cola y aparece en Parciales, debiendo 60.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `04-finance.spec.ts` | la cola de comprobantes: por revisar, filtro, pago completo y pago parcial |
+| ✅ | Web (unitaria) | `payment.test.ts` | filterCounts usa los conteos del resumen |
+| ✅ | Web (unitaria) | `payment.test.ts` | Por revisar lista solo la cola, el comprobante más antiguo primero |
+| ✅ | Web (unitaria) | `payment.test.ts` | los filtros por estado y Todos |
+| ✅ | Web (unitaria) | `payment.test.ts` | sin resumen todavía se muestran todos |
+| ✅ | Web (unitaria) | `payment.test.ts` | amountOwed y la fecha de subida |
+| ✅ | Guía | `capture.spec.ts` | cola de comprobantes por revisar |
 
 <a id="up"></a>
 

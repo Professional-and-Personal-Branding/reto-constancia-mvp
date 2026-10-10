@@ -59,7 +59,7 @@ La primera vez, instala también el navegador de Playwright:
 | `challenges/challenges.service.spec.ts` | Activación (DRAFT→ACTIVE, idempotencia, 400 en cerrado), lista de activos, reto por defecto, marcado de pago |
 | `challenges/results.service.spec.ts` | Ranking, ganadores, premiación manual, payout y reglas de puntaje configurables |
 | `challenges/scoring.spec.ts` | Fórmula de puntaje, calificación y desempates (`DRAW`, `TOTAL_KM`, `SHARE_ALL`) |
-| `challenges/finance.service.spec.ts` | Estados de pago, totales esperado/recaudado/pendiente, cobertura y reparto del premio |
+| `challenges/finance.service.spec.ts` | Estados de pago, comprobante por revisar y estado de pago propio, totales esperado/recaudado/pendiente, cobertura y reparto del premio |
 | `activities/activities.service.spec.ts` | Regla de FC, derivación de la captura, override de validación, `heartRateCompliant` |
 | `import/import.service.spec.ts` | Validación de filas, plantilla, advertencias de FC, lectura de hojas de cálculo |
 | `import/sheets-auth.spec.ts` | Firma del JWT de cuenta de servicio, canje y caché del token |
@@ -74,7 +74,7 @@ La primera vez, instala también el navegador de Playwright:
 | `app.e2e-spec.ts` | Salud, registro, login, perfil, RBAC básico |
 | `challenge-lifecycle.e2e-spec.ts` | Varios retos activos, lista de activos, reto por defecto, actividades por reto |
 | `activity-heart-rate.e2e-spec.ts` | Rechazos por regla de FC, override con nota, reto sin regla |
-| `challenge-finance.e2e-spec.ts` | Resumen financiero, estados de pago, payout, permisos |
+| `challenge-finance.e2e-spec.ts` | Resumen financiero, estados de pago, cola de comprobantes, payout, permisos |
 | `challenge-scoring.e2e-spec.ts` | Puntaje configurable, mínimo para calificar, desempates, validación de configuración |
 | `import-sheet.e2e-spec.ts` | Importación desde Google Sheets con un cliente falso (CI no habla con Google) |
 
@@ -127,8 +127,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 62 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida y el cierre asistido) y 18 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 132 casos de `docs/qa/` están enlazados a 591 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 65 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio) y 20 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 135 casos de `docs/qa/` están enlazados a 621 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -141,6 +141,31 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-10 · rama `feature/payment-reconciliation` (conciliación de pagos)
+
+Base reiniciada con `npx prisma migrate reset --force`. Se recompilaron API y web antes de los
+recorridos de UI, porque Playwright sirve los builds ya compilados.
+
+**Batería** (`node scripts/run-tests.mjs`): 13 de 13 pasos en verde.
+
+**Catálogo:** 135 de 135 casos aprobados (134 automatizados) con 621 pruebas y 0 fallidas; 0 pruebas
+sin caso:
+- unitarias del backend: 307;
+- unitarias de la web: 22;
+- e2e de API: 135;
+- recorridos de UI: 65, más la preparación;
+- capturas de la guía: 20, más la preparación;
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-FIN-08 (regla del comprobante por revisar y resumen por la API), TC-FIN-09 (cola
+del admin en la web) y TC-PART-07 (estado de pago propio en el inicio). Actualizados: TC-SEC-07
+(siete claves en `me`), TC-PART-05 y TC-CHAL-19 (pago parcial con un comprobante posterior). Guía:
+pasos 3.3, 3.4 y 4.2 con las capturas 28 y 29. `npm audit --omit=dev` en 0 avisos en backend,
+frontend y e2e. Sin migraciones, dependencias ni variables nuevas.
+
+**Nota:** el recorrido de subida de comprobante en PDF (`02-activity-upload`) usaba un reto sin
+cuota; ahora un reto sin cuota no ofrece subir comprobante, así que ese reto de prueba cobra 50.
 
 ### 2026-10-09 · v1.8.0 (rama `release/1.8.0`)
 

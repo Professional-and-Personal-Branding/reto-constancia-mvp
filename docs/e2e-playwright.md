@@ -86,14 +86,14 @@ a `.qa-results/shots`, para no reescribir las capturas versionadas.
 | `tests/01-auth-navigation.spec.ts` | 1 · Alta, sesión y rutas protegidas | TC-AUTH-02, TC-AUTH-10, TC-AUTH-13, TC-AUTH-14, TC-UI-01, TC-UI-02 |
 | `tests/02-activity-upload.spec.ts` | 3 · Registrar actividad con regla de FC | TC-ACT-01, 02, 05, 13, 14, 18, TC-UP-02, TC-UP-04, TC-UI-04 |
 | `tests/03-admin-validation.spec.ts` | 4 · Validar y rechazar como admin | TC-ACT-08, TC-ACT-15, TC-UI-11 |
-| `tests/04-finance.spec.ts` | 5 · Pagos y resumen financiero | TC-PART-04, TC-FIN-01, 02, 04, 05, 06 |
+| `tests/04-finance.spec.ts` | 5 · Pagos y resumen financiero | TC-PART-04, TC-FIN-01, 02, 04, 05, 06, 09 |
 | `tests/05-challenges-scoring.spec.ts` | 6 y 7 · Varios retos activos y reglas de puntaje | TC-CHAL-08, TC-CHAL-10, TC-SCORE-05 |
 | `tests/06-import.spec.ts` | 8 y 9 · Importación por archivo y Google Sheets | TC-IMP-01, 02, 03, 05, TC-ACT-16 |
 | `tests/07-theme.spec.ts` | Guía 1.4 · Modo claro y oscuro | TC-UI-06, TC-UI-07, TC-UI-08, TC-UI-09 |
 | `tests/08-closed-results.spec.ts` | Guía 6.5 · Retos cerrados en el Ranking | TC-CHAL-12 |
 | `tests/09-header-layout.spec.ts` | Guía 1.3 · Encabezado en escritorio y móvil | TC-UI-10 |
 | `tests/10-api-only-actions.spec.ts` | Guía 2.3, 3.3 y 4.5 · Editar reto, pago parcial y retirar actividad | TC-CHAL-05, TC-FIN-01, TC-ACT-12 |
-| `tests/11-privacy.spec.ts` | Guía 6.1 · Privacidad: emails y pagos solo para su dueño y el admin | TC-SEC-06 a TC-SEC-11 |
+| `tests/11-privacy.spec.ts` | Guía 6.1 · Privacidad: emails y pagos solo para su dueño y el admin | TC-SEC-06 a TC-SEC-11, TC-PART-07 |
 | `tests/12-assisted-close.spec.ts` | Guía 6.3 y 6.4 · Cierre asistido: revisión previa, bloqueo por pendientes, premiación y 409 | TC-CHAL-20 |
 | `guide/capture.spec.ts` | Guía de uso (capturas) | TC-UI-03, TC-UI-05, TC-PART-05, TC-ACT-09, TC-ACT-11, TC-RES-06, TC-SCORE-07 y evidencia visual de otros 16 |
 
