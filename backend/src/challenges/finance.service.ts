@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
  * - Pote del premio: lo recaudado (pagos confirmados), no el presupuesto.
  */
 export type PaymentState = 'paid' | 'partial' | 'unpaid';
+/** Estado de pago que ve cada participante de su propia inscripción (payment-reconciliation). */
+export type ParticipantPaymentStatus = 'pending' | 'in_review' | 'partial' | 'paid';
 export type BudgetMode = 'auto' | 'manual';
 
 export interface ParticipantFinance {
@@ -19,6 +21,9 @@ export interface ParticipantFinance {
   state: PaymentState;
   amountPaid: number;
   paidAt: Date | null;
+  /** Comprobante guardado que ningún pago registrado cubre (derivado, no se guarda) */
+  proofToReview: boolean;
+  proofUploadedAt: Date | null;
 }
 
 export interface ChallengeFinance {
@@ -31,6 +36,8 @@ export interface ChallengeFinance {
   budgetMode: BudgetMode;
   participantsTotal: number;
   counts: { paid: number; partial: number; unpaid: number };
+  /** Participantes con un comprobante por revisar */
+  proofsToReview: number;
   expectedTotal: number;
   collectedTotal: number;
   pendingTotal: number;
@@ -64,6 +71,41 @@ export function paymentState(fee: number, paid: boolean, amountPaid: number): Pa
   return amountPaid >= fee ? 'paid' : 'partial';
 }
 
+/**
+ * Comprobante por revisar (spec challenge-finance): el reto cobra cuota, hay un comprobante guardado
+ * y ningún pago registrado lo cubre: el pago no está registrado, o es parcial y el comprobante se
+ * subió después del último pago. Fechas iguales cuentan como cubierto. Se deriva, no se guarda.
+ */
+export function proofToReview(
+  fee: number,
+  paid: boolean,
+  amountPaid: number,
+  paidAt: Date | null,
+  proofUrl: string | null | undefined,
+  proofUploadedAt: Date | null | undefined,
+): boolean {
+  if (fee <= 0 || !proofUrl) return false;
+  if (!paid) return true;
+  if (paymentState(fee, paid, amountPaid) !== 'partial') return false;
+  if (!proofUploadedAt || !paidAt) return false;
+  return proofUploadedAt.getTime() > paidAt.getTime();
+}
+
+/** Estado de pago propio: paid > in_review > partial > pending. */
+export function participantPaymentStatus(
+  fee: number,
+  paid: boolean,
+  amountPaid: number,
+  paidAt: Date | null,
+  proofUrl: string | null | undefined,
+  proofUploadedAt: Date | null | undefined,
+): ParticipantPaymentStatus {
+  const state = paymentState(fee, paid, amountPaid);
+  if (state === 'paid') return 'paid';
+  if (proofToReview(fee, paid, amountPaid, paidAt, proofUrl, proofUploadedAt)) return 'in_review';
+  return state === 'partial' ? 'partial' : 'pending';
+}
+
 export interface FinanceChallengeInput {
   id: string;
   name: string;
@@ -77,6 +119,8 @@ export interface FinanceParticipantInput {
   paid: boolean;
   amountPaid: MoneyLike;
   paidAt: Date | null;
+  paymentProofUrl?: string | null;
+  paymentProofUploadedAt?: Date | null;
   user: { name: string; email: string };
 }
 
@@ -115,6 +159,15 @@ export function computeFinance(
       state: paymentState(fee, p.paid, amount),
       amountPaid: round2(amount),
       paidAt: p.paidAt,
+      proofToReview: proofToReview(
+        fee,
+        p.paid,
+        amount,
+        p.paidAt,
+        p.paymentProofUrl,
+        p.paymentProofUploadedAt,
+      ),
+      proofUploadedAt: p.paymentProofUploadedAt ?? null,
     };
   });
 
@@ -135,6 +188,7 @@ export function computeFinance(
     budgetMode: mode,
     participantsTotal: rows.length,
     counts,
+    proofsToReview: rows.filter((r) => r.proofToReview).length,
     expectedTotal,
     collectedTotal: collected,
     pendingTotal,

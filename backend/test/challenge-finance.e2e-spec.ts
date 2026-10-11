@@ -5,6 +5,7 @@ import * as argon2 from 'argon2';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { ownedAsset } from './helpers/assets';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -23,6 +24,7 @@ describe('Finanzas del reto: resumen, estados de pago y payout (e2e)', () => {
 
   let adminToken: string;
   let participantToken: string;
+  let participant5Token: string;
   let participantIds: string[] = [];
   let challenge: { id: string };
   let freeChallenge: { id: string };
@@ -70,6 +72,7 @@ describe('Finanzas del reto: resumen, estados de pago y payout (e2e)', () => {
     }
     adminToken = await login(adminEmail);
     participantToken = await login(participantEmails[0]);
+    participant5Token = await login(participantEmails[4]);
   });
 
   afterAll(async () => {
@@ -158,6 +161,75 @@ describe('Finanzas del reto: resumen, estados de pago y payout (e2e)', () => {
       .set(auth(adminToken));
     expect(fin.body.collectedTotal).toBe(300);
     expect(fin.body.counts.unpaid).toBe(2);
+  });
+
+  it('cola de comprobantes: un comprobante entra, registrar el pago lo saca y nunca suma al recaudado', async () => {
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 25));
+    const finance = async () =>
+      (await request(http).get(`/api/challenges/${challenge.id}/finance`).set(auth(adminToken))).body;
+    const rowOf = (
+      body: { participants: { userId: string; proofToReview: boolean; proofUploadedAt: string | null; state: string }[] },
+      userId: string,
+    ) => body.participants.find((p) => p.userId === userId)!;
+    const uploadProof = async (name: string) => {
+      const asset = ownedAsset({
+        challengeId: challenge.id,
+        userId: participantIds[4],
+        purpose: 'payment-proof',
+        name,
+        ext: 'pdf',
+      });
+      return request(http)
+        .patch(`/api/challenges/${challenge.id}/participants/me/payment-proof`)
+        .set(auth(participant5Token))
+        .send({ paymentProofUrl: asset.url, paymentProofCloudinaryId: asset.cloudinaryId });
+    };
+    const pay = (body: Record<string, unknown>) =>
+      request(http)
+        .patch(`/api/challenges/${challenge.id}/participants/${participantIds[4]}/payment`)
+        .set(auth(adminToken))
+        .send(body);
+
+    const before = await finance();
+    expect(before.proofsToReview).toBe(0);
+    expect(rowOf(before, participantIds[4])).toMatchObject({ proofToReview: false, proofUploadedAt: null });
+
+    // El comprobante entra en la cola y no suma a lo recaudado
+    expect((await uploadProof('uno')).status).toBe(200);
+    const queued = await finance();
+    expect(queued.proofsToReview).toBe(1);
+    expect(rowOf(queued, participantIds[4]).proofToReview).toBe(true);
+    expect(rowOf(queued, participantIds[4]).proofUploadedAt).toBeTruthy();
+    expect(queued.collectedTotal).toBe(before.collectedTotal);
+    expect(queued.pendingTotal).toBe(before.pendingTotal);
+    expect(queued.counts).toEqual(before.counts);
+
+    // Registrar 120 lo saca de la cola
+    await pause();
+    expect((await pay({ paid: true })).status).toBe(200);
+    const paid = await finance();
+    expect(paid.proofsToReview).toBe(0);
+    expect(rowOf(paid, participantIds[4])).toMatchObject({ proofToReview: false, state: 'paid' });
+
+    // Desmarcar con el comprobante guardado lo devuelve; registrar 60 y subir otro, también
+    await pause();
+    expect((await pay({ paid: false })).status).toBe(200);
+    expect((await finance()).proofsToReview).toBe(1);
+    await pause();
+    expect((await pay({ paid: true, amountPaid: 60 })).status).toBe(200);
+    const partial = await finance();
+    expect(partial.proofsToReview).toBe(0);
+    expect(rowOf(partial, participantIds[4])).toMatchObject({ proofToReview: false, state: 'partial' });
+    await pause();
+    expect((await uploadProof('dos')).status).toBe(200);
+    const again = await finance();
+    expect(again.proofsToReview).toBe(1);
+    expect(rowOf(again, participantIds[4])).toMatchObject({ proofToReview: true, state: 'partial' });
+    expect(again.collectedTotal).toBe(partial.collectedTotal);
+
+    // Una persona sin permisos de admin no lee la cola
+    const denied = await request(http).get(`/api/challenges/${challenge.id}/finance`).set(auth(participantToken));
+    expect(denied.status).toBe(403);
   });
 
   it('el resumen financiero es solo para admin (403) y 404 si el reto no existe', async () => {

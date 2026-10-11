@@ -8,6 +8,8 @@ import { UserRole } from '@prisma/client';
 
 import { JwtPayload } from '../auth/auth.service';
 import type { ChallengeWithParticipants } from './challenges.service';
+import { participantPaymentStatus, toMoney } from './finance.service';
+import type { ParticipantPaymentStatus } from './finance.service';
 import type {
   ChallengeAwardResult,
   ChallengeResults,
@@ -36,8 +38,13 @@ const RANK_FIELDS = [
 ] as const;
 const AWARD_FIELDS = ['userId', 'name', 'awardedAt', 'notes'] as const;
 
-/** Inscripción propia de quien consulta. Nunca incluye paymentProofCloudinaryId. */
-export type MyParticipation = Pick<ParticipantRow, (typeof OWN_FIELDS)[number]>;
+/**
+ * Inscripción propia de quien consulta, más `paymentStatus` derivado en el servidor (cambio
+ * payment-reconciliation). Nunca incluye paymentProofCloudinaryId.
+ */
+export type MyParticipation = Pick<ParticipantRow, (typeof OWN_FIELDS)[number]> & {
+  paymentStatus: ParticipantPaymentStatus;
+};
 export type PublicRankingRow = Pick<ParticipantRanking, (typeof RANK_FIELDS)[number]>;
 export type PublicAwardRow = Pick<ChallengeAwardResult, (typeof AWARD_FIELDS)[number]>;
 
@@ -67,16 +74,26 @@ export const isAdmin = (user: JwtPayload): boolean => user.role === UserRole.ADM
 export function myParticipation(
   participants: ParticipantRow[],
   userId: string,
+  fee: Parameters<typeof toMoney>[0],
 ): MyParticipation | null {
   const own = participants.find((p) => p.userId === userId);
-  return own ? pick(own, OWN_FIELDS) : null;
+  if (!own) return null;
+  const paymentStatus = participantPaymentStatus(
+    toMoney(fee),
+    own.paid,
+    own.paid ? toMoney(own.amountPaid) : 0,
+    own.paidAt,
+    own.paymentProofUrl,
+    own.paymentProofUploadedAt,
+  );
+  return { ...pick(own, OWN_FIELDS), paymentStatus };
 }
 
 export function projectChallengeForViewer<C extends ChallengeWithParticipants>(
   challenge: C,
   user: JwtPayload,
 ): ChallengeView<C> {
-  const me = myParticipation(challenge.participants, user.sub);
+  const me = myParticipation(challenge.participants, user.sub, challenge.feePerParticipant);
   if (isAdmin(user)) return { ...challenge, me };
   const { participants, ...rest } = challenge;
   void participants;

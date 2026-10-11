@@ -4,12 +4,21 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
+import {
+  amountOwed,
+  applyParticipantFilter,
+  filterCounts,
+  formatUploadDate,
+  PARTICIPANT_FILTERS,
+  type ParticipantFilter,
+} from '@/lib/payment';
 import type { ChallengeFinance, ChallengeParticipant, PaymentState, SafeUser } from '@/lib/types';
 
 export default function ParticipantsPage() {
   const qc = useQueryClient();
 
   const { challenge } = useActiveChallenge();
+  const [filter, setFilter] = useState<ParticipantFilter>('all');
 
   const { data: participants } = useQuery<ChallengeParticipant[]>({
     queryKey: ['participants', challenge?.id],
@@ -87,8 +96,10 @@ export default function ParticipantsPage() {
   );
 
   const fee = parseFloat(challenge.feePerParticipant);
-  const stateOf = (userId: string): PaymentState | undefined =>
-    finance?.participants.find((f) => f.userId === userId)?.state;
+  const financeRow = (userId: string) => finance?.participants.find((f) => f.userId === userId);
+  const stateOf = (userId: string): PaymentState | undefined => financeRow(userId)?.state;
+  const counts = finance ? filterCounts(finance) : undefined;
+  const visible = applyParticipantFilter(participants ?? [], finance, filter);
 
   return (
     <div className="space-y-8">
@@ -104,7 +115,7 @@ export default function ParticipantsPage() {
       </div>
 
       {finance && (
-        <section aria-label="Resumen financiero" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <section aria-label="Resumen financiero" className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <FinanceCard
             label="Esperado"
             value={`${finance.expectedTotal} ${finance.currency}`}
@@ -133,20 +144,47 @@ export default function ParticipantsPage() {
             }${finance.budgetCovered && finance.budgetDelta > 0 ? ` · excedente ${finance.budgetDelta}` : ''}`}
             warn={!finance.budgetCovered}
           />
+          <FinanceCard
+            label="Por revisar"
+            value={String(finance.proofsToReview)}
+            hint="comprobantes sin pago registrado"
+            warn={finance.proofsToReview > 0}
+            ariaLabel={`Comprobantes por revisar: ${finance.proofsToReview}`}
+            onClick={() => setFilter('review')}
+          />
         </section>
       )}
 
       <div className="card p-5">
         <h2 className="display text-xl tracking-wider mb-4">Inscritos</h2>
+        {counts && (
+          <div role="group" aria-label="Filtrar inscritos" className="flex flex-wrap gap-2 mb-4">
+            {PARTICIPANT_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                aria-pressed={filter === f.key}
+                onClick={() => setFilter(f.key)}
+                className={`${filter === f.key ? 'btn-primary' : 'btn-ghost'} text-xs py-1.5 px-3`}
+              >
+                {f.label} ({counts[f.key]})
+              </button>
+            ))}
+          </div>
+        )}
+        {participants && participants.length > 0 && visible.length === 0 && (
+          <p className="text-ink-dim text-sm">Nadie en este filtro.</p>
+        )}
         {participants && participants.length > 0 ? (
           <div className="divide-y divide-line -mx-5">
-            {participants.map((p) => (
+            {visible.map((p) => (
               <ParticipantRow
                 key={p.id}
                 participant={p}
                 fee={fee}
                 currency={challenge.currency}
                 state={stateOf(p.userId)}
+                proofToReview={financeRow(p.userId)?.proofToReview ?? false}
                 onPay={(amountPaid) => paymentMut.mutate({ userId: p.userId, paid: true, amountPaid })}
                 onUnpay={() => paymentMut.mutate({ userId: p.userId, paid: false })}
                 onRemove={() => {
@@ -201,6 +239,7 @@ function ParticipantRow({
   fee,
   currency,
   state,
+  proofToReview,
   onPay,
   onUnpay,
   onRemove,
@@ -210,6 +249,7 @@ function ParticipantRow({
   fee: number;
   currency: string;
   state?: PaymentState;
+  proofToReview: boolean;
   onPay: (amountPaid: number) => void;
   onUnpay: () => void;
   onRemove: () => void;
@@ -239,6 +279,14 @@ function ParticipantRow({
       <div className="flex-1 min-w-0">
         <p className="font-medium">{p.user.name}</p>
         <p className="text-xs text-ink-mute">{p.user.email}</p>
+        {proofToReview && (
+          <p className="mt-1">
+            <span className="badge bg-warn/15 text-warn">
+              Comprobante por revisar
+              {p.paymentProofUploadedAt && ` · subido el ${formatUploadDate(p.paymentProofUploadedAt)}`}
+            </span>
+          </p>
+        )}
         {p.paymentProofUrl && (
           <a
             href={p.paymentProofUrl}
@@ -254,7 +302,7 @@ function ParticipantRow({
         {(state ?? (p.paid ? 'paid' : 'unpaid')) === 'partial' ? (
           <span className="badge bg-warn/15 text-warn">
             Parcial {p.amountPaid ?? 0} {currency} · debe{' '}
-            {Math.round((fee - parseFloat(p.amountPaid ?? '0')) * 100) / 100} {currency}
+            {amountOwed(fee, p.amountPaid)} {currency}
           </span>
         ) : p.paid ? (
           <span className="badge bg-ok/15 text-ok">
@@ -340,17 +388,34 @@ function FinanceCard({
   value,
   hint,
   warn,
+  ariaLabel,
+  onClick,
 }: {
   label: string;
   value: string;
   hint?: string;
   warn?: boolean;
+  ariaLabel?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="card p-4">
+  const body = (
+    <>
       <p className="text-xs uppercase tracking-wider text-ink-mute">{label}</p>
       <p className={`display text-2xl mt-1 ${warn ? 'text-warn' : 'text-ink'}`}>{value}</p>
       {hint && <p className="text-xs text-ink-mute mt-1">{hint}</p>}
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        className="card p-4 text-left hover:border-accent transition-colors"
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className="card p-4">{body}</div>;
 }

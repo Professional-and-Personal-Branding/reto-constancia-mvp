@@ -63,7 +63,11 @@ export interface Challenge {
 }
 
 /** Datos de pago propios: lo único de la inscripción que recibe un participante */
+export type MyPaymentStatus = 'pending' | 'in_review' | 'partial' | 'paid';
+
 export interface MyParticipation {
+  /** Estado de pago propio calculado por el servidor (cambio payment-reconciliation) */
+  paymentStatus: MyPaymentStatus;
   paid: boolean;
   paidAt: string | null;
   amountPaid: string | null;
@@ -176,6 +180,9 @@ export interface ParticipantFinance {
   state: PaymentState;
   amountPaid: number;
   paidAt: string | null;
+  /** Comprobante guardado que ningún pago registrado cubre */
+  proofToReview: boolean;
+  proofUploadedAt: string | null;
 }
 
 export interface ChallengeFinance {
@@ -188,6 +195,8 @@ export interface ChallengeFinance {
   budgetMode: 'auto' | 'manual';
   participantsTotal: number;
   counts: { paid: number; partial: number; unpaid: number };
+  /** Participantes con un comprobante por revisar */
+  proofsToReview: number;
   expectedTotal: number;
   collectedTotal: number;
   pendingTotal: number;

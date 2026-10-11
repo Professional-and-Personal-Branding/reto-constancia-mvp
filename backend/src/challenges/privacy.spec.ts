@@ -16,6 +16,7 @@ const OWN_KEYS = [
   'paidAt',
   'paymentProofUploadedAt',
   'paymentProofUrl',
+  'paymentStatus',
 ];
 const RANK_KEYS = [
   'name',
@@ -54,6 +55,7 @@ function challenge(isParticipant: boolean) {
     id: 'c1',
     name: 'Reto Mayo',
     status: ChallengeStatus.ACTIVE,
+    feePerParticipant: new Prisma.Decimal(120),
     participants: [row('ana', true), row('bruno', false)],
     isParticipant,
   } as unknown as ChallengeWithParticipants & { isParticipant: boolean };
@@ -101,14 +103,35 @@ function results(): ChallengeResults {
 }
 
 describe('myParticipation', () => {
-  it('devuelve solo los seis campos propios, sin el id de Cloudinary', () => {
-    const me = myParticipation(challenge(true).participants, 'ana');
+  it('devuelve los seis campos propios más paymentStatus, sin el id de Cloudinary', () => {
+    const c = challenge(true);
+    const me = myParticipation(c.participants, 'ana', c.feePerParticipant);
     expect(Object.keys(me!).sort()).toEqual(OWN_KEYS);
     expect(me!.paymentProofUrl).toBe('https://cdn/ana.jpg');
+    expect(me!.paymentStatus).toBe('paid');
+    expect(me).not.toHaveProperty('paymentProofCloudinaryId');
+  });
+
+  it('paymentStatus: pending, in_review, partial y paid según el pago propio', () => {
+    const c = challenge(true);
+    const fee = c.feePerParticipant;
+    const bruno = c.participants[1]; // sin pago ni comprobante
+    expect(myParticipation(c.participants, 'bruno', fee)!.paymentStatus).toBe('pending');
+    bruno.paymentProofUrl = 'https://cdn/bruno.jpg';
+    bruno.paymentProofUploadedAt = new Date('2026-05-03T00:00:00Z');
+    expect(myParticipation(c.participants, 'bruno', fee)!.paymentStatus).toBe('in_review');
+    bruno.paid = true;
+    bruno.paidAt = new Date('2026-05-04T00:00:00Z');
+    bruno.amountPaid = new Prisma.Decimal(60);
+    expect(myParticipation(c.participants, 'bruno', fee)!.paymentStatus).toBe('partial');
+    bruno.paymentProofUploadedAt = new Date('2026-05-05T00:00:00Z');
+    expect(myParticipation(c.participants, 'bruno', fee)!.paymentStatus).toBe('in_review');
+    expect(myParticipation(c.participants, 'bruno', 0)!.paymentStatus).toBe('paid');
   });
 
   it('null si no está inscrito', () => {
-    expect(myParticipation(challenge(false).participants, 'zoe')).toBeNull();
+    const c = challenge(false);
+    expect(myParticipation(c.participants, 'zoe', c.feePerParticipant)).toBeNull();
   });
 });
 
@@ -136,6 +159,12 @@ describe('projectChallengeForViewer', () => {
     expect(out.isParticipant).toBe(true);
     expect(JSON.stringify(out)).not.toContain('@x');
     expect(JSON.stringify(out)).not.toContain('payments/');
+  });
+
+  it('participante: el estado de pago de otra persona no aparece en ninguna parte', () => {
+    const out = projectChallengeForViewer(challenge(true), ana);
+    expect(JSON.stringify(out)).not.toContain('"pending"'); // bruno (otro) está pendiente
+    expect(JSON.stringify(out).match(/paymentStatus/g)).toHaveLength(1);
   });
 
   it('participante no inscrito: me null y sin participants', () => {

@@ -16,7 +16,7 @@ import { UploadService } from '../upload/upload.service';
 import { CLOSER_TX, LockMode, lockChallenge, withChallengeLock } from './challenge-lock';
 import { ResultsService } from './results.service';
 import type { ParticipantRanking } from './results.service';
-import { computeFinance, computePayout, PaymentState, ChallengePayout } from './finance.service';
+import { computeFinance, computePayout, PaymentState, ChallengePayout, proofToReview, toMoney } from './finance.service';
 import { AUTO_DRAW_NOTE } from './scoring';
 import { buildChallengeCsv, ExportParticipant, exportFilename } from './challenge-export';
 
@@ -518,7 +518,16 @@ export class ChallengesService {
         items: pendingItems.map((a) => ({ id: a.id, userId: a.userId, userName: a.user.name, date: a.date })),
       },
       proofsToReview: challenge.participants
-        .filter((p) => !p.paid && p.paymentProofUrl)
+        .filter((p) =>
+          proofToReview(
+            toMoney(challenge.feePerParticipant),
+            p.paid,
+            p.paid ? toMoney(p.amountPaid) : 0,
+            p.paidAt,
+            p.paymentProofUrl,
+            p.paymentProofUploadedAt,
+          ),
+        )
         .map((p) => ({ userId: p.userId, name: p.user.name, paymentProofUploadedAt: p.paymentProofUploadedAt })),
       unpaid: finance.participants
         .filter((p) => p.state !== 'paid')

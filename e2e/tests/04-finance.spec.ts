@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-import { closeChallenge, enroll, markPaid, setupChallenge, STATE, tokens } from '../fixtures/api';
+import { closeChallenge, enroll, markPaid, setupChallenge, STATE, tokens, uploadPaymentProof } from '../fixtures/api';
 import { selectChallenge } from '../fixtures/ui';
 
 /**
  * Recorrido 5 de docs/test-cases.md: pagos y resumen financiero.
- * Casos cubiertos: TC-PART-04, TC-FIN-01, TC-FIN-02, TC-FIN-05.
+ * Casos cubiertos: TC-PART-04, TC-FIN-01, TC-FIN-02, TC-FIN-05, TC-FIN-09.
  */
 const MONTH = 5;
 
@@ -89,4 +89,53 @@ test('el presupuesto es automático y se puede fijar a mano y volver a automáti
   await expect(editForm).toHaveCount(0);
   await selectChallenge(page, challengeId, '/dashboard/admin/participants');
   await expect(summary).toContainText('120 BOB · automático');
+});
+
+test('la cola de comprobantes: por revisar, filtro, pago completo y pago parcial', async ({ page }) => {
+  const challengeId = process.env.E2E_FINANCE_CHALLENGE!;
+  const { participantId } = tokens();
+  // Punto de partida limpio: sin pago registrado y con un comprobante subido por el participante
+  await markPaid(challengeId, participantId, false);
+  await uploadPaymentProof(challengeId, 'cola-uno');
+
+  await selectChallenge(page, challengeId, '/dashboard/admin/participants');
+  const summary = page.getByLabel('Resumen financiero');
+  const card = summary.getByRole('button', { name: 'Comprobantes por revisar: 1' });
+  await expect(card).toContainText('Por revisar');
+  const filters = page.getByRole('group', { name: 'Filtrar inscritos' });
+  await expect(filters.getByRole('button', { name: 'Por revisar (1)' })).toBeVisible();
+  await expect(filters.getByRole('button', { name: 'Todos (1)' })).toBeVisible();
+
+  // La tarjeta selecciona el filtro y la fila muestra la insignia con la fecha
+  await card.click();
+  await expect(filters.getByRole('button', { name: 'Por revisar (1)' })).toHaveAttribute('aria-pressed', 'true');
+  const row = page.locator('.card').filter({ hasText: 'ana@reto.local' });
+  await expect(row).toContainText('Comprobante por revisar · subido el');
+  await expect(row).toContainText('Ver comprobante de pago');
+
+  // Registrar el pago completo la saca de la cola y la pasa a Pagados
+  await page.getByRole('button', { name: 'Marcar pagado' }).first().click();
+  await page.getByRole('button', { name: 'Guardar pago' }).click();
+  await expect(summary.getByRole('button', { name: 'Comprobantes por revisar: 0' })).toBeVisible();
+  await expect(filters.getByRole('button', { name: 'Pagados (1)' })).toBeVisible();
+  await expect(page.getByText('Nadie en este filtro.')).toBeVisible();
+  await filters.getByRole('button', { name: 'Pagados (1)' }).click();
+  await expect(row).toContainText('Pagado');
+  await expect(row).not.toContainText('Comprobante por revisar');
+
+  // Un pago parcial también saca el comprobante de la cola y mueve la fila a Parciales
+  await markPaid(challengeId, participantId, false);
+  await page.reload();
+  await expect(summary.getByRole('button', { name: 'Comprobantes por revisar: 1' })).toBeVisible();
+  await filters.getByRole('button', { name: 'Por revisar (1)' }).click();
+  await page.getByRole('button', { name: 'Marcar pagado' }).first().click();
+  await page.getByLabel('Monto recibido').fill('60');
+  await page.getByRole('button', { name: 'Guardar pago' }).click();
+  await expect(summary.getByRole('button', { name: 'Comprobantes por revisar: 0' })).toBeVisible();
+  await expect(filters.getByRole('button', { name: 'Parciales (1)' })).toBeVisible();
+  await filters.getByRole('button', { name: 'Parciales (1)' }).click();
+  await expect(row).toContainText(/Parcial 60(\.00)? BOB · debe 60 BOB/);
+
+  // Dejar el reto sin pagos para no afectar a otras pruebas
+  await markPaid(challengeId, participantId, false);
 });

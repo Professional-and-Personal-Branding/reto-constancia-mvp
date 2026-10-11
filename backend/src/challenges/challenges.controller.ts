@@ -74,7 +74,7 @@ export class ChallengesController {
   @Get('active/list')
   @ApiOperation({
     summary:
-      'Todos los retos activos (más reciente primero) con isParticipant y me (inscripción propia). Solo el admin recibe la lista de inscritos',
+      'Todos los retos activos (más reciente primero) con isParticipant y me (inscripción propia con paymentStatus). Solo el admin recibe la lista de inscritos',
   })
   async findActiveList(
     @CurrentUser() user: JwtPayload,
@@ -86,7 +86,7 @@ export class ChallengesController {
   @Get('active')
   @ApiOperation({
     summary:
-      'Reto activo por defecto: el más reciente en el que participa el usuario, si no el activo más reciente. Incluye me; solo el admin recibe la lista de inscritos',
+      'Reto activo por defecto: el más reciente en el que participa el usuario, si no el activo más reciente. Incluye me (con paymentStatus); solo el admin recibe la lista de inscritos',
   })
   async findActive(
     @CurrentUser() user: JwtPayload,
@@ -97,7 +97,7 @@ export class ChallengesController {
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Detalle de un reto. Incluye me; solo el admin recibe la lista de inscritos',
+    summary: 'Detalle de un reto. Incluye me (con paymentStatus); solo el admin recibe la lista de inscritos',
   })
   async findOne(
     @Param('id') id: string,
@@ -177,7 +177,7 @@ export class ChallengesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({
     summary:
-      'Resumen financiero del reto (admin): esperado, recaudado, pendiente, cobertura del presupuesto y estado de pago por participante',
+      'Resumen financiero del reto (admin): esperado, recaudado, pendiente, cobertura del presupuesto, estado de pago por participante y comprobantes por revisar (proofsToReview, proofToReview y proofUploadedAt por fila)',
   })
   getFinance(@Param('id') id: string) {
     return this.finance.getFinance(id);
