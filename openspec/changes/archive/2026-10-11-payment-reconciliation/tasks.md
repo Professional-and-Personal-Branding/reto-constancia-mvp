@@ -28,4 +28,4 @@
 
 - [x] 5.1 Guide steps 3.3 (queue, filter) and 4.2 (participant states) with captures in the guide capture suite
 - [x] 5.2 `CHANGELOG.md` Sin publicar (no migration, no new variables); reset the DB; `node scripts/run-tests.mjs` and the catalog validator once before the PR; record in `docs/testing.md`
-- [ ] 5.3 Open the PR to `develop` with the 3 CI jobs green; after merge, archive the change
+- [x] 5.3 Open the PR to `develop` with the 3 CI jobs green; after merge, archive the change

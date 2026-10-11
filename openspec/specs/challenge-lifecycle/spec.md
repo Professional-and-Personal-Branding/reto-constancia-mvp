@@ -239,9 +239,10 @@ stored by the automatic draw.
 ### Requirement: Challenge reads are projected by role
 `GET /challenges/active/list`, `GET /challenges/active` and `GET /challenges/:id` SHALL include
 `me`: the caller's own enrolment with exactly `paid`, `paidAt`, `amountPaid`, `paymentProofUrl`,
-`paymentProofUploadedAt` and `joinedAt`, or `null` when the caller is not enrolled. `me` MUST NOT
-include `paymentProofCloudinaryId`. For a PARTICIPANT the response SHALL NOT include the
-`participants` key. For an ADMIN the response SHALL keep the full `participants` rows with
+`paymentProofUploadedAt`, `joinedAt` and the derived `paymentStatus` (`pending`, `in_review`,
+`partial` or `paid`, as defined in `challenge-finance`), or `null` when the caller is not enrolled.
+`me` MUST NOT include `paymentProofCloudinaryId`. For a PARTICIPANT the response SHALL NOT include
+the `participants` key. For an ADMIN the response SHALL keep the full `participants` rows with
 `user.email` and payment data, plus `me`. Each element of `active/list` SHALL keep
 `isParticipant` for both roles.
 
@@ -250,7 +251,7 @@ include `paymentProofCloudinaryId`. For a PARTICIPANT the response SHALL NOT inc
 - **WHEN** they call `GET /challenges/active/list`
 - **THEN** no element has a `participants` key
 - **AND** every element has `isParticipant`
-- **AND** `me` of the challenge they are enrolled in has exactly the six own-payment keys with their own values
+- **AND** `me` of the challenge they are enrolled in has exactly the six own-payment keys plus `paymentStatus`, with their own values
 
 #### Scenario: Participant not enrolled
 - **WHEN** a participant who is not enrolled calls `GET /challenges/:id`
@@ -270,7 +271,7 @@ include `paymentProofCloudinaryId`. For a PARTICIPANT the response SHALL NOT inc
 - **GIVEN** an admin enrolled in an active challenge
 - **WHEN** they call `GET /challenges/active/list`
 - **THEN** `participants` has the full rows with `user.email` and payment data
-- **AND** `me` has the admin's own enrolment and `isParticipant` is `true`
+- **AND** `me` has the admin's own enrolment with its `paymentStatus` and `isParticipant` is `true`
 
 ### Requirement: Participant roster is admin-only
 `GET /challenges/:id/participants` SHALL be available only to admins.
@@ -403,7 +404,8 @@ spaces) MUST answer 400 "Esa nota está reservada para el sorteo automático".
 `GET /api/challenges/:id/close-preview` SHALL be available only to admins and SHALL NOT modify
 anything. For an `ACTIVE` challenge it SHALL return:
 - the pending activities (exact count and up to 50 items with participant and date);
-- the participants with a payment proof uploaded and no payment recorded;
+- the participants with a proof to review, as defined in `challenge-finance` (a proof uploaded and
+  no payment recorded, or a partial payment with a proof uploaded after it);
 - the participants who have not paid or paid partially;
 - whether a draw is needed, the winners without draw, the draw candidates and seats;
 - the projected payout in the challenge currency.
@@ -420,6 +422,16 @@ For a `DRAFT` challenge it MUST answer 400 "Solo se puede cerrar un reto activo"
 - **GIVEN** one participant who has not paid and another with a proof uploaded and no payment recorded
 - **WHEN** an admin requests the preview
 - **THEN** the first appears in `unpaid` with state `unpaid` and the second in `proofsToReview`
+
+#### Scenario: Partial payment with a newer proof
+- **GIVEN** a participant with a recorded payment of 60 out of 120 who then uploaded a new proof
+- **WHEN** an admin requests the preview
+- **THEN** the participant appears in `unpaid` with state `partial` and also in `proofsToReview`
+
+#### Scenario: Same queue as the participants page
+- **GIVEN** an active challenge with proofs to review
+- **WHEN** an admin requests the preview and the financial summary
+- **THEN** `proofsToReview` of the preview lists exactly the participants whose finance row has `proofToReview: true`
 
 #### Scenario: Draw projection
 - **GIVEN** four participants tied at the top, `maxWinners = 2` and `DRAW`
