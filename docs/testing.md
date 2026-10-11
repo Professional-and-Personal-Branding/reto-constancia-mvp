@@ -142,6 +142,22 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-11 · v1.9.0 (rama `release/1.9.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de cada corrida.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **135 de 135 casos aprobados** (134
+automatizados) con 621 pruebas ejecutadas y 0 fallidas. Una primera corrida del validador, lanzada
+justo después de la batería y sin reiniciar la base, dio 2 fallos (TC-SEC-06 y TC-UP-09) por datos
+sobrantes de la batería; ambas pruebas pasan solas y tras reiniciar la base.
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones
+nuevas. El archivo de OpenSpec dejó los specs con Purpose real; `openspec validate --all --strict`
+pasa (10 de 10).
+
 ### 2026-10-10 · rama `feature/payment-reconciliation` (conciliación de pagos)
 
 Base reiniciada con `npx prisma migrate reset --force`. Se recompilaron API y web antes de los
