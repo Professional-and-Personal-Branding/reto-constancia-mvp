@@ -1,0 +1,254 @@
+<title>Runbook de despliegue</title>
+<meta name="description" content="Procedimiento para desplegar, verificar y revertir Reto de Constancia en Seenode.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --ground: #f3f2ee;
+    --surface: #ffffff;
+    --raise: #eceae4;
+    --line: #dcd9d1;
+    --ink: #17171a;
+    --dim: #4c4c52;
+    --mute: #74747b;
+    --accent: #d9480f;
+    --accent-soft: #fbe6dc;
+    --ok: #3f6212;
+    --ok-soft: #e6efd6;
+    --warn: #8a5a00;
+    --warn-soft: #f6ead0;
+    --bad: #b42318;
+    --bad-soft: #f9e0dd;
+    --code-bg: #1d1d21;
+    --code-ink: #ececf1;
+    --shadow: 0 1px 0 rgba(20, 20, 19, .04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0d0d0f; --surface: #16161a; --raise: #1f1f24; --line: #2c2c33;
+      --ink: #f2f2f4; --dim: #b4b4bc; --mute: #85858e;
+      --accent: #ff7a45; --accent-soft: #3a1f14;
+      --ok: #9ccc4a; --ok-soft: #1f2a12; --warn: #f2c14e; --warn-soft: #2e2510; --bad: #ff7b6e; --bad-soft: #351816;
+      --code-bg: #0a0a0c; --code-ink: #ececf1; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0d0d0f; --surface: #16161a; --raise: #1f1f24; --line: #2c2c33;
+    --ink: #f2f2f4; --dim: #b4b4bc; --mute: #85858e;
+    --accent: #ff7a45; --accent-soft: #3a1f14;
+    --ok: #9ccc4a; --ok-soft: #1f2a12; --warn: #f2c14e; --warn-soft: #2e2510; --bad: #ff7b6e; --bad-soft: #351816;
+    --code-bg: #0a0a0c; --code-ink: #ececf1; --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.6 "Manrope", system-ui, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; }
+
+  header.top { display: grid; gap: 12px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  h1 { font-family: "Anton", Impact, sans-serif; font-weight: 400; font-size: clamp(38px, 6vw, 64px); line-height: .95; margin: 0; text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+  .lede { max-width: 68ch; margin: 0; color: var(--dim); font-size: 16px; }
+  .progress { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font-size: 13px; color: var(--dim); }
+  .bar { flex: 1 1 180px; height: 6px; background: var(--raise); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .25s; }
+  .ghost { border: 1px solid var(--line); background: var(--surface); color: var(--dim); border-radius: 6px; font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; cursor: pointer; }
+
+  .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 40px; padding-top: 26px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; font-size: 13.5px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  nav.toc a { display: grid; grid-template-columns: 22px 1fr auto; gap: 6px; padding: 6px 8px; border-radius: 6px; color: var(--dim); text-decoration: none; font-weight: 600; }
+  nav.toc a:hover { background: var(--raise); color: var(--ink); }
+  nav.toc .n { font-family: "Anton", Impact, sans-serif; font-weight: 400; color: var(--mute); }
+  nav.toc .c { font-size: 11.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
+  nav.toc a.done .c { color: var(--ok); }
+
+  main#doc { min-width: 0; }
+  #doc > p:first-of-type, #doc > h1 { display: none; }
+  #doc h2 { font-family: "Anton", Impact, sans-serif; font-weight: 400; font-size: 30px; text-transform: uppercase; letter-spacing: .01em; margin: 40px 0 14px; line-height: 1.05; scroll-margin-top: 16px; display: flex; align-items: baseline; gap: 12px; }
+  #doc h2 .num { color: var(--accent); }
+  #doc h3 { font-size: 17px; margin: 26px 0 10px; scroll-margin-top: 16px; }
+  #doc p, #doc li { max-width: 74ch; }
+  #doc a { color: var(--accent); }
+  #doc hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0 0; }
+  #doc blockquote { margin: 18px 0; padding: 12px 16px; background: var(--warn-soft); border-left: 3px solid var(--warn); border-radius: 0 8px 8px 0; color: var(--ink); }
+  #doc blockquote p { margin: 0; }
+  #doc code { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .88em; background: var(--raise); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .codebox { position: relative; margin: 12px 0; }
+  .codebox pre { margin: 0; background: var(--code-bg); color: var(--code-ink); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 "JetBrains Mono", ui-monospace, Consolas, monospace; }
+  #doc .codebox pre code { background: none; padding: 0; color: inherit; font-size: inherit; border-radius: 0; }
+  .codebox .copy { position: absolute; top: 8px; right: 8px; border: 1px solid #3a3a42; background: #26262c; color: #d9d9e0; border-radius: 5px; font: 600 11px "Manrope", sans-serif; padding: 3px 8px; cursor: pointer; }
+
+  ul.checks { list-style: none; padding-left: 0; display: grid; gap: 8px; }
+  ul.checks > li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow); max-width: none; }
+  ul.checks > li.on { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok-soft) 55%, var(--surface)); }
+  ul.checks input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--ok); cursor: pointer; }
+  ul.checks label { cursor: pointer; }
+  ul.checks .codebox { grid-column: 2; }
+
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 620px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); background: var(--raise); font-weight: 700; }
+  tr:last-child td { border-bottom: 0; }
+  .filter { width: 100%; max-width: 420px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 8px 12px; font: inherit; margin-top: 6px; }
+  .empty-row td { color: var(--mute); text-align: center; }
+  .meta-table table { min-width: 0; }
+  .meta-table thead { display: none; }
+  .meta-table td:first-child { font-weight: 700; white-space: nowrap; }
+
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    nav.toc { position: static; margin-bottom: 8px; }
+    nav.toc ol { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .bar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Operación · Reto de Constancia · v1.6.0</div>
+    <h1>Runbook de despliegue</h1>
+    <p class="lede">Qué hacer, en qué orden, cómo comprobar que quedó bien y cómo volver atrás, para el primer despliegue en Seenode y para cada versión nueva. Marca cada control al completarlo; el avance queda guardado en este navegador.</p>
+    <div class="progress">
+      <span><b id="done">0</b> de <b id="total">0</b> controles</span>
+      <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+      <button class="ghost" type="button" id="reset">Reiniciar controles</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="toc" aria-label="Secciones"><ol id="toc"></ol></nav>
+    <main id="doc"></main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>
+(() => {
+  const MD = /*__MD__*/"";
+  const KEY = 'runbook-reto-constancia:v1';
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { state = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* sin almacenamiento */ } };
+
+  const doc = document.getElementById('doc');
+  doc.innerHTML = marked.parse(MD, { gfm: true });
+
+  // Tablas desplazables; la de diagnóstico con buscador
+  doc.querySelectorAll('table').forEach((table) => {
+    const box = document.createElement('div');
+    box.className = 'tbl';
+    table.replaceWith(box);
+    box.appendChild(table);
+  });
+  const firstTable = doc.querySelector('.tbl');
+  if (firstTable && firstTable.previousElementSibling && firstTable.previousElementSibling.tagName === 'H1') firstTable.classList.add('meta-table');
+  doc.querySelectorAll('.tbl').forEach((box, i) => { if (i === 0) box.classList.add('meta-table'); });
+
+  // Bloques de código con botón de copiar
+  doc.querySelectorAll('pre').forEach((pre) => {
+    const box = document.createElement('div');
+    box.className = 'codebox';
+    pre.replaceWith(box);
+    box.appendChild(pre);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'copy'; btn.textContent = 'Copiar';
+    btn.addEventListener('click', () => {
+      const text = pre.innerText;
+      const done = () => { btn.textContent = 'Copiado'; setTimeout(() => { btn.textContent = 'Copiar'; }, 1400); };
+      const fallback = () => { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Seleccionado'; };
+      try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+    });
+    box.appendChild(btn);
+  });
+
+  // Secciones numeradas, índice y controles con avance por sección
+  const sections = [];
+  let current = null;
+  doc.querySelectorAll('h2, li').forEach((el) => {
+    if (el.tagName === 'H2') {
+      const m = el.textContent.match(/^(\d+)\.\s*(.*)$/);
+      const id = 'sec-' + (m ? m[1] : sections.length);
+      el.id = id;
+      if (m) el.innerHTML = '<span class="num">' + m[1] + '</span><span>' + m[2] + '</span>';
+      current = { id, n: m ? m[1] : '·', title: m ? m[2] : el.textContent, boxes: [] };
+      sections.push(current);
+      return;
+    }
+    const input = el.querySelector(':scope > input[type="checkbox"]');
+    if (!input || !current) return;
+    const ul = el.parentElement;
+    ul.classList.add('checks');
+    const key = current.id + ':' + current.boxes.length;
+    input.disabled = false;
+    input.checked = !!state[key];
+    input.id = 'chk-' + key.replace(':', '-');
+    input.dataset.key = key;
+    el.classList.toggle('on', input.checked);
+    // El texto (y cualquier bloque de código) pasa a la segunda columna
+    const label = document.createElement('label');
+    label.htmlFor = input.id;
+    const rest = Array.from(el.childNodes).filter((n) => n !== input && !(n.nodeType === 1 && n.classList.contains('codebox')));
+    rest.forEach((n) => label.appendChild(n));
+    el.insertBefore(label, input.nextSibling);
+    current.boxes.push(input);
+  });
+
+  const toc = document.getElementById('toc');
+  function render() {
+    const all = sections.flatMap((s) => s.boxes);
+    const done = all.filter((b) => b.checked).length;
+    document.getElementById('done').textContent = done;
+    document.getElementById('total').textContent = all.length;
+    document.getElementById('bar').style.width = (all.length ? done / all.length * 100 : 0) + '%';
+    toc.innerHTML = sections.map((s) => {
+      const d = s.boxes.filter((b) => b.checked).length;
+      const count = s.boxes.length ? d + '/' + s.boxes.length : '';
+      return '<li><a href="#' + s.id + '" class="' + (s.boxes.length && d === s.boxes.length ? 'done' : '') + '"><span class="n">' + s.n + '</span><span>' + s.title + '</span><span class="c">' + count + '</span></a></li>';
+    }).join('');
+  }
+  doc.addEventListener('change', (e) => {
+    const key = e.target.dataset && e.target.dataset.key;
+    if (!key) return;
+    if (e.target.checked) state[key] = true; else delete state[key];
+    e.target.closest('li').classList.toggle('on', e.target.checked);
+    save();
+    render();
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    state = {}; save();
+    doc.querySelectorAll('ul.checks input').forEach((b) => { b.checked = false; b.closest('li').classList.remove('on'); });
+    render();
+  });
+
+  // Buscador en la tabla de diagnóstico
+  const diag = document.getElementById('sec-6');
+  if (diag) {
+    let box = diag.nextElementSibling;
+    while (box && !box.classList.contains('tbl')) box = box.nextElementSibling;
+    if (box) {
+      const input = document.createElement('input');
+      input.type = 'search'; input.className = 'filter';
+      input.placeholder = 'Buscar un síntoma: CORS, 429, xlsx, Cloudinary…';
+      input.setAttribute('aria-label', 'Buscar en el diagnóstico');
+      box.parentNode.insertBefore(input, box);
+      const rows = Array.from(box.querySelectorAll('tbody tr'));
+      const empty = document.createElement('tr');
+      empty.className = 'empty-row';
+      empty.innerHTML = '<td colspan="3">Ningún síntoma coincide. Revisa los logs del servicio en Seenode.</td>';
+      empty.hidden = true;
+      box.querySelector('tbody').appendChild(empty);
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        rows.forEach((r) => { const hit = !q || r.textContent.toLowerCase().includes(q); r.hidden = !hit; if (hit) shown++; });
+        empty.hidden = shown > 0;
+      });
+    }
+  }
+  render();
+})();
+</script>
