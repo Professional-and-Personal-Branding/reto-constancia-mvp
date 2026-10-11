@@ -5,6 +5,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.9.0] — 2026-10-11
+
+Conciliación de pagos: el admin ve qué comprobantes esperan revisión y cada participante sabe en qué
+punto está su pago. **No trae migraciones ni variables nuevas.** Para volver a la 1.8.0 se redespliegan
+API y web juntas.
+
 ### Añadido
 
 - **Conciliación de pagos** (cambio `payment-reconciliation`): el admin ve qué comprobantes esperan
