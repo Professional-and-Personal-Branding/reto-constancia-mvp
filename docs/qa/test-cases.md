@@ -1,7 +1,7 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-10** · rama `feature/payment-reconciliation` · commit `58f6a7f` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-11** · rama `release/1.9.0` · commit `e1822ae`. Detalle en [validation-report.md](validation-report.md).
 
 **135 casos** · 135 aprobados · 0 fallidos · 0 con limitación conocida · 134 automatizados.
 
