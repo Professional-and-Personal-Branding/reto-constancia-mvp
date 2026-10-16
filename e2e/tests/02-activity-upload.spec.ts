@@ -86,8 +86,10 @@ test('rechaza una segunda actividad para el mismo día', async ({ page }) => {
   await inputs.nth(0).setInputFiles(pngFile('entrenamiento.png'));
   await inputs.nth(1).setInputFiles(pngFile('frecuencia.png'));
 
-  await page.getByRole('button', { name: /Registrar actividad/ }).click();
-  await expect(page.locator('main')).toContainText(/Ya registraste una actividad/i);
+  // El formulario ya avisa del día registrado (calendario propio) y no deja enviar;
+  // la API sigue devolviendo 409 si alguien lo intenta igual (cubierto en las pruebas de la API)
+  await expect(page.locator('main')).toContainText(/Ya registraste una actividad para ese día/i);
+  await expect(page.getByRole('button', { name: /Registrar actividad/ })).toBeDisabled();
 });
 
 test('una foto de actividad en PDF muestra el aviso de formato y no se registra', async ({ page }) => {
