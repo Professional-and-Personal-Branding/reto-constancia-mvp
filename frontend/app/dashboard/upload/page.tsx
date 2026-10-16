@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { isoToday } from '@/lib/dates';
-import type { ExerciseType, PhotoType } from '@/lib/types';
+import { dateHint, resolveUploadDate, uploadDateBounds } from '@/lib/calendar';
+import type { ExerciseType, MyCalendar, PhotoType } from '@/lib/types';
 
 interface PhotoSlot {
   file: File | null;
@@ -23,13 +24,36 @@ const EXERCISE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
+// useSearchParams exige una frontera Suspense en Next 15 (build estático)
 export default function UploadPage() {
+  return (
+    <Suspense fallback={null}>
+      <UploadForm />
+    </Suspense>
+  );
+}
+
+function UploadForm() {
   const router = useRouter();
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
 
   const { challenge } = useActiveChallenge();
 
-  const [date, setDate] = useState(isoToday());
+  // Calendario propio: pistas de la fecha. Solo si participo (si no, la API respondería 403);
+  // sin datos el formulario se comporta como antes y la API sigue validando todo.
+  const { data: calendar } = useQuery<MyCalendar>({
+    queryKey: ['activities', 'calendar', challenge?.id],
+    queryFn: () => api<MyCalendar>(`/activities/me/calendar?challengeId=${challenge!.id}`),
+    enabled: !!challenge && !!challenge.me,
+  });
+
+  // La fecha elegida por la persona manda; mientras no elija, `?date=` (si es un día del calendario) u hoy
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const today = isoToday();
+  const date = pickedDate ?? resolveUploadDate(calendar, searchParams.get('date'), today);
+  const bounds = uploadDateBounds(calendar, today);
+  const hint = dateHint(calendar, date);
   const [exerciseType, setExerciseType] = useState<ExerciseType>('RUNNING');
   const [durationMinutes, setDurationMinutes] = useState<number>(30);
   const [distanceKm, setDistanceKm] = useState<string>('');
@@ -176,9 +200,16 @@ export default function UploadPage() {
               required
               className="input"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              max={isoToday()}
+              onChange={(e) => setPickedDate(e.target.value)}
+              min={bounds.min}
+              max={bounds.max}
+              aria-describedby={hint ? 'activity-date-hint' : undefined}
             />
+            {hint && (
+              <p id="activity-date-hint" className="text-warn text-sm mt-1.5">
+                {hint}
+              </p>
+            )}
           </div>
           <div>
             <label className="label" htmlFor="activity-type">Tipo de ejercicio</label>
@@ -312,7 +343,7 @@ export default function UploadPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            disabled={submitMutation.isPending || !heartRateOk}
+            disabled={submitMutation.isPending || !heartRateOk || !!hint}
             className="btn-primary flex-1"
           >
             {submitMutation.isPending ? 'Enviando…' : 'Registrar actividad'}

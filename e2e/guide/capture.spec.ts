@@ -258,6 +258,8 @@ test.describe('Participante', () => {
   });
 
   test('formulario de subida bloqueado y listo', async ({ page }) => {
+    // Miércoles dentro del período: la fecha por defecto es válida sin importar cuándo se corra la suite
+    await page.clock.setFixedTime(new Date(`${YEAR}-10-14T12:00:00`));
     await pick(page, '/dashboard/upload');
     await page.getByLabel('Duración (min)').fill('45');
     await page.getByLabel('Distancia (km, opcional)').fill('7.2');
@@ -272,6 +274,22 @@ test.describe('Participante', () => {
     await files.nth(1).setInputFiles(pngFile('frecuencia.png'));
     await expect(page.getByRole('button', { name: /Registrar actividad/ })).toBeEnabled();
     await shot(page, '11-subir-listo.jpg');
+  });
+
+  test('tarjeta de hoy y aviso de fecha en la subida', async ({ page }) => {
+    // Miércoles 14 de octubre: día válido sin actividad de Ana
+    await page.clock.setFixedTime(new Date(`${YEAR}-10-14T12:00:00`));
+    await pick(page, '/dashboard');
+    await expect(page.getByText('Hoy es día válido y aún no registraste tu actividad')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Registrar hoy' })).toBeVisible();
+    await shot(page, '30-tarjeta-hoy.jpg', page.locator('main > div > div').first());
+
+    // Domingo 11: día de descanso, el envío queda bloqueado con el aviso
+    await pick(page, '/dashboard/upload');
+    await page.getByLabel('Fecha').fill(`${YEAR}-10-11`);
+    await expect(page.getByText('Ese día es de descanso en este reto')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Registrar actividad/ })).toBeDisabled();
+    await shot(page, '31-subir-aviso-fecha.jpg', page.getByLabel('Fecha').locator('..'));
   });
 
   test('ranking con puntos, no califica y premio proyectado', async ({ page }) => {

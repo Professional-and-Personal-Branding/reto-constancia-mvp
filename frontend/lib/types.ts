@@ -282,3 +282,42 @@ export interface ClosePreview {
   /** Proyección: al cerrar se vuelve a calcular */
   payout: { pot: number; winnersCount: number; perWinner: number; monetary: boolean };
 }
+
+// ----- Calendario propio (GET /activities/me/calendar; spec participant-calendar) -----
+
+export interface CalendarActivity {
+  id: string;
+  status: ActivityStatus;
+  exerciseType: ExerciseType;
+  durationMinutes: number;
+  distanceKm: string | null;
+  heartRateMinutes: number | null;
+  heartRateCompliant: boolean;
+  rejectionReason: string | null;
+}
+
+export interface CalendarDay {
+  /** Día calendario `YYYY-MM-DD` */
+  date: string;
+  /** Lo decide el servidor con las mismas reglas del registro; la web no lo recalcula */
+  valid: boolean;
+  activity: CalendarActivity | null;
+}
+
+export interface CalendarSummary {
+  validDaysTotal: number;
+  registered: number;
+  validated: number;
+  pending: number;
+  rejected: number;
+}
+
+export interface MyCalendar {
+  challengeId: string;
+  status: ChallengeStatus;
+  startDate: string;
+  endDate: string;
+  validDays: number[];
+  days: CalendarDay[];
+  summary: CalendarSummary;
+}

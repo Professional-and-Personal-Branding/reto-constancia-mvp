@@ -491,9 +491,9 @@
           id: '4.1', role: 'participante', title: 'Leer el panel "Mi reto"', route: '/dashboard',
           why: 'Es el resumen personal del reto en curso.',
           actions: ['Revisa el período, los días válidos y la cuenta regresiva <span class="ui">Finaliza en</span>.', 'Mira tus <span class="ui">Validados</span>, <span class="ui">Pendientes</span>, tu <span class="ui">Posición</span> y el <span class="ui">Top del reto</span>.'],
-          expect: 'Si ya registraste hoy, el botón principal dice "Hoy ya está"; si no, "Subir actividad de hoy".',
+          expect: 'La tarjeta de hoy te dice qué te toca: "Hoy ya está" con el estado si ya registraste; el aviso "Hoy es día válido y aún no registraste tu actividad" con el botón <span class="ui">Registrar hoy</span> si falta; "Hoy es día de descanso"; "El reto empieza el …" antes del período o "El período del reto terminó" después.',
           note: 'El último día del reto cuenta completo: <span class="ui">Finaliza en</span> llega a cero a la medianoche de tu hora local, igual que el plazo para registrar actividades.',
-          refs: ['TC-UI-03', 'TC-UI-04']
+          refs: ['TC-UI-03', 'TC-UI-04', 'TC-ACT-20', 'TC-ACT-21']
         },
         {
           id: '4.2', role: 'participante', title: 'Subir el comprobante de pago', route: '/dashboard',
@@ -507,7 +507,8 @@
           id: '4.3', role: 'participante', title: 'Registrar la actividad del día', route: '/dashboard/upload',
           why: 'Cada día válido con actividad validada suma al ranking.',
           actions: [
-            'Elige la fecha. Por defecto es hoy según tu calendario; no se aceptan fechas futuras.',
+            'Elige la fecha. Por defecto es hoy según tu calendario (o el día que abriste desde <span class="ui">Registrar hoy</span>); el campo solo permite días del período del reto, sin pasar de hoy.',
+            'Si el día elegido es de descanso, está fuera del período o ya tiene tu actividad, un aviso lo dice bajo la fecha y el botón queda bloqueado.',
             'Indica el tipo (Carrera, Bicicleta, Elíptica, Caminadora u Otro), la duración y, si quieres, la distancia y la frecuencia cardíaca promedio.',
             'Escribe los <span class="ui">Minutos con FC</span> que muestra tu captura. No pueden superar la duración.',
             'Adjunta la <span class="ui">Foto del entrenamiento</span> (obligatoria) y la <span class="ui">Captura de frecuencia cardíaca</span>.',
@@ -515,7 +516,7 @@
           ],
           expect: 'La actividad queda Pendiente con la fecha exacta que elegiste.',
           note: 'Mientras no cumplas la regla de frecuencia cardíaca, el botón queda bloqueado y un aviso dice qué falta. Las fotos van en JPG, PNG, WEBP o HEIC, de hasta 10 MB, y se suben a tu carpeta del reto: no se aceptan imágenes de otros sitios ni de otros participantes. El servidor además exige reto activo, inscripción, fecha dentro del período, día válido y una sola actividad por día en cada reto.',
-          refs: ['TC-ACT-01', 'TC-ACT-02', 'TC-ACT-03', 'TC-ACT-04', 'TC-ACT-05', 'TC-ACT-06', 'TC-ACT-07', 'TC-ACT-13', 'TC-ACT-14', 'TC-ACT-18', 'TC-UP-01', 'TC-UP-04', 'TC-UP-05']
+          refs: ['TC-ACT-01', 'TC-ACT-02', 'TC-ACT-03', 'TC-ACT-04', 'TC-ACT-05', 'TC-ACT-06', 'TC-ACT-07', 'TC-ACT-13', 'TC-ACT-14', 'TC-ACT-18', 'TC-ACT-22', 'TC-UP-01', 'TC-UP-04', 'TC-UP-05']
         },
         {
           id: '4.4', role: 'participante', title: 'Seguir el estado de tus actividades', route: '/dashboard',
@@ -528,7 +529,7 @@
           id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente', route: '/dashboard',
           why: 'Para corregir un registro antes de que lo validen.',
           actions: ['En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Retirar</span> en una actividad pendiente.', 'Confirma con <span class="ui">Sí, retirar</span> (o <span class="ui">No</span> para dejarla).'],
-          expect: 'La actividad desaparece, el contador de pendientes baja y, si era la de hoy, vuelve a aparecer "Subir actividad de hoy".',
+          expect: 'La actividad desaparece, el contador de pendientes baja y, si era la de hoy, la tarjeta de hoy vuelve a ofrecer <span class="ui">Registrar hoy</span>.',
           note: 'Solo se retiran las propias y solo mientras están pendientes; las validadas o rechazadas no muestran el botón. El administrador puede borrar cualquiera por la API.',
           refs: ['TC-ACT-12']
         }
@@ -725,10 +726,12 @@
     ['Estado de pago propio del participante (pendiente, en revisión, parcial, pagado)', '4.2', 'auto'],
     ['Presupuesto automático (cuota × inscritos) o ajustado a mano', '2.1', 'auto'],
     ['Panel personal con cuenta regresiva y posición', '4.1', 'auto'],
+    ['Tarjeta de hoy: registrar, descanso o fuera del período', '4.1', 'auto'],
     ['Comprobante de pago del participante', '4.2', 'auto'],
     ['Registro de actividad con fotos', '4.3', 'auto'],
     ['Regla de frecuencia cardíaca (minutos y captura)', '4.3', 'auto'],
     ['Una actividad por día por reto', '4.3', 'auto'],
+    ['Avisos de fecha en la subida (descanso, fuera del período, ya registrado)', '4.3', 'auto'],
     ['Fechas sin desfase de zona horaria', '4.3', 'auto'],
     ['Estado y motivo de rechazo de cada actividad', '4.4', 'auto'],
     ['Retirar una actividad pendiente', '4.5', 'auto'],
@@ -780,14 +783,18 @@
     ],
     '4.5': [['26-retirar-actividad.jpg', 'Retirar pide confirmación en la misma fila; las validadas y rechazadas no tienen el botón.']],
     '3.4': [['08-participantes-finanzas.jpg', 'Inscritos, estado de pago y resumen financiero: recaudado, pendiente y cobertura del presupuesto.']],
-    '4.1': [['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.']],
+    '4.1': [
+      ['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.'],
+      ['30-tarjeta-hoy.jpg', 'La tarjeta de hoy avisa que es día válido y ofrece Registrar hoy.']
+    ],
     '4.2': [
       ['09-comprobante.jpg', 'El comprobante subido queda visible para el participante y el administrador.'],
       ['29-estado-pago.jpg', 'Estado de pago propio: con el comprobante subido y sin pago registrado dice "comprobante en revisión".']
     ],
     '4.3': [
       ['10-subir-bloqueado.jpg', 'Con menos minutos de FC que el mínimo y sin captura, el envío queda bloqueado y se explica por qué.'],
-      ['11-subir-listo.jpg', 'Con fotos y la regla de FC cumplida, el formulario queda listo para enviar.']
+      ['11-subir-listo.jpg', 'Con fotos y la regla de FC cumplida, el formulario queda listo para enviar.'],
+      ['31-subir-aviso-fecha.jpg', 'Un día de descanso muestra su aviso bajo la fecha y bloquea el envío.']
     ],
     '4.4': [['12-mis-actividades.jpg', 'Cada actividad con su estado; la rechazada muestra el motivo.']],
     '5.1': [['13-validar-pendientes.jpg', 'Pendientes con fotos y el chip de cumplimiento de FC.']],

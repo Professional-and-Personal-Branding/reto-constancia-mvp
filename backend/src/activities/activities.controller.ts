@@ -16,6 +16,7 @@ import { UserRole } from '@prisma/client';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
+import { MyCalendarQueryDto } from './dto/my-calendar-query.dto';
 import { RejectActivityDto } from './dto/reject-activity.dto';
 import { ValidateActivityDto } from './dto/validate-activity.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -53,6 +54,15 @@ export class ActivitiesController {
     @Query('challengeId') challengeId?: string,
   ) {
     return this.activities.findMine(user.sub, challengeId);
+  }
+
+  @Get('me/calendar')
+  @ApiOperation({ summary: 'Mi calendario del reto (solo propio)' })
+  @ApiResponse({ status: 400, description: 'challengeId requerido y UUID' })
+  @ApiResponse({ status: 403, description: 'No participas en este reto' })
+  @ApiResponse({ status: 404, description: 'Reto no encontrado' })
+  myCalendar(@CurrentUser() user: JwtPayload, @Query() query: MyCalendarQueryDto) {
+    return this.activities.myCalendar(user.sub, query.challengeId);
   }
 
   @Get('pending')

@@ -9,11 +9,13 @@ import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { amountOwed, formatUploadDate } from '@/lib/payment';
+import { todayDuty } from '@/lib/calendar';
 import type {
   ChallengeParticipant,
   MyParticipation,
   DailyActivity,
   ChallengeResults,
+  MyCalendar,
 } from '@/lib/types';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -76,6 +78,14 @@ export default function DashboardPage() {
         `/activities/me${challenge ? `?challengeId=${challenge.id}` : ''}`,
       ),
     enabled: !!challenge,
+  });
+
+  // Calendario propio (spec participant-calendar): solo si participo; si no, la API respondería 403.
+  // La clave cuelga de ['activities'], así que subir o retirar una actividad lo refresca.
+  const { data: calendar } = useQuery<MyCalendar>({
+    queryKey: ['activities', 'calendar', challenge?.id],
+    queryFn: () => api<MyCalendar>(`/activities/me/calendar?challengeId=${challenge!.id}`),
+    enabled: !!challenge && !!challenge.me,
   });
 
   const { data: results } = useQuery<ChallengeResults>({
@@ -170,20 +180,7 @@ export default function DashboardPage() {
           </p>
           <p className="display text-3xl text-accent">{countdown}</p>
         </div>
-        {!todayActivity && (
-          <Link href="/dashboard/upload" className="btn-primary">
-            Subir actividad de hoy
-          </Link>
-        )}
-        {todayActivity && (
-          <div className="card px-5 py-3 flex items-center gap-3">
-            <span className="display text-2xl text-accent">✓</span>
-            <div>
-              <p className="text-sm font-medium">Hoy ya está</p>
-              <StatusBadge status={todayActivity.status} />
-            </div>
-          </div>
-        )}
+        <TodayCard calendar={calendar} today={today} fallbackActivity={todayActivity} />
       </div>
 
       {/* Stats */}
@@ -301,6 +298,78 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+/**
+ * Tarjeta "Hoy" (spec participant-calendar). Con el calendario propio guía según el día; mientras
+ * carga, si falla o si el usuario no participa, conserva el comportamiento anterior.
+ */
+function TodayCard({
+  calendar,
+  today,
+  fallbackActivity,
+}: {
+  calendar: MyCalendar | undefined;
+  today: string;
+  fallbackActivity: DailyActivity | undefined;
+}) {
+  const duty = calendar ? todayDuty(calendar, today) : null;
+
+  if (!duty) {
+    return fallbackActivity ? (
+      <RegisteredToday status={fallbackActivity.status} />
+    ) : (
+      <Link href="/dashboard/upload" className="btn-primary">
+        Subir actividad de hoy
+      </Link>
+    );
+  }
+
+  switch (duty.kind) {
+    case 'REGISTERED':
+      return <RegisteredToday status={duty.activity.status} />;
+    case 'OPEN':
+      return (
+        <div className="card px-5 py-3 flex flex-col sm:flex-row sm:items-center gap-3" role="status">
+          <p className="text-sm font-medium">Hoy es día válido y aún no registraste tu actividad</p>
+          <Link href={`/dashboard/upload?date=${today}`} className="btn-primary">
+            Registrar hoy
+          </Link>
+        </div>
+      );
+    case 'REST':
+      return (
+        <div className="card px-5 py-3" role="status">
+          <p className="text-sm font-medium">Hoy es día de descanso</p>
+        </div>
+      );
+    case 'BEFORE':
+      return (
+        <div className="card px-5 py-3" role="status">
+          <p className="text-sm font-medium">
+            El reto empieza el {formatDay(duty.startDate, { day: 'numeric', month: 'long' })}
+          </p>
+        </div>
+      );
+    case 'AFTER':
+      return (
+        <div className="card px-5 py-3" role="status">
+          <p className="text-sm font-medium">El período del reto terminó</p>
+        </div>
+      );
+  }
+}
+
+function RegisteredToday({ status }: { status: DailyActivity['status'] }) {
+  return (
+    <div className="card px-5 py-3 flex items-center gap-3">
+      <span className="display text-2xl text-accent">✓</span>
+      <div>
+        <p className="text-sm font-medium">Hoy ya está</p>
+        <StatusBadge status={status} />
+      </div>
     </div>
   );
 }

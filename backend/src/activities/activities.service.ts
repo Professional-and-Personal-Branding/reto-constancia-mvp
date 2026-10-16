@@ -20,6 +20,7 @@ import { UploadService } from '../upload/upload.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
 import { ValidateActivityDto } from './dto/validate-activity.dto';
+import { buildCalendar, MyCalendar } from './calendar';
 import {
   assessHeartRate,
   HeartRateAssessment,
@@ -176,6 +177,33 @@ export class ActivitiesService {
 
   findMine(userId: string, challengeId?: string) {
     return this.findAll({ userId, challengeId });
+  }
+
+  /**
+   * Calendario propio del reto (spec participant-calendar): solo lectura, cualquier estado del
+   * reto, solo las actividades del usuario del JWT y sin fotos. La validez de cada día sale de las
+   * mismas reglas que usa `create`.
+   */
+  async myCalendar(userId: string, challengeId: string): Promise<MyCalendar & { challengeId: string }> {
+    const challenge = await this.prisma.challenge.findUnique({ where: { id: challengeId } });
+    if (!challenge) throw new NotFoundException('Reto no encontrado');
+    await this.challenges.assertEnrolled(challengeId, userId);
+    const activities = await this.prisma.dailyActivity.findMany({
+      where: { challengeId, userId },
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        exerciseType: true,
+        durationMinutes: true,
+        distanceKm: true,
+        heartRateMinutes: true,
+        hasHeartRateProof: true,
+        rejectionReason: true,
+      },
+      orderBy: { date: 'asc' },
+    });
+    return { challengeId, ...buildCalendar(challenge, activities, this.challenges) };
   }
 
   findPending(challengeId?: string) {
