@@ -1146,6 +1146,26 @@ export const CASES = [
       G('tarjeta de hoy y aviso de fecha en la subida'),
     ],
   },
+  {
+    id: 'TC-ACT-23', title: 'Mi mes: estados, enlaces, racha y teléfono', priority: 'Alta', type: 'UI', guide: '4.4',
+    pre: ['Participante inscrito en un reto activo de lunes a sábado con actividades validada, pendiente y rechazada y días sin registro.'], data: 'Reloj del navegador en un día válido del período; viewport de 375 px',
+    steps: ['Abrir el panel y leer la sección Mi mes.', 'Activar un día sin registro y un día rechazado.', 'Abrir el panel con un viewport de 375 px.'],
+    expected: ['Una tabla con título y encabezados de día (lunes primero) muestra cada día como Validado, Pendiente, Rechazado, Sin registro, Hoy, Descanso o Por venir, con símbolo, texto y color, y la leyenda lista los siete estados.', 'Hoy lleva aria-current y el nombre accesible de cada día incluye su fecha completa y su estado.', 'Se muestran "X de Y días válidos registrados" y la racha (cuenta pendientes y validados, salta descansos, hoy abierto no la corta, rechazado o sin registro sí); es solo informativa.', 'Un día sin registro abre la subida con esa fecha; un día con actividad lleva a su fila en Mis actividades; descanso y por venir no son enlaces.', 'A 375 px no hay scroll horizontal y las celdas miden al menos 40 px.'],
+    auto: [
+      F('calendar.test.ts', 'weeksOf: las semanas empiezan en lunes y los extremos van en blanco'),
+      F('calendar.test.ts', 'weeksOf: un período que empieza en lunes y termina en domingo no tiene blancos'),
+      F('calendar.test.ts', 'weeksOf: un período que cruza de mes conserva el orden y no inventa días'),
+      F('calendar.test.ts', 'currentStreak: cuenta pendientes y validados saltando el descanso, y hoy abierto no la rompe'),
+      F('calendar.test.ts', 'currentStreak: hoy con actividad suma'),
+      F('calendar.test.ts', 'currentStreak: un día rechazado la termina'),
+      F('calendar.test.ts', 'currentStreak: un día válido pasado sin registro la termina'),
+      F('calendar.test.ts', 'currentStreak: sin actividades, al inicio del reto y antes del período vale 0'),
+      F('calendar.test.ts', 'currentStreak: los días futuros no cuentan y hoy pasado el período cuenta hacia atrás'),
+      W('13-my-month.spec.ts', 'Mi mes muestra cada estado, la racha y cabe en el teléfono'),
+      W('13-my-month.spec.ts', 'un día sin registro abre la subida con esa fecha'),
+      G('Mi mes con los estados, la leyenda y la racha'),
+    ],
+  },
 
   // ───────────────────────────── RES ─────────────────────────────
   {
