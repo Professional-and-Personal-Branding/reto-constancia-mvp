@@ -5,6 +5,23 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Calendario propio del participante, incremento 1** (cambio `participant-my-month-calendar`):
+  **sin migración, sin dependencias y sin variables nuevas**; API y web se despliegan juntas. Para
+  volver atrás se redespliega la versión anterior (no hay datos que deshacer).
+  - `GET /api/activities/me/calendar?challengeId=`: un día por fecha del período (`YYYY-MM-DD`) con
+    `valid` calculado por las mismas reglas de período y día de la semana que usa el registro de
+    actividades, la actividad propia del día (sin fotos ni datos ajenos) y un resumen. Solo lectura,
+    responde también para retos cerrados; `userId` en la query da 400, 404 si el reto no existe y
+    403 si no participas.
+  - Panel: la tarjeta de hoy reemplaza el botón "Subir actividad de hoy" y guía según el día ("Hoy es
+    día válido y aún no registraste tu actividad" con *Registrar hoy*, "Hoy es día de descanso",
+    "El reto empieza el …", "El período del reto terminó", "Hoy ya está").
+  - Subir actividad: la fecha se limita al período y a hoy, se precarga con `?date=`, y avisa "Ese día
+    es de descanso en este reto", "La fecha está fuera del período del reto" o "Ya registraste una
+    actividad para ese día" con el envío deshabilitado.
+
 ## [1.9.0] — 2026-10-11
 
 Conciliación de pagos: el admin ve qué comprobantes esperan revisión y cada participante sabe en qué

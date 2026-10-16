@@ -282,7 +282,7 @@ test.describe('Participante', () => {
     await pick(page, '/dashboard');
     await expect(page.getByText('Hoy es día válido y aún no registraste tu actividad')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Registrar hoy' })).toBeVisible();
-    await shot(page, '30-tarjeta-hoy.jpg', page.locator('main > div').first());
+    await shot(page, '30-tarjeta-hoy.jpg', page.locator('main > div > div').first());
 
     // Domingo 11: día de descanso, el envío queda bloqueado con el aviso
     await pick(page, '/dashboard/upload');
