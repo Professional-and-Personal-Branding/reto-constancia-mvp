@@ -10,6 +10,7 @@ import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { amountOwed, formatUploadDate } from '@/lib/payment';
 import { todayDuty } from '@/lib/calendar';
+import { MyMonth } from '@/components/my-month';
 import type {
   ChallengeParticipant,
   MyParticipation,
@@ -273,6 +274,8 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {calendar && <MyMonth calendar={calendar} challengeName={challenge.name} today={today} />}
+
       {/* Mis actividades */}
       <section>
         <h2 className="display text-2xl mb-4 tracking-wider">Mis actividades</h2>
@@ -417,7 +420,7 @@ function ActivityRow({
   const [confirming, setConfirming] = useState(false);
   const pending = activity.status === 'PENDING';
   return (
-    <div className="p-4 flex flex-wrap items-center gap-4">
+    <div id={`actividad-${activity.id}`} className="p-4 flex flex-wrap items-center gap-4 scroll-mt-20">
       <div className="display text-2xl text-ink-dim w-16 text-center">
         {formatDate(activity.date)}
       </div>

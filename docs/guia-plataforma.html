@@ -521,9 +521,15 @@
         {
           id: '4.4', role: 'participante', title: 'Seguir el estado de tus actividades', route: '/dashboard',
           why: 'Saber qué cuenta y qué hay que corregir.',
-          actions: ['Revisa <span class="ui">Mis actividades</span>: cada una muestra Validado, Pendiente o Rechazado.'],
-          expect: 'Una actividad rechazada muestra el motivo que dejó el administrador.',
-          refs: ['TC-ACT-10']
+          actions: [
+            'Mira <span class="ui">Mi mes</span>: la grilla del período, con las semanas desde el lunes. Cada día muestra su estado con un símbolo y un texto además del color: Validado, Pendiente, Rechazado, Sin registro, Hoy, Descanso o Por venir (la leyenda de abajo los lista).',
+            'Arriba de la grilla lee <span class="ui">X de Y días válidos registrados</span> y tu <span class="ui">Racha</span>.',
+            'Pulsa un día <span class="ui">Sin registro</span> (o el de hoy) para abrir la subida con esa fecha, o un día con actividad para ir a su fila.',
+            'Revisa <span class="ui">Mis actividades</span>: cada una muestra Validado, Pendiente o Rechazado.'
+          ],
+          expect: 'Una actividad rechazada muestra el motivo que dejó el administrador. Los días de descanso y los que aún no llegan no son enlaces.',
+          note: 'Los enlaces para registrar solo aparecen mientras el reto está activo. La racha son los días válidos seguidos con actividad pendiente o validada, contados hacia atrás desde hoy: los descansos se saltan, hoy sin registrar no la corta, y un día rechazado o sin registro sí. Es solo informativa: no suma puntos ni cambia el ranking ni el premio. Qué días cuentan lo decide el servidor, igual que al registrar.',
+          refs: ['TC-ACT-10', 'TC-ACT-23']
         },
         {
           id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente', route: '/dashboard',
@@ -733,6 +739,7 @@
     ['Una actividad por día por reto', '4.3', 'auto'],
     ['Avisos de fecha en la subida (descanso, fuera del período, ya registrado)', '4.3', 'auto'],
     ['Fechas sin desfase de zona horaria', '4.3', 'auto'],
+    ['Mi mes: estados del día, leyenda, días registrados y racha', '4.4', 'auto'],
     ['Estado y motivo de rechazo de cada actividad', '4.4', 'auto'],
     ['Retirar una actividad pendiente', '4.5', 'auto'],
     ['Validación con chip de cumplimiento de FC', '5.1', 'auto'],
@@ -796,7 +803,10 @@
       ['11-subir-listo.jpg', 'Con fotos y la regla de FC cumplida, el formulario queda listo para enviar.'],
       ['31-subir-aviso-fecha.jpg', 'Un día de descanso muestra su aviso bajo la fecha y bloquea el envío.']
     ],
-    '4.4': [['12-mis-actividades.jpg', 'Cada actividad con su estado; la rechazada muestra el motivo.']],
+    '4.4': [
+      ['32-mi-mes.jpg', 'Mi mes: cada día con su estado (símbolo, texto y color), la leyenda, los días registrados y la racha.'],
+      ['12-mis-actividades.jpg', 'Cada actividad con su estado; la rechazada muestra el motivo.']
+    ],
     '5.1': [['13-validar-pendientes.jpg', 'Pendientes con fotos y el chip de cumplimiento de FC.']],
     '5.2': [['14-validar-override.jpg', 'Validar una actividad que no cumple la FC exige una nota de excepción.']],
     '5.3': [['15-rechazar.jpg', 'Rechazo con motivo obligatorio, que verá el participante.']],

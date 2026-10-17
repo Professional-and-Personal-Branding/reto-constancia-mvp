@@ -65,3 +65,37 @@ export function dateHint(calendar: MyCalendar | undefined, date: string): string
   if (entry.activity) return HINT_ALREADY_REGISTERED;
   return null;
 }
+
+/**
+ * Semanas del período para la grilla "Mi mes": siete celdas por semana empezando en lunes (es-BO);
+ * `null` son celdas vacías antes del primer día y después del último.
+ */
+export function weeksOf(days: CalendarDay[]): (CalendarDay | null)[][] {
+  if (days.length === 0) return [];
+  // Lunes = 0 ... domingo = 6, sobre el día calendario (mediodía UTC: sin desfase de zona)
+  const mondayIndex = (key: string) => (new Date(`${key}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const cells: (CalendarDay | null)[] = Array.from({ length: mondayIndex(days[0].date) }, () => null);
+  cells.push(...days);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: (CalendarDay | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+/**
+ * Racha actual (solo visualización; nunca llega a la API, al puntaje ni al ranking): desde hoy hacia
+ * atrás, los días consecutivos con actividad pendiente o validada. Los descansos se saltan, hoy sin
+ * actividad no la rompe (el día sigue abierto) y un día rechazado o válido sin registro la termina.
+ */
+export function currentStreak(days: CalendarDay[], today: string): number {
+  let streak = 0;
+  for (let i = days.length - 1; i >= 0; i--) {
+    const day = days[i];
+    if (day.date > today) continue;
+    const state = dayState(day, today);
+    if (state === 'REST' || state === 'TODAY_OPEN') continue;
+    if (state === 'PENDING' || state === 'VALIDATED') streak++;
+    else break;
+  }
+  return streak;
+}

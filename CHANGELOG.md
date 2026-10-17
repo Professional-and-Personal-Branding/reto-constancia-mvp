@@ -21,6 +21,18 @@ Versionado [SemVer](https://semver.org/lang/es/).
   - Subir actividad: la fecha se limita al período y a hoy, se precarga con `?date=`, y avisa "Ese día
     es de descanso en este reto", "La fecha está fuera del período del reto" o "Ya registraste una
     actividad para ese día" con el envío deshabilitado.
+- **Calendario propio del participante, incremento 2: "Mi mes"** (mismo cambio): **sin migración,
+  sin dependencias, sin variables nuevas y sin cambios en la API**; solo web.
+  - Panel: sección **Mi mes** entre los contadores y "Mis actividades". Es una tabla con las semanas
+    desde el lunes; cada día muestra su estado con símbolo, texto y color (Validado, Pendiente,
+    Rechazado, Sin registro, Hoy, Descanso, Por venir), con leyenda, "X de Y días válidos
+    registrados" y la racha.
+  - Mientras el reto está activo, un día sin registro (o el de hoy) abre la subida con esa fecha y un
+    día con actividad lleva a su fila en "Mis actividades". Descanso y por venir no son enlaces.
+  - Accesible y apta para el teléfono: título y encabezados de día, nombre completo de cada día con
+    su estado, `aria-current` en hoy, sin scroll horizontal a 375 px.
+  - La racha (pendientes y validados seguidos, hacia atrás desde hoy; los descansos se saltan) es solo
+    informativa: no cambia el puntaje, el ranking ni el premio.
 
 ## [1.9.0] — 2026-10-11
 

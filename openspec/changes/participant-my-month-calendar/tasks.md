@@ -22,14 +22,14 @@
 
 ## 4. Increment 2 - "Mi mes" grid
 
-- [ ] 4.1 `lib/calendar.test.ts` first: `weeksOf(days)` (Monday first, leading and trailing blanks, a period crossing months), `currentStreak(days, today)` for the D9 cases (rest day skipped, open today, rejected and missed end it, pending counts); then implement
-- [ ] 4.2 "Mi mes" section between the stats and "Mis actividades" (D8, D10): `<table>` with caption and weekday headers, cell glyph + hidden text + token colour, `aria-current="date"`, links only when `status` is `ACTIVE` (upload prefill for missed/today, `#actividad-<id>` anchor on the existing rows), legend, "X de Y días válidos registrados", "Racha: N días"; light and dark themes
-- [ ] 4.3 Add the `id="actividad-<id>"` anchors to the "Mis actividades" rows without changing their content
-- [ ] 4.4 `13-my-month.spec.ts`: test "Mi mes muestra cada estado, la racha y cabe en el teléfono" (validated, pending, rejected, missed, rest, today, future, legend, counts, streak, 375 px without horizontal scroll) and test "un día sin registro abre la subida con esa fecha"; same session and data, no new login
-- [ ] 4.5 QA catalog: new TC-ACT-23 (grid states, links, streak, accessibility and phone width); `node scripts/validate-test-cases.mjs`
+- [x] 4.1 `lib/calendar.test.ts` first: `weeksOf(days)` (Monday first, leading and trailing blanks, a period crossing months), `currentStreak(days, today)` for the D9 cases (rest day skipped, open today, rejected and missed end it, pending counts); then implement
+- [x] 4.2 "Mi mes" section between the stats and "Mis actividades" (D8, D10): `<table>` with caption and weekday headers, cell glyph + hidden text + token colour, `aria-current="date"`, links only when `status` is `ACTIVE` (upload prefill for missed/today, `#actividad-<id>` anchor on the existing rows), legend, "X de Y días válidos registrados", "Racha: N días"; light and dark themes
+- [x] 4.3 Add the `id="actividad-<id>"` anchors to the "Mis actividades" rows without changing their content
+- [x] 4.4 `13-my-month.spec.ts`: test "Mi mes muestra cada estado, la racha y cabe en el teléfono" (validated, pending, rejected, missed, rest, today, future, legend, counts, streak, 375 px without horizontal scroll) and test "un día sin registro abre la subida con esa fecha"; same session and data, no new login
+- [x] 4.5 QA catalog: new TC-ACT-23 (grid states, links, streak, accessibility and phone width); `node scripts/validate-test-cases.mjs`
 
 ## 5. Docs and verification
 
-- [ ] 5.1 Guide steps 4.3 (today card, date hints) and 4.4 ("Mi mes") with captures in the guide capture suite; `docs/architecture.md` endpoint list
-- [ ] 5.2 `CHANGELOG.md` Sin publicar (no migration, no new dependency, no new environment variable); reset the DB; full battery and catalog validator once before PR 2; record in `docs/testing.md`
+- [x] 5.1 Guide steps 4.3 (today card, date hints) and 4.4 ("Mi mes") with captures in the guide capture suite; `docs/architecture.md` endpoint list
+- [x] 5.2 `CHANGELOG.md` Sin publicar (no migration, no new dependency, no new environment variable); reset the DB; full battery and catalog validator once before PR 2; record in `docs/testing.md`
 - [ ] 5.3 PR 2 to `develop` with the 3 CI jobs green; the owner merges; archive the change in the next release branch

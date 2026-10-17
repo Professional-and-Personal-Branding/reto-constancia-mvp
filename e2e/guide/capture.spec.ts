@@ -292,6 +292,17 @@ test.describe('Participante', () => {
     await shot(page, '31-subir-aviso-fecha.jpg', page.getByLabel('Fecha').locator('..'));
   });
 
+  test('Mi mes con los estados, la leyenda y la racha', async ({ page }) => {
+    // Miércoles 14 de octubre: el panel muestra el mes con registrados, pendientes y días sin registro
+    await page.clock.setFixedTime(new Date(`${YEAR}-10-14T12:00:00`));
+    await pick(page, '/dashboard');
+    const section = page.getByRole('region', { name: 'Mi mes' });
+    await expect(section).toContainText('días válidos registrados');
+    await expect(section).toContainText('Racha:');
+    await expect(section.getByRole('list', { name: 'Leyenda de Mi mes' })).toBeVisible();
+    await shot(page, '32-mi-mes.jpg', section);
+  });
+
   test('ranking con puntos, no califica y premio proyectado', async ({ page }) => {
     await pick(page, '/dashboard/results');
     await expect(page.getByLabel('Regla de puntaje')).toContainText('10 por día validado');

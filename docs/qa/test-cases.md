@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-16** · rama `feature/participant-my-month-calendar` · commit `ee9a173`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-16** · rama `feature/participant-my-month-grid` · commit `0e0f507`. Detalle en [validation-report.md](validation-report.md).
 
-**138 casos** · 138 aprobados · 0 fallidos · 0 con limitación conocida · 137 automatizados.
+**139 casos** · 139 aprobados · 0 fallidos · 0 con limitación conocida · 138 automatizados.
 
 ## Cómo leer cada caso
 
@@ -21,7 +21,7 @@
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 22 | 22 | 0 |
 | [Participantes y pagos](#part) | 7 | 7 | 0 |
-| [Actividades y validación](#act) | 22 | 22 | 0 |
+| [Actividades y validación](#act) | 23 | 23 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
@@ -2072,6 +2072,7 @@
 | [TC-ACT-20](#tc-act-20) | Calendario propio del reto (API) | Alta | Funcional | ✅ Aprobado |
 | [TC-ACT-21](#tc-act-21) | Tarjeta de hoy en el panel | Alta | UI | ✅ Aprobado |
 | [TC-ACT-22](#tc-act-22) | Avisos y límites de fecha en la subida | Alta | UI | ✅ Aprobado |
+| [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -2813,6 +2814,51 @@
 | ✅ | Web (unitaria) | `calendar.test.ts` | dateHint: descanso, fuera del período y ya registrado, con los textos de la API |
 | ✅ | UI | `13-my-month.spec.ts` | la tarjeta de hoy guía según el día y la subida avisa un día de descanso |
 | ✅ | Guía | `capture.spec.ts` | tarjeta de hoy y aviso de fecha en la subida |
+
+<a id="tc-act-23"></a>
+
+### TC-ACT-23 · Mi mes: estados, enlaces, racha y teléfono
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | UI | 4.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo de lunes a sábado con actividades validada, pendiente y rechazada y días sin registro.
+
+**Datos de prueba:** Reloj del navegador en un día válido del período; viewport de 375 px
+
+**Pasos**
+
+1. Abrir el panel y leer la sección Mi mes.
+2. Activar un día sin registro y un día rechazado.
+3. Abrir el panel con un viewport de 375 px.
+
+**Resultado esperado**
+
+- Una tabla con título y encabezados de día (lunes primero) muestra cada día como Validado, Pendiente, Rechazado, Sin registro, Hoy, Descanso o Por venir, con símbolo, texto y color, y la leyenda lista los siete estados.
+- Hoy lleva aria-current y el nombre accesible de cada día incluye su fecha completa y su estado.
+- Se muestran "X de Y días válidos registrados" y la racha (cuenta pendientes y validados, salta descansos, hoy abierto no la corta, rechazado o sin registro sí); es solo informativa.
+- Un día sin registro abre la subida con esa fecha; un día con actividad lleva a su fila en Mis actividades; descanso y por venir no son enlaces.
+- A 375 px no hay scroll horizontal y las celdas miden al menos 40 px.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `calendar.test.ts` | weeksOf: las semanas empiezan en lunes y los extremos van en blanco |
+| ✅ | Web (unitaria) | `calendar.test.ts` | weeksOf: un período que empieza en lunes y termina en domingo no tiene blancos |
+| ✅ | Web (unitaria) | `calendar.test.ts` | weeksOf: un período que cruza de mes conserva el orden y no inventa días |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: cuenta pendientes y validados saltando el descanso, y hoy abierto no la rompe |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: hoy con actividad suma |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: un día rechazado la termina |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: un día válido pasado sin registro la termina |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: sin actividades, al inicio del reto y antes del período vale 0 |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: los días futuros no cuentan y hoy pasado el período cuenta hacia atrás |
+| ✅ | UI | `13-my-month.spec.ts` | Mi mes muestra cada estado, la racha y cabe en el teléfono |
+| ✅ | UI | `13-my-month.spec.ts` | un día sin registro abre la subida con esa fecha |
+| ✅ | Guía | `capture.spec.ts` | Mi mes con los estados, la leyenda y la racha |
 
 <a id="res"></a>
 
