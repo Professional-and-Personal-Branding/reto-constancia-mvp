@@ -5,6 +5,41 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.10.0] — 2026-10-17
+
+Calendario "Mi mes": tarjeta de hoy, pistas de fecha al subir y grilla del mes con racha. **No trae
+migraciones ni variables nuevas.** Para volver a la 1.9.0 se redespliegan API y web juntas, porque la web
+usa el endpoint `GET /activities/me/calendar`.
+
+### Añadido
+
+- **Calendario propio del participante, incremento 1** (cambio `participant-my-month-calendar`):
+  **sin migración, sin dependencias y sin variables nuevas**; API y web se despliegan juntas. Para
+  volver atrás se redespliega la versión anterior (no hay datos que deshacer).
+  - `GET /api/activities/me/calendar?challengeId=`: un día por fecha del período (`YYYY-MM-DD`) con
+    `valid` calculado por las mismas reglas de período y día de la semana que usa el registro de
+    actividades, la actividad propia del día (sin fotos ni datos ajenos) y un resumen. Solo lectura,
+    responde también para retos cerrados; `userId` en la query da 400, 404 si el reto no existe y
+    403 si no participas.
+  - Panel: la tarjeta de hoy reemplaza el botón "Subir actividad de hoy" y guía según el día ("Hoy es
+    día válido y aún no registraste tu actividad" con *Registrar hoy*, "Hoy es día de descanso",
+    "El reto empieza el …", "El período del reto terminó", "Hoy ya está").
+  - Subir actividad: la fecha se limita al período y a hoy, se precarga con `?date=`, y avisa "Ese día
+    es de descanso en este reto", "La fecha está fuera del período del reto" o "Ya registraste una
+    actividad para ese día" con el envío deshabilitado.
+- **Calendario propio del participante, incremento 2: "Mi mes"** (mismo cambio): **sin migración,
+  sin dependencias, sin variables nuevas y sin cambios en la API**; solo web.
+  - Panel: sección **Mi mes** entre los contadores y "Mis actividades". Es una tabla con las semanas
+    desde el lunes; cada día muestra su estado con símbolo, texto y color (Validado, Pendiente,
+    Rechazado, Sin registro, Hoy, Descanso, Por venir), con leyenda, "X de Y días válidos
+    registrados" y la racha.
+  - Mientras el reto está activo, un día sin registro (o el de hoy) abre la subida con esa fecha y un
+    día con actividad lleva a su fila en "Mis actividades". Descanso y por venir no son enlaces.
+  - Accesible y apta para el teléfono: título y encabezados de día, nombre completo de cada día con
+    su estado, `aria-current` en hoy, sin scroll horizontal a 375 px.
+  - La racha (pendientes y validados seguidos, hacia atrás desde hoy; los descansos se saltan) es solo
+    informativa: no cambia el puntaje, el ranking ni el premio.
+
 ## [1.9.0] — 2026-10-11
 
 Conciliación de pagos: el admin ve qué comprobantes esperan revisión y cada participante sabe en qué

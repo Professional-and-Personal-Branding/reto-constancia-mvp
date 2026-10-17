@@ -54,9 +54,10 @@ Plataforma (desde la raíz):
 - `node scripts/scan-secrets.mjs` (o `--staged` justo antes de commitear) debe dar "sin hallazgos"; la CI
   lo corre en el job Backend. Un falso positivo se marca con `secret-scan:allow <razón>` en esa línea.
 - `node scripts/format.mjs` debe dar "sin diferencias" para los archivos nuevos.
-- `node scripts/validate-test-cases.mjs` (catálogo de QA): antes de correrlo, mueve fuera del repo el
-  archivo sin seguimiento `propuestas-features-2026-10-04.md` y devuélvelo después, para que el reporte
-  no quede marcado "con cambios sin commit".
+- `node scripts/validate-test-cases.mjs` (catálogo de QA): **reinicia la base entre la batería y el
+  validador** (si no, quedan datos de la batería y fallan TC-SEC-06 y TC-UP-09); el reporte se marca
+  "con cambios sin commit" si el árbol no está limpio, así que descarta antes lo ajeno al cambio
+  (por ejemplo `git checkout -- docs/guia-capturas` con las capturas regeneradas).
 - `openspec validate --all --strict`.
 - El repo solo versiona `.env.example`; el escáner rechaza cualquier otro `.env`, claves privadas,
   tokens y URLs de base de datos con contraseña en servidores remotos.
