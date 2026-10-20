@@ -321,3 +321,24 @@ export interface MyCalendar {
   days: CalendarDay[];
   summary: CalendarSummary;
 }
+
+/** Un usuario inscrito (o ya inscrito) por la inscripción en bloque */
+export interface EnrollmentRow {
+  userId: string;
+  name: string;
+  email: string;
+}
+
+/** Un usuario que la inscripción en bloque omitió, con su motivo */
+export interface EnrollmentSkip {
+  userId: string;
+  reason: 'NOT_FOUND' | 'INACTIVE';
+  message: string;
+}
+
+/** Respuesta de POST /challenges/:id/participants/bulk */
+export interface BulkEnrollResult {
+  enrolled: EnrollmentRow[];
+  alreadyEnrolled: EnrollmentRow[];
+  skipped: EnrollmentSkip[];
+}
