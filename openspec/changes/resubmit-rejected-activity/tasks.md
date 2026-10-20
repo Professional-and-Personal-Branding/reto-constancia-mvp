@@ -43,5 +43,5 @@
 
 - [x] 6.1 Guide step 4.5: title "Retirar una actividad pendiente o rechazada", the hint and the "Registrar ese día" link; the summary bullet of line 283 and the note of step 4.5 ("las validadas no muestran el botón")
 - [x] 6.2 `CHANGELOG.md` Sin publicar: "Una actividad rechazada se puede retirar desde Mis actividades para registrar ese día de nuevo"
-- [ ] 6.3 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
+- [x] 6.3 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
 - [ ] 6.4 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the next release
