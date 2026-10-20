@@ -392,7 +392,7 @@ describe('ChallengesService: escrituras serializadas con el cierre (closed-chall
           update: writes.challengeUpdate,
           findUniqueOrThrow: jest.fn().mockResolvedValue({ ...active, status: ChallengeStatus.COMPLETED }),
         },
-        user: { findUnique: jest.fn().mockResolvedValue({ id: 'u' }) },
+        user: { findUnique: jest.fn().mockResolvedValue({ id: 'u', active: true }) },
         challengeParticipant: {
           findUnique: jest.fn().mockResolvedValue({ id: 'p' }),
           create: writes.participantCreate,
@@ -439,6 +439,81 @@ describe('ChallengesService: escrituras serializadas con el cierre (closed-chall
     (svc as unknown as { prisma: { challenge: { findUnique: jest.Mock } } }).prisma.challenge.findUnique.mockResolvedValueOnce(draft);
     await expect(svc.activate('c')).rejects.toThrow('Un reto cerrado no puede reactivarse');
     expect(writes.challengeUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('ChallengesService: inscripción (challenge-enrollment)', () => {
+  const U1 = '00000000-0000-4000-8000-000000000001';
+  const U2 = '00000000-0000-4000-8000-000000000002';
+
+  function build(status: ChallengeStatus, lockedStatus: ChallengeStatus = status, challengeExists = true) {
+    const writes = {
+      participantCreate: jest.fn().mockResolvedValue({ id: 'p' }),
+      participantCreateMany: jest.fn(async (args: { data: unknown[] }) => ({ count: args.data.length })),
+    };
+    const challenge = challengeExists ? { id: 'c', status } : null;
+    const prisma = withLocks(
+      {
+        challenge: { findUnique: jest.fn().mockResolvedValue(challenge) },
+        user: {
+          findUnique: jest.fn(async (args: { where: { id: string } }) =>
+            args.where.id === 'inactivo' ? { id: 'inactivo', active: false } : args.where.id === 'nadie' ? null : { id: args.where.id, active: true },
+          ),
+          findMany: jest.fn(async (args: { where: { id: { in: string[] } } }) =>
+            args.where.id.in.map((id) => ({ id, name: id, email: id + '@x', active: true })),
+          ),
+        },
+        challengeParticipant: {
+          create: writes.participantCreate,
+          findMany: jest.fn().mockResolvedValue([]),
+          createMany: writes.participantCreateMany,
+        },
+      } as unknown as PrismaService,
+      async (id) => (challengeExists ? { id, status: lockedStatus } : null),
+    );
+    return { svc: challengesService(prisma), writes, prisma };
+  }
+
+  it('la inscripción individual rechaza a un usuario inactivo con 400, sin inscribirlo', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE);
+    await expect(svc.addParticipant('c', 'inactivo')).rejects.toThrow(new BadRequestException('El usuario está inactivo'));
+    expect(writes.participantCreate).not.toHaveBeenCalled();
+  });
+
+  it('el orden de la inscripción individual: 404 reto, 404 usuario, 400 inactivo, 400 cerrado', async () => {
+    await expect(build(ChallengeStatus.ACTIVE, ChallengeStatus.ACTIVE, false).svc.addParticipant('c', 'inactivo')).rejects.toThrow('Reto no encontrado');
+    await expect(build(ChallengeStatus.ACTIVE).svc.addParticipant('c', 'nadie')).rejects.toThrow('Usuario no encontrado');
+    // cerrado e inactivo a la vez: gana el 400 de inactivo
+    await expect(build(ChallengeStatus.COMPLETED).svc.addParticipant('c', 'inactivo')).rejects.toThrow('El usuario está inactivo');
+    await expect(build(ChallengeStatus.COMPLETED).svc.addParticipant('c', 'u')).rejects.toThrow('No se puede modificar un reto cerrado');
+  });
+
+  it('la inscripción en bloque corre bajo el lock del reto y devuelve el resultado por usuario', async () => {
+    const { svc, prisma, writes } = build(ChallengeStatus.ACTIVE);
+    const result = await svc.bulkAddParticipants('c', [U1, U2]);
+    expect(result.enrolled.map((r) => r.userId)).toEqual([U1, U2]);
+    expect((prisma as unknown as { $transaction: jest.Mock }).$transaction).toHaveBeenCalledTimes(1);
+    expect((prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw).toHaveBeenCalled();
+    expect(writes.participantCreateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('en bloque, un reto cerrado bajo el lock rechaza todo con 400 y no inserta', async () => {
+    // el chequeo previo ve ACTIVE; el lock ve el reto ya cerrado
+    const { svc, writes } = build(ChallengeStatus.ACTIVE, ChallengeStatus.COMPLETED);
+    await expect(svc.bulkAddParticipants('c', [U1])).rejects.toThrow('No se puede modificar un reto cerrado');
+    expect(writes.participantCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('en bloque, un reto desconocido responde 404', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE, ChallengeStatus.ACTIVE, false);
+    await expect(svc.bulkAddParticipants('c', [U1])).rejects.toThrow(NotFoundException);
+    expect(writes.participantCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('en bloque se puede inscribir en un borrador', async () => {
+    const { svc } = build(ChallengeStatus.DRAFT);
+    const result = await svc.bulkAddParticipants('c', [U1]);
+    expect(result.enrolled).toHaveLength(1);
   });
 });
 
