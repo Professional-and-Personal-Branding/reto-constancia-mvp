@@ -28,10 +28,10 @@
 
 ## 5. PR 2 - Web
 
-- [ ] 5.1 `lib/types.ts`: `RenewalPreview`, `RenewResult`
-- [ ] 5.2 `components/renew-challenge-dialog.tsx` (D10): loads the preview with query key `['renewal-preview', id]`, shows target month and period, rules summary (manual budget "ajustado <monto> <moneda>"), editable name, checkbox "Inscribir a los N participantes activos de <reto>" checked by default with the collapsible list and the inactive ones, the fixed note, the `existing` message with confirm disabled, API errors inside the dialog; accessible dialog (labelled title, focus on open, Escape cancels) like `CloseChallengeDialog`
-- [ ] 5.3 Challenge list: "Renovar" on `ACTIVE` and `COMPLETED` rows only; on success invalidate `['challenges']` and show `role="status"` "<nombre> creado en borrador con N inscritos"
-- [ ] 5.4 Lint, types and build green
+- [x] 5.1 `lib/types.ts`: `RenewalPreview`, `RenewResult`
+- [x] 5.2 `components/renew-challenge-dialog.tsx` (D10): loads the preview with query key `['renewal-preview', id]`, shows target month and period, rules summary (manual budget "ajustado <monto> <moneda>"), editable name, checkbox "Inscribir a los N participantes activos de <reto>" checked by default with the collapsible list and the inactive ones, the fixed note, the `existing` message with confirm disabled, API errors inside the dialog; accessible dialog (labelled title, focus on open, Escape cancels) like `CloseChallengeDialog`
+- [x] 5.3 Challenge list: "Renovar" on `ACTIVE` and `COMPLETED` rows only; on success invalidate `['challenges']` and show `role="status"` "<nombre> creado en borrador con N inscritos"
+- [x] 5.4 Lint, types and build green
 
 ## 6. PR 2 - Playwright, QA and docs
 
