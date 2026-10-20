@@ -28,6 +28,11 @@ Resumen de los controles implementados, mapeados a principios de OWASP
   - `RolesGuard` + `@Roles(UserRole.ADMIN)` en endpoints sensibles
     (retos, validaciones, importación).
   - Verificado por test e2e (participante recibe 403 en rutas de admin).
+  - La inscripción en bloque (`POST /challenges/:id/participants/bulk`) y la renovación mensual
+    (`GET .../renewal-preview`, `POST .../renew`) son solo de administrador: el bloque tiene un tope de
+    200 ids por petición y nadie puede inscribirse a sí mismo. La renovación copia solo una lista
+    explícita de reglas (nunca pagos, comprobantes, actividades ni premios) y su unicidad por mes y año
+    evita duplicados aun con dos peticiones simultáneas.
 - Usuarios deshabilitados no pueden autenticar (`active === false` -> 401)
   en `auth.service.ts` (login y refresh).
 - Validación estricta de entrada (anti mass-assignment / payloads no esperados):
