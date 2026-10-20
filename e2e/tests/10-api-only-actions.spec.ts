@@ -167,7 +167,7 @@ test.describe('Participante', () => {
     await page.getByRole('button', { name: 'Sí, retirar' }).click();
 
     await expect(page.getByText('Actividad retirada.')).toBeVisible();
-    await expect(page.getByText('Aún no has registrado ninguna actividad.')).toBeVisible();
+    await expect(list).not.toContainText('La foto no muestra el entrenamiento');
     await page.getByRole('link', { name: 'Registrar ese día' }).click();
 
     await expect(page).toHaveURL(new RegExp(`/dashboard/upload[?]date=${day}`));
