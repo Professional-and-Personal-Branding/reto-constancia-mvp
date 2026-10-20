@@ -5,6 +5,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.10.0] — 2026-10-17
+
+Calendario "Mi mes": tarjeta de hoy, pistas de fecha al subir y grilla del mes con racha. **No trae
+migraciones ni variables nuevas.** Para volver a la 1.9.0 se redespliegan API y web juntas, porque la web
+usa el endpoint `GET /activities/me/calendar`.
+
 ### Añadido
 
 - **Calendario propio del participante, incremento 1** (cambio `participant-my-month-calendar`):
