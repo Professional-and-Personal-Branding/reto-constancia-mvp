@@ -310,9 +310,14 @@ export class ActivitiesService {
       if (role !== UserRole.ADMIN && activity.userId !== userId) {
         throw new ForbiddenException('No puedes eliminar esta actividad');
       }
-      if (role !== UserRole.ADMIN && activity.status !== ActivityStatus.PENDING) {
+      // Una rechazada no suma nada: el dueño la retira para registrar ese día de nuevo
+      if (
+        role !== UserRole.ADMIN &&
+        activity.status !== ActivityStatus.PENDING &&
+        activity.status !== ActivityStatus.REJECTED
+      ) {
         throw new ForbiddenException(
-          'Solo se pueden eliminar actividades pendientes',
+          'Solo se pueden eliminar actividades pendientes o rechazadas',
         );
       }
       await tx.dailyActivity.delete({ where: { id } });
