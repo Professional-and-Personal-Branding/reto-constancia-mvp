@@ -5,6 +5,13 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.11.0] — 2026-10-20
+
+Renovación mensual del reto, inscripción en bloque y retiro de actividades rechazadas. **No trae
+migraciones, dependencias ni variables nuevas.** Para volver a la 1.10.0 se redespliegan API y web
+juntas, porque la web usa `renewal-preview`, `renew` y `participants/bulk`, y la API cambia el retiro de
+actividades rechazadas.
+
 ### Añadido
 
 - **Inscripción en bloque** (cambio `monthly-challenge-renewal`, PR 1): **sin migración, sin
@@ -38,11 +45,6 @@ Versionado [SemVer](https://semver.org/lang/es/).
     y el período, las reglas, el nombre editable, la casilla de inscribir a los participantes activos y
     lo que no se copia; con el mes ocupado, no deja confirmar.
 
-### Cambiado
-
-- La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
-  inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
-  reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
 - **Retirar una actividad rechazada** (cambio `resubmit-rejected-activity`, incremento 1): una
   actividad rechazada se puede retirar desde "Mis actividades" para registrar ese día de nuevo.
   **Sin migración, sin dependencias y sin variables nuevas**; para volver atrás se redespliega la
@@ -54,6 +56,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
   - Panel: las filas rechazadas muestran el aviso "Puedes retirarla y registrar ese día de nuevo." y el
     botón *Retirar* con su confirmación; después aparece "Actividad retirada." con el enlace
     *Registrar ese día*.
+
+### Cambiado
+
+- La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
+  inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
+  reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
 
 ## [1.10.0] — 2026-10-17
 
