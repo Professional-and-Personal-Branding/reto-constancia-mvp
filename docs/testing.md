@@ -142,6 +142,22 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-17 · v1.10.0 (rama `release/1.10.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Una primera batería arrancó con Docker detenido (Postgres no disponible) y se descartó;
+se levantó Docker y se repitió completa.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **139 de 139 casos aprobados** (138
+automatizados, 1 manual) con 667 pruebas ejecutadas y 0 fallidas; "Pruebas sin caso: 0".
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones
+nuevas. El archivo de OpenSpec creó el spec `participant-calendar` con Purpose real;
+`openspec validate --all --strict` pasa (11 de 11).
+
 ### 2026-10-16 · rama `feature/participant-my-month-grid` (calendario propio, incremento 2: "Mi mes")
 
 Base reiniciada con `npx prisma migrate reset --force` antes de la batería y de nuevo antes del

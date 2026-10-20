@@ -18,7 +18,7 @@
 
 - [x] 3.1 New `e2e/tests/13-my-month.spec.ts` (D11): `storageState: STATE.participant`, month 10 of `E2E_YEAR`, data by API fixtures, `page.clock.setFixedTime` inside the period; test "la tarjeta de hoy guía según el día y la subida avisa un día de descanso": open valid day shows the banner and "Registrar hoy" prefills the form; a rest day picked in the form shows the hint and disables the submit
 - [x] 3.2 QA catalog: new TC-ACT-20 (calendar API: shape, validity consistent with registration, 403/404/400, own data only), TC-ACT-21 (dashboard today card), TC-ACT-22 (upload date hints and prefill); update TC-ACT-18 (the form now also warns about rest days and registered days) with links to the new tests
-- [ ] 3.3 PR 1 to `develop` after `node scripts/run-tests.mjs` (13/13), DB reset, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0") and `openspec validate --all --strict`; `CHANGELOG.md` Sin publicar (no migration, no new variables)
+- [x] 3.3 PR 1 to `develop` after `node scripts/run-tests.mjs` (13/13), DB reset, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0") and `openspec validate --all --strict`; `CHANGELOG.md` Sin publicar (no migration, no new variables)
 
 ## 4. Increment 2 - "Mi mes" grid
 
@@ -32,4 +32,4 @@
 
 - [x] 5.1 Guide steps 4.3 (today card, date hints) and 4.4 ("Mi mes") with captures in the guide capture suite; `docs/architecture.md` endpoint list
 - [x] 5.2 `CHANGELOG.md` Sin publicar (no migration, no new dependency, no new environment variable); reset the DB; full battery and catalog validator once before PR 2; record in `docs/testing.md`
-- [ ] 5.3 PR 2 to `develop` with the 3 CI jobs green; the owner merges; archive the change in the next release branch
+- [x] 5.3 PR 2 to `develop` with the 3 CI jobs green; the owner merges; archive the change in the next release branch
