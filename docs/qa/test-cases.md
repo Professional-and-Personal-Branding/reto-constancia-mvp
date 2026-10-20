@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-11** · rama `release/1.9.0` · commit `e1822ae`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-17** · rama `release/1.10.0` · commit `480e48d`. Detalle en [validation-report.md](validation-report.md).
 
-**135 casos** · 135 aprobados · 0 fallidos · 0 con limitación conocida · 134 automatizados.
+**139 casos** · 139 aprobados · 0 fallidos · 0 con limitación conocida · 138 automatizados.
 
 ## Cómo leer cada caso
 
@@ -21,7 +21,7 @@
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 22 | 22 | 0 |
 | [Participantes y pagos](#part) | 7 | 7 | 0 |
-| [Actividades y validación](#act) | 19 | 19 | 0 |
+| [Actividades y validación](#act) | 23 | 23 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
@@ -2069,6 +2069,10 @@
 | [TC-ACT-17](#tc-act-17) | Reto sin regla de FC | Media | Funcional | ✅ Aprobado |
 | [TC-ACT-18](#tc-act-18) | Formulario de subida guiado | Alta | UI | ✅ Aprobado |
 | [TC-ACT-19](#tc-act-19) | El rechazo exige un motivo | Media | Negativo | ✅ Aprobado |
+| [TC-ACT-20](#tc-act-20) | Calendario propio del reto (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-ACT-21](#tc-act-21) | Tarjeta de hoy en el panel | Alta | UI | ✅ Aprobado |
+| [TC-ACT-22](#tc-act-22) | Avisos y límites de fecha en la subida | Alta | UI | ✅ Aprobado |
+| [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -2627,23 +2631,26 @@
 
 - Reto con mínimo de FC seleccionado.
 
-**Datos de prueba:** 12 min de FC; luego minutos suficientes con captura y foto
+**Datos de prueba:** 12 min de FC; luego minutos suficientes con captura y foto; un día que ya tiene actividad
 
 **Pasos**
 
 1. Ingresar minutos por debajo del mínimo.
 2. Completar minutos, captura y foto.
+3. Elegir en la fecha un día que ya tiene actividad propia.
 
 **Resultado esperado**
 
 - Con minutos insuficientes el botón Registrar actividad queda deshabilitado y un aviso explica el mínimo.
 - Con todo en regla el botón se habilita.
+- Con un día ya registrado (o de descanso) aparece el aviso bajo la fecha y el botón queda deshabilitado.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `02-activity-upload.spec.ts` | el formulario guía y bloquea hasta cumplir la regla de FC |
+| ✅ | UI | `02-activity-upload.spec.ts` | rechaza una segunda actividad para el mismo día |
 | ✅ | Guía | `capture.spec.ts` | formulario de subida bloqueado y listo |
 
 <a id="tc-act-19"></a>
@@ -2673,6 +2680,185 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | VAL: rechazar exige un motivo de al menos 3 caracteres (400) |
+
+<a id="tc-act-20"></a>
+
+### TC-ACT-20 · Calendario propio del reto (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Funcional | 4.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo de 31 días con validDays lunes a sábado.
+- Participante inscrito con actividades validada, pendiente y rechazada; otro participante con actividad el mismo día; un participante no inscrito.
+
+**Datos de prueba:** GET /api/activities/me/calendar?challengeId=<id>
+
+**Pasos**
+
+1. Consultar el calendario del participante.
+2. Registrar en un día valid:true y en un día valid:false del período.
+3. Consultar sin challengeId, con uno que no es UUID, con uno inexistente y como no inscrito.
+4. Agregar userId a la query.
+5. Consultar el calendario de un reto COMPLETED.
+
+**Resultado esperado**
+
+- 200 con un día por fecha del período en YYYY-MM-DD, valid según las reglas del registro y el resumen de actividad solo con los campos del contrato (sin fotos ni usuario).
+- summary cuenta días válidos, registradas, validadas, pendientes y rechazadas.
+- Un día valid:true lo acepta POST /activities y uno valid:false recibe el 400 de día de la semana.
+- 400 sin challengeId o con uno inválido, 404 si el reto no existe, 403 "No participas en este reto" si no está inscrito.
+- userId en la query da 400; dos participantes el mismo día ven solo lo propio.
+- Un reto cerrado responde 200 con los mismos días y actividades.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `calendar.spec.ts` | devuelve un día por fecha del período, en orden y con llaves YYYY-MM-DD |
+| ✅ | Unitaria | `calendar.spec.ts` | marca los domingos como descanso y cuenta los días válidos |
+| ✅ | Unitaria | `calendar.spec.ts` | el resumen de la actividad tiene exactamente las llaves del contrato (sin fotos ni usuario) |
+| ✅ | Unitaria | `calendar.spec.ts` | cuenta validadas, pendientes y rechazadas |
+| ✅ | Unitaria | `calendar.spec.ts` | una actividad en un día que ya no es válido se conserva y se cuenta |
+| ✅ | Unitaria | `calendar.spec.ts` | omite una actividad fuera del período |
+| ✅ | Unitaria | `calendar.spec.ts` | soporta un período que cruza de mes |
+| ✅ | Unitaria | `calendar.spec.ts` | febrero bisiesto tiene 29 días y uno no bisiesto 28 |
+| ✅ | Unitaria | `calendar.spec.ts` | heartRateCompliant sale de la regla de FC del reto |
+| ✅ | Unitaria | `calendar.spec.ts` | un día válido es exactamente uno que create aceptaría por período y día de la semana |
+| ✅ | Unitaria | `activities.service.spec.ts` | 404 si el reto no existe |
+| ✅ | Unitaria | `activities.service.spec.ts` | 403 "No participas en este reto" si el usuario no está inscrito |
+| ✅ | Unitaria | `activities.service.spec.ts` | consulta solo las actividades del usuario del JWT en ese reto, sin fotos ni usuario |
+| ✅ | Unitaria | `activities.service.spec.ts` | responde para un reto en cualquier estado y no escribe nada |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | arma el mes de 31 días con actividad validada, pendiente y rechazada, y el descanso |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | un día valid:true lo acepta POST /activities y uno valid:false dentro del período recibe el 400 de día de la semana |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | dos participantes el mismo día ven solo lo propio |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | 400 sin challengeId o con uno que no es UUID |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | 404 si el reto no existe |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | 403 "No participas en este reto" para quien no está inscrito |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | userId en la query se rechaza con 400 y no devuelve calendario |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | exige sesión |
+| ✅ | API e2e | `activity-calendar.e2e-spec.ts` | un reto COMPLETED sigue respondiendo 200 con los mismos días y actividades |
+
+<a id="tc-act-21"></a>
+
+### TC-ACT-21 · Tarjeta de hoy en el panel
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | UI | 4.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo de lunes a sábado.
+
+**Datos de prueba:** Reloj del navegador en un día válido sin actividad, en un domingo, antes y después del período, y en un día con actividad
+
+**Pasos**
+
+1. Abrir el panel un día válido sin actividad y pulsar Registrar hoy.
+2. Abrir el panel en domingo, antes del período, después del período y en un día ya registrado.
+
+**Resultado esperado**
+
+- Aparece "Hoy es día válido y aún no registraste tu actividad" y Registrar hoy abre la subida con la fecha de hoy.
+- "Hoy es día de descanso", "El reto empieza el …" y "El período del reto terminó" no ofrecen Registrar hoy.
+- "Hoy ya está" con el estado cuando hay actividad.
+- Mientras el calendario carga o falla, el panel conserva el botón anterior.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `calendar.test.ts` | todayDuty: hoy ya registrado |
+| ✅ | Web (unitaria) | `calendar.test.ts` | todayDuty: día válido y abierto |
+| ✅ | Web (unitaria) | `calendar.test.ts` | todayDuty: día de descanso |
+| ✅ | Web (unitaria) | `calendar.test.ts` | todayDuty: antes del período y después del período |
+| ✅ | Web (unitaria) | `calendar.test.ts` | dayState: la actividad manda sobre cualquier otra condición |
+| ✅ | Web (unitaria) | `calendar.test.ts` | dayState: descanso, sin registro, hoy abierto y futuro |
+| ✅ | UI | `13-my-month.spec.ts` | la tarjeta de hoy guía según el día y la subida avisa un día de descanso |
+| ✅ | Guía | `capture.spec.ts` | tarjeta de hoy y aviso de fecha en la subida |
+
+<a id="tc-act-22"></a>
+
+### TC-ACT-22 · Avisos y límites de fecha en la subida
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | UI | 4.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito; calendario del reto cargado.
+
+**Datos de prueba:** Fecha de descanso, fuera del período y con actividad; /dashboard/upload?date=<día>
+
+**Pasos**
+
+1. Abrir la subida desde Registrar hoy o con ?date= de un día del período.
+2. Elegir un domingo, un día ya registrado y un día fuera del período.
+
+**Resultado esperado**
+
+- El campo fecha limita al período y a hoy (min y max) y se precarga con ?date= si es un día del calendario, o con hoy.
+- Se muestra "Ese día es de descanso en este reto", "La fecha está fuera del período del reto" o "Ya registraste una actividad para ese día" y el botón queda deshabilitado.
+- Sin datos del calendario el formulario se comporta como antes y la API valida igual.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `calendar.test.ts` | uploadDateBounds: min es el inicio y max el menor entre el fin y hoy |
+| ✅ | Web (unitaria) | `calendar.test.ts` | resolveUploadDate: ?date= solo si es un día del calendario; si no, hoy |
+| ✅ | Web (unitaria) | `calendar.test.ts` | dateHint: descanso, fuera del período y ya registrado, con los textos de la API |
+| ✅ | UI | `13-my-month.spec.ts` | la tarjeta de hoy guía según el día y la subida avisa un día de descanso |
+| ✅ | Guía | `capture.spec.ts` | tarjeta de hoy y aviso de fecha en la subida |
+
+<a id="tc-act-23"></a>
+
+### TC-ACT-23 · Mi mes: estados, enlaces, racha y teléfono
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | UI | 4.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo de lunes a sábado con actividades validada, pendiente y rechazada y días sin registro.
+
+**Datos de prueba:** Reloj del navegador en un día válido del período; viewport de 375 px
+
+**Pasos**
+
+1. Abrir el panel y leer la sección Mi mes.
+2. Activar un día sin registro y un día rechazado.
+3. Abrir el panel con un viewport de 375 px.
+
+**Resultado esperado**
+
+- Una tabla con título y encabezados de día (lunes primero) muestra cada día como Validado, Pendiente, Rechazado, Sin registro, Hoy, Descanso o Por venir, con símbolo, texto y color, y la leyenda lista los siete estados.
+- Hoy lleva aria-current y el nombre accesible de cada día incluye su fecha completa y su estado.
+- Se muestran "X de Y días válidos registrados" y la racha (cuenta pendientes y validados, salta descansos, hoy abierto no la corta, rechazado o sin registro sí); es solo informativa.
+- Un día sin registro abre la subida con esa fecha; un día con actividad lleva a su fila en Mis actividades; descanso y por venir no son enlaces.
+- A 375 px no hay scroll horizontal y las celdas miden al menos 40 px.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `calendar.test.ts` | weeksOf: las semanas empiezan en lunes y los extremos van en blanco |
+| ✅ | Web (unitaria) | `calendar.test.ts` | weeksOf: un período que empieza en lunes y termina en domingo no tiene blancos |
+| ✅ | Web (unitaria) | `calendar.test.ts` | weeksOf: un período que cruza de mes conserva el orden y no inventa días |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: cuenta pendientes y validados saltando el descanso, y hoy abierto no la rompe |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: hoy con actividad suma |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: un día rechazado la termina |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: un día válido pasado sin registro la termina |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: sin actividades, al inicio del reto y antes del período vale 0 |
+| ✅ | Web (unitaria) | `calendar.test.ts` | currentStreak: los días futuros no cuentan y hoy pasado el período cuenta hacia atrás |
+| ✅ | UI | `13-my-month.spec.ts` | Mi mes muestra cada estado, la racha y cabe en el teléfono |
+| ✅ | UI | `13-my-month.spec.ts` | un día sin registro abre la subida con esa fecha |
+| ✅ | Guía | `capture.spec.ts` | Mi mes con los estados, la leyenda y la racha |
 
 <a id="res"></a>
 

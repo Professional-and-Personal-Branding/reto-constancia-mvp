@@ -386,7 +386,8 @@ export class ChallengesService {
     return challenge;
   }
 
-  private async assertEnrolled(challengeId: string, userId: string) {
+  /** El usuario participa en el reto (403 "No participas en este reto"); lo usan escrituras y lecturas propias. */
+  async assertEnrolled(challengeId: string, userId: string) {
     const participation = await this.prisma.challengeParticipant.findUnique({
       where: { challengeId_userId: { challengeId, userId } },
     });

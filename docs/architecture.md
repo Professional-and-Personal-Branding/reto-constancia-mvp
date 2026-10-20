@@ -294,7 +294,7 @@ Comandos, variables y pasos: `docs/deploy-seenode.md`. Migraciones con
 | Retos | `GET /challenges` · `GET /challenges/active` · `GET /challenges/active/list` · `GET /challenges/:id` · `:id/results` · `:id/participants` | autenticado |
 | Participantes | `POST/DELETE /challenges/:id/participants...` · `PATCH .../payment` | ADMIN |
 | Pagos | `PATCH /challenges/:id/participants/me/payment-proof` | participante |
-| Actividades | `POST /activities` · `GET /activities/me` · `DELETE /activities/:id` | autenticado |
+| Actividades | `POST /activities` · `GET /activities/me` · `GET /activities/me/calendar?challengeId=` · `DELETE /activities/:id` | autenticado |
 | Actividades | `GET /activities` · `GET /activities/pending` · `:id/validate` · `:id/reject` | ADMIN |
 | Upload | `POST /upload/sign` · `POST /upload/local` (dev) | autenticado / público(dev) |
 | Import | `GET /import/template` · `POST /import/activities/preview` · `/commit` · `GET /import/sheet/status` · `POST /import/sheet/preview` · `/commit` | ADMIN |

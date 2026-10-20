@@ -127,8 +127,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 65 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio) y 20 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 135 casos de `docs/qa/` están enlazados a 621 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 68 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 21 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 139 casos de `docs/qa/` están enlazados a 667 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -141,6 +141,67 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-17 · v1.10.0 (rama `release/1.10.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Una primera batería arrancó con Docker detenido (Postgres no disponible) y se descartó;
+se levantó Docker y se repitió completa.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **139 de 139 casos aprobados** (138
+automatizados, 1 manual) con 667 pruebas ejecutadas y 0 fallidas; "Pruebas sin caso: 0".
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones
+nuevas. El archivo de OpenSpec creó el spec `participant-calendar` con Purpose real;
+`openspec validate --all --strict` pasa (11 de 11).
+
+### 2026-10-16 · rama `feature/participant-my-month-grid` (calendario propio, incremento 2: "Mi mes")
+
+Base reiniciada con `npx prisma migrate reset --force` antes de la batería y de nuevo antes del
+validador. Se recompilaron API y web con la batería (Playwright sirve los builds ya compilados).
+
+**Batería** (`node scripts/run-tests.mjs`): 13 de 13 pasos en verde.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): 139 de 139 casos aprobados (138
+automatizados) con 667 pruebas y 0 fallidas; 0 pruebas sin caso:
+- unitarias del backend: 321;
+- unitarias de la web: 40;
+- e2e de API: 144;
+- recorridos de UI: 69 (con la preparación);
+- capturas de la guía: 23 (con la preparación);
+- sesiones paralelas: 70.
+
+Caso nuevo: TC-ACT-23 (Mi mes: estados, enlaces, racha y teléfono). Guía: paso 4.4 con la captura 32;
+se regeneraron 03 y 12 porque el panel ahora incluye la sección. Sin migraciones, dependencias,
+variables nuevas ni cambios en la API. Ninguna prueba existente cambió.
+
+### 2026-10-16 · rama `feature/participant-my-month-calendar` (calendario propio, incremento 1)
+
+Base reiniciada con `npx prisma migrate reset --force` antes de la batería y de nuevo antes del
+validador. Se recompilaron API y web con la batería (Playwright sirve los builds ya compilados).
+
+**Batería** (`node scripts/run-tests.mjs`): 13 de 13 pasos en verde.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): 138 de 138 casos aprobados (137
+automatizados) con 655 pruebas y 0 fallidas; 0 pruebas sin caso:
+- unitarias del backend: 321;
+- unitarias de la web: 31;
+- e2e de API: 144;
+- recorridos de UI: 67 (con la preparación);
+- capturas de la guía: 22 (con la preparación);
+- sesiones paralelas: 70.
+
+Casos nuevos: TC-ACT-20 (calendario propio por la API), TC-ACT-21 (tarjeta de hoy) y TC-ACT-22
+(avisos y límites de fecha en la subida); actualizado TC-ACT-18. Guía: pasos 4.1, 4.3 y 4.5 con las
+capturas 30 y 31. Sin migraciones, dependencias ni variables nuevas.
+
+**Nota:** el recorrido de la segunda actividad del mismo día (`02-activity-upload`) ahora comprueba
+el aviso y el botón deshabilitado en lugar de provocar el 409 desde el formulario; el 409 de la API
+sigue cubierto por las pruebas de la API. La suite de capturas fija el reloj de la subida dentro
+del período para no depender de la fecha de la corrida.
 
 ### 2026-10-11 · v1.9.0 (rama `release/1.9.0`)
 

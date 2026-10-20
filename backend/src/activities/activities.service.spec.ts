@@ -389,3 +389,55 @@ describe('ActivitiesService.remove: libera las fotos (upload-asset-cleanup)', ()
     expect(stranger.later).not.toHaveBeenCalled();
   });
 });
+
+describe('ActivitiesService.myCalendar (calendario propio, solo lectura)', () => {
+  function build(opts: { challenge?: unknown; enrolled?: boolean; many?: unknown[] } = {}) {
+    const found = opts.challenge === undefined ? challenge : opts.challenge;
+    const findMany = jest.fn().mockResolvedValue(opts.many ?? []);
+    const writes = { create: jest.fn(), update: jest.fn(), delete: jest.fn() };
+    const prisma = withLocks({
+      challenge: { findUnique: jest.fn().mockResolvedValue(found) },
+      challengeParticipant: {
+        findUnique: jest.fn().mockResolvedValue(opts.enrolled === false ? null : { id: 'p1' }),
+      },
+      dailyActivity: { findMany, ...writes },
+    } as unknown as PrismaService);
+    return { svc: service(prisma), findMany, writes };
+  }
+
+  it('404 si el reto no existe', async () => {
+    const { svc } = build({ challenge: null });
+    await expect(svc.myCalendar('u1', 'c1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('403 "No participas en este reto" si el usuario no está inscrito', async () => {
+    const { svc, findMany } = build({ enrolled: false });
+    const err = await svc.myCalendar('u1', 'c1').catch((e) => e);
+    expect(err).toBeInstanceOf(ForbiddenException);
+    expect(err.message).toBe('No participas en este reto');
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('consulta solo las actividades del usuario del JWT en ese reto, sin fotos ni usuario', async () => {
+    const { svc, findMany } = build();
+    await svc.myCalendar('u1', 'c1');
+    const args = findMany.mock.calls[0][0];
+    expect(args.where).toEqual({ challengeId: 'c1', userId: 'u1' });
+    expect(args.select.photos).toBeUndefined();
+    expect(args.select.user).toBeUndefined();
+    expect(args.include).toBeUndefined();
+  });
+
+  it('responde para un reto en cualquier estado y no escribe nada', async () => {
+    for (const status of [ChallengeStatus.DRAFT, ChallengeStatus.ACTIVE, ChallengeStatus.COMPLETED]) {
+      const { svc, writes } = build({ challenge: { ...challenge, status } });
+      const cal = await svc.myCalendar('u1', 'c1');
+      expect(cal.challengeId).toBe('c1');
+      expect(cal.status).toBe(status);
+      expect(cal.days).toHaveLength(31);
+      expect(writes.create).not.toHaveBeenCalled();
+      expect(writes.update).not.toHaveBeenCalled();
+      expect(writes.delete).not.toHaveBeenCalled();
+    }
+  });
+});

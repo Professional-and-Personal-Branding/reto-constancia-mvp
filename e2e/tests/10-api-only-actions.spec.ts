@@ -130,7 +130,8 @@ test.describe('Participante', () => {
     await page.getByRole('button', { name: 'Sí, retirar' }).click();
     await expect(page.getByText('Aún no has registrado ninguna actividad.')).toBeVisible();
     await expect(pendingStat).toContainText('0');
-    await expect(page.getByRole('link', { name: 'Subir actividad de hoy' })).toBeVisible();
+    // El calendario se refresca solo: el día vuelve a estar abierto
+    await expect(page.getByRole('link', { name: 'Registrar hoy' })).toBeVisible();
 
     const gone = await api('GET', `/activities/me?challengeId=${challengeId}`, { token: tokens().participant });
     expect((gone.body as { id: string }[]).some((a) => a.id === activity.id)).toBe(false);
