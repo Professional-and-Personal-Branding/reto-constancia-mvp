@@ -16,7 +16,7 @@ import { selectChallenge } from '../fixtures/ui';
 /**
  * Acciones que antes solo existían por API (spec web-api-only-actions): editar un reto,
  * retirar una actividad pendiente y registrar un pago parcial.
- * Casos cubiertos: TC-CHAL-05, TC-ACT-12, TC-FIN-01.
+ * Casos cubiertos: TC-CHAL-05, TC-ACT-12, TC-ACT-24, TC-FIN-01.
  */
 const MONTH = 1;
 const CLOSED_MONTH = 2;
@@ -137,12 +137,44 @@ test.describe('Participante', () => {
     expect((gone.body as { id: string }[]).some((a) => a.id === activity.id)).toBe(false);
   });
 
-  test('las actividades validadas o rechazadas no ofrecen retirar', async ({ page }) => {
+  test('las actividades validadas no ofrecen retirar', async ({ page }) => {
     const activity = await createActivity(challengeId, e2eDate(MONTH, 7), { distanceKm: 4 });
     await api('POST', `/activities/${activity.id}/validate`, { token: tokens().admin });
     await selectChallenge(page, challengeId, '/dashboard');
     const list = page.getByLabel('Mis actividades');
     await expect(list).toContainText('Validado');
     await expect(list.getByRole('button', { name: 'Retirar' })).toHaveCount(0);
+  });
+
+  test('corrige un día rechazado: lo retira y lo registra de nuevo', async ({ page }) => {
+    // El navegador cree que hoy es el 20 de enero: el 9 es un día válido pasado
+    await page.clock.setFixedTime(new Date(`${e2eDate(MONTH, 20)}T12:00:00`));
+    const day = e2eDate(MONTH, 9);
+    const activity = await createActivity(challengeId, day, { distanceKm: 3 });
+    const reject = await api('POST', `/activities/${activity.id}/reject`, {
+      token: tokens().admin,
+      body: { reason: 'La foto no muestra el entrenamiento' },
+    });
+    expect([200, 201]).toContain(reject.status);
+
+    await selectChallenge(page, challengeId, '/dashboard');
+    const list = page.getByLabel('Mis actividades');
+    await expect(list).toContainText('La foto no muestra el entrenamiento');
+    await expect(list).toContainText('Puedes retirarla y registrar ese día de nuevo.');
+
+    await list.getByRole('button', { name: 'Retirar' }).click();
+    await expect(list).toContainText('¿Retirar esta actividad rechazada? Se borrará con sus fotos y podrás registrar ese día de nuevo.');
+    await page.getByRole('button', { name: 'Sí, retirar' }).click();
+
+    await expect(page.getByText('Actividad retirada.')).toBeVisible();
+    await expect(page.getByText('Aún no has registrado ninguna actividad.')).toBeVisible();
+    await page.getByRole('link', { name: 'Registrar ese día' }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/dashboard/upload[?]date=${day}`));
+    await expect(page.getByText('Ya registraste una actividad para ese día')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Registrar actividad' })).toBeEnabled();
+
+    const gone = await api('GET', `/activities/me?challengeId=${challengeId}`, { token: tokens().participant });
+    expect((gone.body as { id: string }[]).some((a) => a.id === activity.id)).toBe(false);
   });
 });
