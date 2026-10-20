@@ -18,7 +18,16 @@ import { ResultsService } from './results.service';
 import type { ParticipantRanking } from './results.service';
 import { computeFinance, computePayout, PaymentState, ChallengePayout, proofToReview, toMoney } from './finance.service';
 import { AUTO_DRAW_NOTE } from './scoring';
-import { enrollMany, EnrollManyResult, USER_INACTIVE_MESSAGE } from './enrollment';
+import { enrollMany, EnrollManyResult, EnrollmentRow, EnrollmentSkip, USER_INACTIVE_MESSAGE } from './enrollment';
+import {
+  dateOnly,
+  monthPeriod,
+  nextMonth,
+  renewableRules,
+  RenewableRules,
+  RENEW_DRAFT_MESSAGE,
+  suggestedName,
+} from './renewal';
 import { buildChallengeCsv, ExportParticipant, exportFilename } from './challenge-export';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
@@ -57,6 +66,23 @@ export interface PreviewWinner {
   name: string;
   score: number;
   totalKm: number;
+}
+
+/** Vista previa de la renovación (spec challenge-renewal). */
+export interface RenewalPreview {
+  source: { id: string; name: string; month: number; year: number; status: ChallengeStatus };
+  target: { month: number; year: number; name: string; startDate: string; endDate: string };
+  rules: RenewableRules & { budgetMode: 'auto' | 'manual' };
+  participants: {
+    toCopy: EnrollmentRow[];
+    skipped: (EnrollmentRow & { reason: 'INACTIVE'; message: string })[];
+  };
+  existing: { id: string; name: string; status: ChallengeStatus } | null;
+}
+
+export interface RenewResult {
+  challenge: Challenge;
+  participants: { enrolled: EnrollmentRow[]; skipped: EnrollmentSkip[] };
 }
 
 const PENDING_PREVIEW_LIMIT = 50;
@@ -302,6 +328,105 @@ export class ChallengesService {
    */
   bulkAddParticipants(challengeId: string, userIds: string[]): Promise<EnrollManyResult> {
     return this.writeWhileOpen(challengeId, (tx) => enrollMany(tx, challengeId, userIds));
+  }
+
+  // ----- Renovación mensual (spec challenge-renewal) -----
+
+  /** Reto origen con su plantilla de inscritos; solo se puede renovar uno activo o cerrado. */
+  private async loadRenewalSource(id: string) {
+    const source = await this.prisma.challenge.findUnique({
+      where: { id },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, email: true, active: true } } },
+        },
+      },
+    });
+    if (!source) throw new NotFoundException('Reto no encontrado');
+    if (source.status === ChallengeStatus.DRAFT) throw new BadRequestException(RENEW_DRAFT_MESSAGE);
+    const target = nextMonth(source.month, source.year);
+    return { source, target };
+  }
+
+  /** Vista previa de la renovación: solo lectura, sin locks (el `renew` recalcula todo). */
+  async renewalPreview(id: string): Promise<RenewalPreview> {
+    const { source, target } = await this.loadRenewalSource(id);
+    const period = monthPeriod(target.month, target.year);
+    const existing = await this.prisma.challenge.findUnique({
+      where: { month_year: { month: target.month, year: target.year } },
+      select: { id: true, name: true, status: true },
+    });
+    const byName = [...source.participants].sort((a, b) => a.user.name.localeCompare(b.user.name));
+    const person = (p: (typeof byName)[number]) => ({
+      userId: p.user.id,
+      name: p.user.name,
+      email: p.user.email,
+    });
+    return {
+      source: { id: source.id, name: source.name, month: source.month, year: source.year, status: source.status },
+      target: {
+        ...target,
+        name: suggestedName(target.month, target.year),
+        startDate: dateOnly(period.startDate),
+        endDate: dateOnly(period.endDate),
+      },
+      rules: { ...renewableRules(source), budgetMode: source.budgetTotal === null ? 'auto' : 'manual' },
+      participants: {
+        toCopy: byName.filter((p) => p.user.active).map(person),
+        skipped: byName
+          .filter((p) => !p.user.active)
+          .map((p) => ({ ...person(p), reason: 'INACTIVE' as const, message: USER_INACTIVE_MESSAGE })),
+      },
+      existing: existing ?? null,
+    };
+  }
+
+  /**
+   * Crea el reto del mes siguiente en DRAFT con solo las reglas del origen y, si se pide, copia a
+   * sus inscritos activos, todo en una transacción. El origen solo se lee. La unicidad de
+   * (mes, año) es la llave de idempotencia: un mes ya ocupado, también por una carrera, da 409.
+   */
+  async renew(id: string, dto: { name?: string; copyParticipants?: boolean }): Promise<RenewResult> {
+    const { source, target } = await this.loadRenewalSource(id);
+    const conflict = (existingId: string) =>
+      new ConflictException({
+        statusCode: 409,
+        message: `Ya existe un reto para ${target.month}/${target.year}`,
+        error: 'Conflict',
+        existingChallengeId: existingId,
+      });
+    const monthKey = { month_year: { month: target.month, year: target.year } };
+    const existing = await this.prisma.challenge.findUnique({ where: monthKey, select: { id: true } });
+    if (existing) throw conflict(existing.id);
+
+    const period = monthPeriod(target.month, target.year);
+    const name = dto.name?.trim() || suggestedName(target.month, target.year);
+    const sourceUserIds = source.participants.map((p) => p.userId);
+    try {
+      return await withChallengeLock(this.prisma, async (tx) => {
+        const challenge = await tx.challenge.create({
+          data: {
+            ...renewableRules(source),
+            name,
+            month: target.month,
+            year: target.year,
+            startDate: period.startDate,
+            endDate: period.endDate,
+            status: ChallengeStatus.DRAFT,
+          },
+        });
+        const copied = dto.copyParticipants
+          ? await enrollMany(tx, challenge.id, sourceUserIds)
+          : { enrolled: [], alreadyEnrolled: [], skipped: [] };
+        return { challenge, participants: { enrolled: copied.enrolled, skipped: copied.skipped } };
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        const winner = await this.prisma.challenge.findUnique({ where: monthKey, select: { id: true } });
+        if (winner) throw conflict(winner.id);
+      }
+      throw e;
+    }
   }
 
   async removeParticipant(challengeId: string, userId: string) {
