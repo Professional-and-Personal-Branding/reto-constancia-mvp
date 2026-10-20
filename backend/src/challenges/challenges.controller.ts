@@ -36,6 +36,7 @@ import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
 import { BulkAddParticipantsDto } from './dto/bulk-add-participants.dto';
+import { RenewChallengeDto } from './dto/renew-challenge.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
 import { AwardChallengeDto } from './dto/award-challenge.dto';
@@ -136,6 +137,25 @@ export class ChallengesController {
   @ApiResponse({ status: 403, description: 'Solo administradores' })
   activate(@Param('id') id: string) {
     return this.challenges.activate(id);
+  }
+
+  @Get(':id/renewal-preview')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Vista previa de la renovación (admin, solo lectura)' })
+  @ApiResponse({ status: 400, description: 'Solo se puede renovar un reto activo o cerrado' })
+  @ApiResponse({ status: 403, description: 'Solo administradores' })
+  renewalPreview(@Param('id') id: string) {
+    return this.challenges.renewalPreview(id);
+  }
+
+  @Post(':id/renew')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Renovar el reto en el mes siguiente, en borrador (admin)' })
+  @ApiResponse({ status: 400, description: 'Solo se puede renovar un reto activo o cerrado' })
+  @ApiResponse({ status: 403, description: 'Solo administradores' })
+  @ApiResponse({ status: 409, description: 'Ya existe un reto para M/AAAA (incluye existingChallengeId)' })
+  renew(@Param('id') id: string, @Body() dto: RenewChallengeDto) {
+    return this.challenges.renew(id, dto);
   }
 
   @Get(':id/close-preview')
