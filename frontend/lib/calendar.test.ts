@@ -11,6 +11,7 @@ import {
   HINT_ALREADY_REGISTERED,
   HINT_OUTSIDE_PERIOD,
   HINT_REST_DAY,
+  canRegisterAgain,
   currentStreak,
   resolveUploadDate,
   todayDuty,
@@ -219,4 +220,13 @@ test('currentStreak: los días futuros no cuentan y hoy pasado el período cuent
   ];
   assert.equal(currentStreak(days, '2025-10-07'), 2);
   assert.equal(currentStreak(days, '2025-11-30'), 3);
+});
+
+test('canRegisterAgain: ofrece registrar solo un día válido y libre de un reto activo', () => {
+  assert.equal(canRegisterAgain(october, '2025-10-09'), true);
+  assert.equal(canRegisterAgain(october, '2025-10-10'), false); // ya tiene actividad
+  assert.equal(canRegisterAgain(october, '2025-10-12'), false); // descanso
+  assert.equal(canRegisterAgain(october, '2025-11-01'), false); // fuera del período
+  assert.equal(canRegisterAgain(undefined, '2025-10-09'), false);
+  assert.equal(canRegisterAgain({ ...october, status: 'COMPLETED' }, '2025-10-09'), false);
 });

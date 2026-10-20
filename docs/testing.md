@@ -187,6 +187,33 @@ inscripción individual comprueba `active`.
 
 **Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
 `openspec validate --all --strict` pasa (12 de 12).
+### 2026-10-20 · rama `feature/resubmit-rejected-activity` (reenviar una actividad rechazada, incremento 1)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright con Chromium. Base
+reiniciada con `npx prisma migrate reset --force` antes de la batería y de nuevo antes del validador.
+Una primera batería falló un solo recorrido nuevo (afirmaba una lista vacía, pero el participante ya
+tenía una actividad validada); se corrigió la prueba y la batería se repitió completa.
+
+**Batería** (`node scripts/run-tests.mjs`): 13 de 13 pasos en verde.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): 140 de 140 casos aprobados (139
+automatizados, 1 manual) con 676 pruebas y 0 fallidas; "Pruebas sin caso: 0":
+- unitarias del backend: 326;
+- unitarias de la web: 41;
+- e2e de API: 146;
+- recorridos de UI: 70 (con la preparación);
+- capturas de la guía: 23 (con la preparación);
+- sesiones paralelas: 70.
+
+**Otras:** `openspec validate --all --strict` 12 de 12; `npm audit --omit=dev` en 0 avisos en backend,
+frontend y e2e; escaneo de secretos y formato sin hallazgos. Sin migraciones, dependencias ni variables
+nuevas.
+
+Caso nuevo: TC-ACT-24 (Corregir un día rechazado); actualizados TC-ACT-12 y TC-UP-07. Guía: paso 4.5.
+Pruebas existentes modificadas: el recorrido "las actividades validadas o rechazadas no ofrecen
+retirar" se renombró "las actividades validadas no ofrecen retirar" (mismo cuerpo), y las e2e de API
+"el participante no puede borrar una actividad ya validada" y "FREEZE: en un reto cerrado..." se
+ampliaron (nuevo texto del 403 y una actividad rechazada de un reto cerrado).
 
 ### 2026-10-17 · v1.10.0 (rama `release/1.10.0`)
 

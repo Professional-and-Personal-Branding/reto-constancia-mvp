@@ -43,6 +43,17 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
   inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
   reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
+- **Retirar una actividad rechazada** (cambio `resubmit-rejected-activity`, incremento 1): una
+  actividad rechazada se puede retirar desde "Mis actividades" para registrar ese día de nuevo.
+  **Sin migración, sin dependencias y sin variables nuevas**; para volver atrás se redespliega la
+  versión anterior.
+  - `DELETE /api/activities/:id`: el dueño puede borrar su actividad `PENDING` o `REJECTED` mientras el
+    reto no esté cerrado; una validada responde 403 "Solo se pueden eliminar actividades pendientes o
+    rechazadas". Se borran también sus fotos y el motivo del rechazo; el día queda libre y el registro
+    nuevo pasa por las reglas de siempre (queda pendiente de validación).
+  - Panel: las filas rechazadas muestran el aviso "Puedes retirarla y registrar ese día de nuevo." y el
+    botón *Retirar* con su confirmación; después aparece "Actividad retirada." con el enlace
+    *Registrar ese día*.
 
 ## [1.10.0] — 2026-10-17
 
