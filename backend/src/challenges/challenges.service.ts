@@ -18,6 +18,7 @@ import { ResultsService } from './results.service';
 import type { ParticipantRanking } from './results.service';
 import { computeFinance, computePayout, PaymentState, ChallengePayout, proofToReview, toMoney } from './finance.service';
 import { AUTO_DRAW_NOTE } from './scoring';
+import { enrollMany, EnrollManyResult, USER_INACTIVE_MESSAGE } from './enrollment';
 import { buildChallengeCsv, ExportParticipant, exportFilename } from './challenge-export';
 
 /** Inscritos con su usuario, tal como los leen el detalle y la lista de retos activos. */
@@ -271,6 +272,7 @@ export class ChallengesService {
     ]);
     if (!challenge) throw new NotFoundException('Reto no encontrado');
     if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user.active) throw new BadRequestException(USER_INACTIVE_MESSAGE);
     if (challenge.status === ChallengeStatus.COMPLETED) {
       throw new BadRequestException('No se puede modificar un reto cerrado');
     }
@@ -291,6 +293,15 @@ export class ChallengesService {
       }
       throw e;
     }
+  }
+
+  /**
+   * Inscribe a varios usuarios en una sola transacción bajo el lock del reto (spec
+   * challenge-enrollment): un reto cerrado rechaza todo con 400; los problemas por usuario no
+   * fallan el resto y quedan en `skipped`.
+   */
+  bulkAddParticipants(challengeId: string, userIds: string[]): Promise<EnrollManyResult> {
+    return this.writeWhileOpen(challengeId, (tx) => enrollMany(tx, challengeId, userIds));
   }
 
   async removeParticipant(challengeId: string, userId: string) {

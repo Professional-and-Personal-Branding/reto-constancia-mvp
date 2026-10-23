@@ -5,6 +5,26 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Inscripción en bloque** (cambio `monthly-challenge-renewal`, PR 1): **sin migración, sin
+  dependencias y sin variables nuevas**; API y web se despliegan juntas. Para volver atrás se
+  redespliega la versión anterior (no hay datos que deshacer).
+  - `POST /api/challenges/:id/participants/bulk` (solo admin) con `{ userIds }` (de 1 a 200 UUID):
+    responde `200` con `enrolled`, `alreadyEnrolled` y `skipped` (motivo `NOT_FOUND` o `INACTIVE`).
+    Una sola transacción bajo el lock del reto: un reto cerrado rechaza todo con `400` y un lock que
+    no se obtiene en 5 s responde `409`. Repetir la petición no inscribe a nadie nuevo; los ids
+    repetidos cuentan una vez; los inscritos empiezan impagos y sin comprobante.
+  - Participantes (admin): casilla por candidato, "Seleccionar todos" e "Inscribir seleccionados (N)",
+    con un resumen del resultado ("3 inscritos · 1 ya estaba inscrito · 1 omitido: Luis (usuario
+    inactivo)"). El "+ Inscribir" por fila sigue igual.
+
+### Cambiado
+
+- La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
+  inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
+  reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
+
 ## [1.10.0] — 2026-10-17
 
 Calendario "Mi mes": tarjeta de hoy, pistas de fecha al subir y grilla del mes con racha. **No trae
