@@ -5,6 +5,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Seguridad
+
+- `next` pasa a 15.5.28 en el frontend: corrige GHSA-2464-fhr4-w9xw (ejecución remota de código sin
+  autenticación en la API de optimización de imágenes con SVG, crítico) y GHSA-p3m5-59mp-jv5r (denegación de
+  servicio con Server Actions). Producción vuelve a 0 avisos; la CI lo había detectado en la auditoría.
+
 ## [1.10.0] — 2026-10-17
 
 Calendario "Mi mes": tarjeta de hoy, pistas de fecha al subir y grilla del mes con racha. **No trae
