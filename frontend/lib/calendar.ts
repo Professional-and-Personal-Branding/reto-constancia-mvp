@@ -99,3 +99,14 @@ export function currentStreak(days: CalendarDay[], today: string): number {
   }
   return streak;
 }
+
+/**
+ * ¿Se ofrece "Registrar ese día" tras retirar una actividad rechazada? Solo si el reto sigue activo
+ * y el calendario ya refrescado marca ese día como válido y sin registro. La API sigue decidiendo
+ * al registrar (spec activity-withdrawal).
+ */
+export function canRegisterAgain(calendar: MyCalendar | undefined, date: string): boolean {
+  if (!calendar || calendar.status !== 'ACTIVE') return false;
+  const entry = calendar.days.find((d) => d.date === date);
+  return !!entry && entry.valid && !entry.activity;
+}

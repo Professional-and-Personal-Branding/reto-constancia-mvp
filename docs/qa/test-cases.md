@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-17** · rama `release/1.10.0` · commit `480e48d`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-20** · rama `feature/resubmit-rejected-activity` · commit `03a37d5`. Detalle en [validation-report.md](validation-report.md).
 
-**139 casos** · 139 aprobados · 0 fallidos · 0 con limitación conocida · 138 automatizados.
+**140 casos** · 140 aprobados · 0 fallidos · 0 con limitación conocida · 139 automatizados.
 
 ## Cómo leer cada caso
 
@@ -21,7 +21,7 @@
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 22 | 22 | 0 |
 | [Participantes y pagos](#part) | 7 | 7 | 0 |
-| [Actividades y validación](#act) | 23 | 23 | 0 |
+| [Actividades y validación](#act) | 24 | 24 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
@@ -2073,6 +2073,7 @@
 | [TC-ACT-21](#tc-act-21) | Tarjeta de hoy en el panel | Alta | UI | ✅ Aprobado |
 | [TC-ACT-22](#tc-act-22) | Avisos y límites de fecha en la subida | Alta | UI | ✅ Aprobado |
 | [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
+| [TC-ACT-24](#tc-act-24) | Corregir un día rechazado | Alta | Funcional | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -2417,7 +2418,7 @@
 
 **Precondiciones**
 
-- Actividades propias PENDING y VALIDATED; actividad ajena.
+- Actividades propias PENDING, REJECTED y VALIDATED; actividad ajena.
 - Web: el navegador con fecha 2025-01-06, dentro del reto de prueba, y una actividad pendiente ese día.
 
 **Datos de prueba:** Web: Mis actividades > Retirar (Cancelar y luego Sí, retirar). API: DELETE /api/activities/:id
@@ -2427,25 +2428,28 @@
 1. En Mis actividades pulsar Retirar y cancelar.
 2. Pulsar Retirar y confirmar.
 3. Ver una actividad validada.
-4. Por API: borrar la propia pendiente, una ajena y la propia validada; luego como admin.
+4. Por API: borrar la propia pendiente, la propia rechazada, una ajena y la propia validada; luego como admin.
 
 **Resultado esperado**
 
 - Cancelar no borra nada.
 - Al confirmar, la actividad desaparece, Pendientes baja a 0 y vuelve "Subir actividad de hoy".
-- Las validadas y rechazadas no ofrecen Retirar.
-- API: propia pendiente 204; ajena 403; validada 403 para el participante y 204 para el admin.
+- Las validadas no ofrecen Retirar; las pendientes y las rechazadas sí.
+- API: propia pendiente 204; propia rechazada 204; ajena 403; validada 403 para el participante y 204 para el admin.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `10-api-only-actions.spec.ts` | retira una actividad pendiente con confirmación y el día queda libre otra vez |
-| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas o rechazadas no ofrecen retirar |
+| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas no ofrecen retirar |
 | ✅ | Guía | `capture.spec.ts` | retirar una actividad pendiente pide confirmación |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante borra su actividad pendiente (204) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar actividades ajenas (403) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar una actividad ya validada (403); el admin sí |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden |
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño retira su actividad rechazada y se liberan sus fotos |
+| ✅ | Unitaria | `activities.service.spec.ts` | una actividad validada no se retira y no libera nada |
 
 <a id="tc-act-13"></a>
 
@@ -2859,6 +2863,52 @@
 | ✅ | UI | `13-my-month.spec.ts` | Mi mes muestra cada estado, la racha y cabe en el teléfono |
 | ✅ | UI | `13-my-month.spec.ts` | un día sin registro abre la subida con esa fecha |
 | ✅ | Guía | `capture.spec.ts` | Mi mes con los estados, la leyenda y la racha |
+
+<a id="tc-act-24"></a>
+
+### TC-ACT-24 · Corregir un día rechazado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Funcional | 4.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con una actividad rechazada (con motivo) de un día válido pasado y otra validada; un segundo participante.
+
+**Datos de prueba:** Web: Mis actividades > Retirar en la fila rechazada. API: DELETE /api/activities/:id, POST /api/activities
+
+**Pasos**
+
+1. Leer la fila rechazada en Mis actividades.
+2. Activar el día rechazado en Mi mes.
+3. Pulsar Retirar y confirmar.
+4. Seguir el enlace "Registrar ese día".
+5. Registrar de nuevo la fecha.
+6. Por API, intentar borrar la actividad rechazada del otro participante y la de un reto cerrado.
+
+**Resultado esperado**
+
+- La fila muestra el motivo, el aviso "Puedes retirarla y registrar ese día de nuevo." y el botón Retirar.
+- Mi mes lleva a esa fila.
+- Aparece la confirmación específica de las rechazadas.
+- Al confirmar la fila desaparece, se ve "Actividad retirada." con el enlace y el día queda "Sin registro".
+- El formulario abre con esa fecha y sin el aviso "ya registraste".
+- La nueva actividad se crea PENDIENTE y solo puntúa si el admin la valida; el ranking no cambia al retirar.
+- La rechazada de otro participante responde 403 y la de un reto cerrado 400.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño retira su actividad rechazada y se liberan sus fotos |
+| ✅ | Unitaria | `activities.service.spec.ts` | la rechazada de otro participante responde 403 |
+| ✅ | Unitaria | `activities.service.spec.ts` | la rechazada de un reto cerrado responde 400 antes del chequeo de dueño |
+| ✅ | Unitaria | `activities.service.spec.ts` | retirar decide con el estado releído bajo el lock |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: en un reto cerrado nadie valida, rechaza ni borra actividades (400) |
+| ✅ | Web (unitaria) | `calendar.test.ts` | canRegisterAgain: ofrece registrar solo un día válido y libre de un reto activo |
+| ✅ | UI | `10-api-only-actions.spec.ts` | corrige un día rechazado: lo retira y lo registra de nuevo |
 
 <a id="res"></a>
 
@@ -3940,7 +3990,7 @@
 
 **Precondiciones**
 
-- Participante inscrito en un reto activo con una actividad PENDIENTE y dos fotos subidas.
+- Participante inscrito en un reto activo con una actividad PENDIENTE (o RECHAZADA) y dos fotos subidas.
 
 **Datos de prueba:** DELETE /api/activities/:id
 
@@ -3948,13 +3998,14 @@
 
 1. Retirar la actividad.
 2. Revisar el almacenamiento (Cloudinary o backend/uploads).
-3. Repetir con una foto que otra actividad también usa y con una foto importada (import/...).
+3. Repetir con una actividad rechazada, con una foto que otra actividad también usa y con una foto importada (import/...).
 
 **Resultado esperado**
 
 - Responde 204 y las fotos se borran después de guardar el cambio, sin esperar al almacenamiento.
 - Si el almacenamiento falla, la respuesta no cambia y queda un aviso en los Logs solo con el id del archivo.
 - Una foto que otra actividad usa se conserva hasta que se borra la última; las fotos importadas nunca se borran.
+- Retirar una actividad rechazada libera sus fotos igual que una pendiente.
 - Si el borrado de la actividad se rechaza (reto cerrado, 403), no se libera nada.
 
 **Validación automatizada**
@@ -3974,6 +4025,7 @@
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad borra sus fotos del almacenamiento y responde 204 |
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última |
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad rechazada también borra sus fotos del almacenamiento |
 
 <a id="tc-up-08"></a>
 

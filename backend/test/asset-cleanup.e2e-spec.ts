@@ -96,6 +96,19 @@ describe('Limpieza de archivos subidos (e2e, modo local)', () => {
     expect(await gone(hr.path)).toBe(true);
   });
 
+  it('CLEAN: retirar una actividad rechazada también borra sus fotos del almacenamiento', async () => {
+    const photo = await upload('activity', 'rechazada.png');
+    const act = await request(http).post('/api/activities').set(auth(ana)).send(activity(`${YEAR}-01-12`, [photo]));
+    expect(act.status).toBe(201);
+    const rejected = await request(http).post(`/api/activities/${act.body.id}/reject`).set(auth(admin)).send({ reason: 'La foto no se ve' });
+    expect([200, 201]).toContain(rejected.status);
+    expect(existsSync(photo.path)).toBe(true);
+
+    const del = await request(http).delete(`/api/activities/${act.body.id}`).set(auth(ana));
+    expect(del.status).toBe(204);
+    expect(await gone(photo.path)).toBe(true);
+  });
+
   it('CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última', async () => {
     const shared = await upload('activity', 'compartida.png');
     const first = await request(http).post('/api/activities').set(auth(ana)).send(activity(`${YEAR}-01-06`, [shared]));
