@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ChallengeStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ChallengeStatus, Prisma } from '@prisma/client';
 
 import { ChallengesService } from './challenges.service';
 import { ResultsService } from './results.service';
@@ -392,7 +392,7 @@ describe('ChallengesService: escrituras serializadas con el cierre (closed-chall
           update: writes.challengeUpdate,
           findUniqueOrThrow: jest.fn().mockResolvedValue({ ...active, status: ChallengeStatus.COMPLETED }),
         },
-        user: { findUnique: jest.fn().mockResolvedValue({ id: 'u' }) },
+        user: { findUnique: jest.fn().mockResolvedValue({ id: 'u', active: true }) },
         challengeParticipant: {
           findUnique: jest.fn().mockResolvedValue({ id: 'p' }),
           create: writes.participantCreate,
@@ -439,6 +439,81 @@ describe('ChallengesService: escrituras serializadas con el cierre (closed-chall
     (svc as unknown as { prisma: { challenge: { findUnique: jest.Mock } } }).prisma.challenge.findUnique.mockResolvedValueOnce(draft);
     await expect(svc.activate('c')).rejects.toThrow('Un reto cerrado no puede reactivarse');
     expect(writes.challengeUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('ChallengesService: inscripción (challenge-enrollment)', () => {
+  const U1 = '00000000-0000-4000-8000-000000000001';
+  const U2 = '00000000-0000-4000-8000-000000000002';
+
+  function build(status: ChallengeStatus, lockedStatus: ChallengeStatus = status, challengeExists = true) {
+    const writes = {
+      participantCreate: jest.fn().mockResolvedValue({ id: 'p' }),
+      participantCreateMany: jest.fn(async (args: { data: unknown[] }) => ({ count: args.data.length })),
+    };
+    const challenge = challengeExists ? { id: 'c', status } : null;
+    const prisma = withLocks(
+      {
+        challenge: { findUnique: jest.fn().mockResolvedValue(challenge) },
+        user: {
+          findUnique: jest.fn(async (args: { where: { id: string } }) =>
+            args.where.id === 'inactivo' ? { id: 'inactivo', active: false } : args.where.id === 'nadie' ? null : { id: args.where.id, active: true },
+          ),
+          findMany: jest.fn(async (args: { where: { id: { in: string[] } } }) =>
+            args.where.id.in.map((id) => ({ id, name: id, email: id + '@x', active: true })),
+          ),
+        },
+        challengeParticipant: {
+          create: writes.participantCreate,
+          findMany: jest.fn().mockResolvedValue([]),
+          createMany: writes.participantCreateMany,
+        },
+      } as unknown as PrismaService,
+      async (id) => (challengeExists ? { id, status: lockedStatus } : null),
+    );
+    return { svc: challengesService(prisma), writes, prisma };
+  }
+
+  it('la inscripción individual rechaza a un usuario inactivo con 400, sin inscribirlo', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE);
+    await expect(svc.addParticipant('c', 'inactivo')).rejects.toThrow(new BadRequestException('El usuario está inactivo'));
+    expect(writes.participantCreate).not.toHaveBeenCalled();
+  });
+
+  it('el orden de la inscripción individual: 404 reto, 404 usuario, 400 inactivo, 400 cerrado', async () => {
+    await expect(build(ChallengeStatus.ACTIVE, ChallengeStatus.ACTIVE, false).svc.addParticipant('c', 'inactivo')).rejects.toThrow('Reto no encontrado');
+    await expect(build(ChallengeStatus.ACTIVE).svc.addParticipant('c', 'nadie')).rejects.toThrow('Usuario no encontrado');
+    // cerrado e inactivo a la vez: gana el 400 de inactivo
+    await expect(build(ChallengeStatus.COMPLETED).svc.addParticipant('c', 'inactivo')).rejects.toThrow('El usuario está inactivo');
+    await expect(build(ChallengeStatus.COMPLETED).svc.addParticipant('c', 'u')).rejects.toThrow('No se puede modificar un reto cerrado');
+  });
+
+  it('la inscripción en bloque corre bajo el lock del reto y devuelve el resultado por usuario', async () => {
+    const { svc, prisma, writes } = build(ChallengeStatus.ACTIVE);
+    const result = await svc.bulkAddParticipants('c', [U1, U2]);
+    expect(result.enrolled.map((r) => r.userId)).toEqual([U1, U2]);
+    expect((prisma as unknown as { $transaction: jest.Mock }).$transaction).toHaveBeenCalledTimes(1);
+    expect((prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw).toHaveBeenCalled();
+    expect(writes.participantCreateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('en bloque, un reto cerrado bajo el lock rechaza todo con 400 y no inserta', async () => {
+    // el chequeo previo ve ACTIVE; el lock ve el reto ya cerrado
+    const { svc, writes } = build(ChallengeStatus.ACTIVE, ChallengeStatus.COMPLETED);
+    await expect(svc.bulkAddParticipants('c', [U1])).rejects.toThrow('No se puede modificar un reto cerrado');
+    expect(writes.participantCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('en bloque, un reto desconocido responde 404', async () => {
+    const { svc, writes } = build(ChallengeStatus.ACTIVE, ChallengeStatus.ACTIVE, false);
+    await expect(svc.bulkAddParticipants('c', [U1])).rejects.toThrow(NotFoundException);
+    expect(writes.participantCreateMany).not.toHaveBeenCalled();
+  });
+
+  it('en bloque se puede inscribir en un borrador', async () => {
+    const { svc } = build(ChallengeStatus.DRAFT);
+    const result = await svc.bulkAddParticipants('c', [U1]);
+    expect(result.enrolled).toHaveLength(1);
   });
 });
 
@@ -734,5 +809,237 @@ describe('ChallengesService.exportCsv (challenge-export)', () => {
     });
     const { content } = await svc.exportCsv('c');
     expect(content.split('\r\n')[1]).toContain(',no,,');
+  });
+});
+
+describe('ChallengesService: renovación mensual (challenge-renewal)', () => {
+  const U = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
+  const people = [
+    { id: U(1), name: 'Ana', email: 'ana@x', active: true },
+    { id: U(2), name: 'Bea', email: 'bea@x', active: true },
+    { id: U(3), name: 'Luis', email: 'luis@x', active: false },
+  ];
+  const sourceRow = (status: ChallengeStatus, month = 10, year = 2026) => ({
+    id: 's',
+    name: `Reto ${month}`,
+    month,
+    year,
+    status,
+    startDate: new Date(Date.UTC(year, month - 1, 1)),
+    endDate: new Date(Date.UTC(year, month, 0)),
+    validDays: [1, 2, 3],
+    minHeartRateMinutes: 25,
+    feePerParticipant: '150',
+    budgetTotal: null as string | null,
+    currency: 'USD',
+    prizeDescription: 'Zapatillas',
+    pointsPerValidatedDay: 2,
+    pointsPerKm: '0.5',
+    minValidatedDaysToQualify: 10,
+    maxWinners: 3,
+    tiebreakRule: 'TOTAL_KM',
+    participants: people.map((user) => ({ userId: user.id, user })),
+  });
+
+  function build(
+    opts: {
+      source?: ReturnType<typeof sourceRow> | null;
+      existing?: { id: string; name: string; status: ChallengeStatus } | null;
+      createError?: unknown;
+      enrollFails?: boolean;
+    } = {},
+  ) {
+    const source = opts.source === undefined ? sourceRow(ChallengeStatus.ACTIVE) : opts.source;
+    // con createError, el mes queda ocupado por "otra petición" que confirmó primero
+    let raced = false;
+    const create = jest.fn(async (args: { data: Record<string, unknown> }) => {
+      if (opts.createError) {
+        raced = true;
+        throw opts.createError;
+      }
+      return { id: 'new', ...args.data };
+    });
+    const participantCreateMany = jest.fn(async (args: { data: unknown[] }) => {
+      if (opts.enrollFails) throw new Error('boom');
+      return { count: args.data.length };
+    });
+    const findUnique = jest.fn(async (args: { where: { id?: string; month_year?: unknown } }) => {
+      if (args.where.month_year) {
+        if (raced) return { id: 'otro', name: 'Otro', status: ChallengeStatus.DRAFT };
+        return opts.existing ?? null;
+      }
+      return source;
+    });
+    const update = jest.fn();
+    const prisma = withLocks({
+      challenge: { findUnique, create, update },
+      user: { findMany: jest.fn(async () => people) },
+      challengeParticipant: { findMany: jest.fn().mockResolvedValue([]), createMany: participantCreateMany },
+      challengeAward: { createMany: jest.fn() },
+      dailyActivity: { createMany: jest.fn() },
+    } as unknown as PrismaService);
+    return { svc: challengesService(prisma), create, update, participantCreateMany, prisma };
+  }
+
+  describe('renewalPreview', () => {
+    it('devuelve mes siguiente, período, reglas, a quién copiar y a quién omitir, sin escribir', async () => {
+      const { svc, create, update, participantCreateMany } = build();
+      const p = await svc.renewalPreview('s');
+      expect(p.source).toEqual({ id: 's', name: 'Reto 10', month: 10, year: 2026, status: 'ACTIVE' });
+      expect(p.target).toEqual({
+        month: 11,
+        year: 2026,
+        name: 'Reto Noviembre 2026',
+        startDate: '2026-11-01',
+        endDate: '2026-11-30',
+      });
+      expect(p.rules.budgetMode).toBe('auto');
+      expect(p.rules.validDays).toEqual([1, 2, 3]);
+      expect(p.participants.toCopy).toEqual([
+        { userId: U(1), name: 'Ana', email: 'ana@x' },
+        { userId: U(2), name: 'Bea', email: 'bea@x' },
+      ]);
+      expect(p.participants.skipped).toEqual([
+        { userId: U(3), name: 'Luis', email: 'luis@x', reason: 'INACTIVE', message: 'El usuario está inactivo' },
+      ]);
+      expect(p.existing).toBeNull();
+      expect(create).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+      expect(participantCreateMany).not.toHaveBeenCalled();
+    });
+
+    it('marca el presupuesto manual y informa el reto que ya ocupa el mes', async () => {
+      const source = { ...sourceRow(ChallengeStatus.COMPLETED, 12, 2026), budgetTotal: '600' };
+      const { svc } = build({
+        source,
+        existing: { id: 'x', name: 'Reto Enero 2027', status: ChallengeStatus.DRAFT },
+      });
+      const p = await svc.renewalPreview('s');
+      expect(p.rules.budgetMode).toBe('manual');
+      expect(p.target).toMatchObject({ month: 1, year: 2027, startDate: '2027-01-01', endDate: '2027-01-31' });
+      expect(p.existing).toEqual({ id: 'x', name: 'Reto Enero 2027', status: 'DRAFT' });
+    });
+
+    it('un borrador responde 400 y un reto desconocido 404', async () => {
+      await expect(build({ source: sourceRow(ChallengeStatus.DRAFT) }).svc.renewalPreview('s')).rejects.toThrow(
+        new BadRequestException('Solo se puede renovar un reto activo o cerrado'),
+      );
+      await expect(build({ source: null }).svc.renewalPreview('s')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('renew', () => {
+    it('crea el borrador del mes siguiente con las reglas y el período, en una transacción, sin inscribir', async () => {
+      const { svc, create, participantCreateMany, prisma } = build();
+      const res = await svc.renew('s', {});
+      expect((prisma as unknown as { $transaction: jest.Mock }).$transaction).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledTimes(1);
+      const data = create.mock.calls[0][0].data;
+      expect(data).toMatchObject({
+        name: 'Reto Noviembre 2026',
+        month: 11,
+        year: 2026,
+        status: ChallengeStatus.DRAFT,
+        validDays: [1, 2, 3],
+        minHeartRateMinutes: 25,
+        currency: 'USD',
+        prizeDescription: 'Zapatillas',
+        maxWinners: 3,
+        tiebreakRule: 'TOTAL_KM',
+      });
+      expect((data.startDate as Date).toISOString()).toBe('2026-11-01T00:00:00.000Z');
+      expect((data.endDate as Date).toISOString()).toBe('2026-11-30T00:00:00.000Z');
+      expect(data).not.toHaveProperty('id');
+      expect(data).not.toHaveProperty('participants');
+      expect(participantCreateMany).not.toHaveBeenCalled();
+      expect(res.participants).toEqual({ enrolled: [], skipped: [] });
+    });
+
+    it('con copyParticipants inscribe a los activos en la misma transacción y reporta al inactivo', async () => {
+      const { svc, participantCreateMany, prisma } = build();
+      const res = await svc.renew('s', { copyParticipants: true });
+      expect((prisma as unknown as { $transaction: jest.Mock }).$transaction).toHaveBeenCalledTimes(1);
+      expect(participantCreateMany).toHaveBeenCalledTimes(1);
+      const rows = participantCreateMany.mock.calls[0][0].data as Record<string, unknown>[];
+      expect(rows.map((r) => r.userId)).toEqual([U(1), U(2)]);
+      for (const r of rows) {
+        expect(r.challengeId).toBe('new');
+        expect(Object.keys(r).sort()).toEqual(['challengeId', 'joinedAt', 'userId']);
+      }
+      expect(res.participants.enrolled.map((e) => e.userId)).toEqual([U(1), U(2)]);
+      expect(res.participants.skipped).toEqual([
+        { userId: U(3), reason: 'INACTIVE', message: 'El usuario está inactivo' },
+      ]);
+    });
+
+    it('el nombre propio se guarda recortado; el vacío usa el sugerido', async () => {
+      const a = build();
+      await a.svc.renew('s', { name: '  Reto Primavera  ' });
+      expect(a.create.mock.calls[0][0].data.name).toBe('Reto Primavera');
+      const b = build();
+      await b.svc.renew('s', { name: '   ' });
+      expect(b.create.mock.calls[0][0].data.name).toBe('Reto Noviembre 2026');
+    });
+
+    it('diciembre renueva en enero del año siguiente', async () => {
+      const { svc, create } = build({ source: sourceRow(ChallengeStatus.COMPLETED, 12, 2026) });
+      await svc.renew('s', {});
+      expect(create.mock.calls[0][0].data).toMatchObject({ month: 1, year: 2027 });
+    });
+
+    it('si el mes ya existe responde 409 con existingChallengeId y no crea ni inscribe', async () => {
+      const { svc, create, participantCreateMany } = build({
+        existing: { id: 'ya', name: 'Reto Noviembre 2026', status: ChallengeStatus.DRAFT },
+      });
+      const err = await svc.renew('s', { copyParticipants: true }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).getResponse()).toMatchObject({
+        message: 'Ya existe un reto para 11/2026',
+        existingChallengeId: 'ya',
+      });
+      expect(create).not.toHaveBeenCalled();
+      expect(participantCreateMany).not.toHaveBeenCalled();
+    });
+
+    it('una carrera (P2002 al crear) responde el mismo 409 con el id del reto ganador', async () => {
+      const createError = new Prisma.PrismaClientKnownRequestError('dup', {
+        code: 'P2002',
+        clientVersion: 'x',
+        meta: { target: ['month', 'year'] },
+      });
+      const { svc, participantCreateMany } = build({ createError });
+      const err = await svc.renew('s', { copyParticipants: true }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).getResponse()).toMatchObject({
+        message: 'Ya existe un reto para 11/2026',
+        existingChallengeId: 'otro',
+      });
+      expect(participantCreateMany).not.toHaveBeenCalled();
+    });
+
+    it('si falla la copia de inscritos, el error sale de la transacción (se revierte el reto)', async () => {
+      const { svc, create } = build({ enrollFails: true });
+      await expect(svc.renew('s', { copyParticipants: true })).rejects.toThrow('boom');
+      expect(create).toHaveBeenCalledTimes(1);
+    });
+
+    it('nunca modifica el reto origen ni copia actividades ni premios', async () => {
+      const { svc, update, prisma } = build({ source: sourceRow(ChallengeStatus.COMPLETED) });
+      await svc.renew('s', { copyParticipants: true });
+      expect(update).not.toHaveBeenCalled();
+      const p = prisma as unknown as {
+        challengeAward: { createMany: jest.Mock };
+        dailyActivity: { createMany: jest.Mock };
+      };
+      expect(p.challengeAward.createMany).not.toHaveBeenCalled();
+      expect(p.dailyActivity.createMany).not.toHaveBeenCalled();
+    });
+
+    it('un borrador responde 400 y nada se crea; un reto desconocido 404', async () => {
+      const draft = build({ source: sourceRow(ChallengeStatus.DRAFT) });
+      await expect(draft.svc.renew('s', {})).rejects.toThrow('Solo se puede renovar un reto activo o cerrado');
+      expect(draft.create).not.toHaveBeenCalled();
+      await expect(build({ source: null }).svc.renew('s', {})).rejects.toThrow(NotFoundException);
+    });
   });
 });
