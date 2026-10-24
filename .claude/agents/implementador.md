@@ -68,6 +68,9 @@ Plataforma (desde la raíz):
 
 - Postgres local en Docker (`reto-constancia-db`, puerto host **5433**); la API de pruebas en **3002** y el
   frontend en **3005**. El puerto 3001 y otros contenedores locales pertenecen a otros proyectos.
+- **Si Docker está apagado, no lo abras ni lo reinicies:** Docker Desktop levanta también contenedores de
+  otros proyectos con reinicio automático. Detente y avisa al owner; levanta solo `docker compose up -d
+  postgres` cuando Docker ya esté activo.
 - No ejecutes `npm run build` en `frontend` mientras corre `next dev` (ambos usan `.next` y el servidor de
   desarrollo queda roto). Playwright sirve los **builds ya compilados**: recompila API y web antes de los
   recorridos de UI, o prueban código viejo.
