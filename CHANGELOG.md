@@ -8,7 +8,7 @@ Versionado [SemVer](https://semver.org/lang/es/).
 ## [1.11.0] — 2026-10-20
 
 Renovación mensual del reto, inscripción en bloque y retiro de actividades rechazadas. **No trae
-migraciones ni variables nuevas; solo actualiza `next` en el frontend por un aviso de seguridad.** Para volver a la 1.10.0 se redespliegan API y web
+migraciones ni variables nuevas; solo actualiza dependencias por avisos de seguridad (`next`, `multer`, `body-parser` y la baja de `zod`).** Para volver a la 1.10.0 se redespliegan API y web
 juntas, porque la web usa `renewal-preview`, `renew` y `participants/bulk`, y la API cambia el retiro de
 actividades rechazadas.
 
