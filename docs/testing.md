@@ -160,7 +160,7 @@ automatizados, 1 manual) con 739 pruebas ejecutadas y 0 fallidas: unitarias del 
 de la web 49, e2e de API 167, recorridos de UI 72, capturas de la guía 25 y sesiones paralelas 70;
 "Pruebas sin caso: 0".
 
-**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones. `next` y `eslint-config-next` pasan a 15.5.28 en el frontend (GHSA-2464-fhr4-w9xw y GHSA-p3m5-59mp-jv5r): el 20 oct el aviso no existía, apareció el 23 oct y la CI lo detectó; se refrescó la rama con `develop` y se volvió a verificar el 24 oct.
 El archivo de OpenSpec creó los specs `challenge-enrollment` y `challenge-renewal` con Purpose real
 y actualizó `activity-withdrawal`; `openspec validate --all --strict` pasa (13 de 13).
 

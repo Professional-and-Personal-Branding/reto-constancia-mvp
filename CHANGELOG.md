@@ -8,7 +8,7 @@ Versionado [SemVer](https://semver.org/lang/es/).
 ## [1.11.0] — 2026-10-20
 
 Renovación mensual del reto, inscripción en bloque y retiro de actividades rechazadas. **No trae
-migraciones, dependencias ni variables nuevas.** Para volver a la 1.10.0 se redespliegan API y web
+migraciones ni variables nuevas; solo actualiza `next` en el frontend por un aviso de seguridad.** Para volver a la 1.10.0 se redespliegan API y web
 juntas, porque la web usa `renewal-preview`, `renew` y `participants/bulk`, y la API cambia el retiro de
 actividades rechazadas.
 
@@ -62,6 +62,12 @@ actividades rechazadas.
 - La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
   inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
   reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
+
+### Seguridad
+
+- `next` pasa a 15.5.28 en el frontend: corrige GHSA-2464-fhr4-w9xw (ejecución remota de código sin
+  autenticación en la API de optimización de imágenes con SVG, crítico) y GHSA-p3m5-59mp-jv5r (denegación de
+  servicio con Server Actions). Producción vuelve a 0 avisos; la CI lo había detectado en la auditoría.
 
 ## [1.10.0] — 2026-10-17
 
