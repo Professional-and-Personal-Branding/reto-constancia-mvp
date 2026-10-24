@@ -65,6 +65,12 @@ actividades rechazadas.
 
 ### Seguridad
 
+- Tres avisos altos nuevos en dependencias de producción, detectados por la auditoría de la CI:
+  - `multer` pasa a 2.5.0 en el backend (GHSA-q7qp-rjg7-q26m, denegación de servicio por un `fileFilter`
+    asíncrono pendiente tras cerrar la petición), con un `overrides` porque `@nestjs/platform-express` lo fija en 2.4.0.
+  - `body-parser` pasa a 2.4.0 (GHSA-27r3-jxmh-p828, denegación de servicio por bytes sobrantes tras un cuerpo comprimido).
+  - Se quita `zod` del frontend (GHSA-mrhx-c7xc-m3w5): era una dependencia directa que ningún archivo importaba.
+
 - `next` pasa a 15.5.28 en el frontend: corrige GHSA-2464-fhr4-w9xw (ejecución remota de código sin
   autenticación en la API de optimización de imágenes con SVG, crítico) y GHSA-p3m5-59mp-jv5r (denegación de
   servicio con Server Actions). Producción vuelve a 0 avisos; la CI lo había detectado en la auditoría.
