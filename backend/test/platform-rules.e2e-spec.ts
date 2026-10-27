@@ -577,9 +577,42 @@ describe('Reglas de la plataforma (e2e)', () => {
     await request(http).post(`/api/activities/${created.body.id}/validate`).set(auth(token.admin));
     const own = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.ana));
     expect(own.status).toBe(403);
-    expect(own.body.message).toMatch(/Solo se pueden eliminar actividades pendientes/);
+    expect(own.body.message).toMatch(/Solo se pueden eliminar actividades pendientes o rechazadas/);
     const byAdmin = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.admin));
     expect(byAdmin.status).toBe(204);
+  });
+
+  it('ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden', async () => {
+    const day = dayOfWeek(1, 8);
+    const created = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', day));
+    expect(created.status).toBe(201);
+    const rejected = await request(http).post(`/api/activities/${created.body.id}/reject`).set(auth(token.admin)).send({ reason: 'La foto no se ve' });
+    expect([200, 201]).toContain(rejected.status);
+
+    // Otro participante no puede retirarla
+    const stranger = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.bruno));
+    expect(stranger.status).toBe(403);
+    expect(stranger.body.message).toMatch(/No puedes eliminar/);
+
+    // El día sigue ocupado hasta que la retira
+    const blocked = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', day));
+    expect(blocked.status).toBe(409);
+
+    const del = await request(http).delete(`/api/activities/${created.body.id}`).set(auth(token.ana));
+    expect(del.status).toBe(204);
+    const free = await request(http).get(`/api/activities/me/calendar?challengeId=${challengeId}`).set(auth(token.ana));
+    expect(free.body.days.find((d: { date: string }) => d.date === day).activity).toBeNull();
+
+    const again = await request(http).post('/api/activities').set(auth(token.ana)).send(activityFor('ana', day, { notes: 'Con la foto correcta' }));
+    expect(again.status).toBe(201);
+    expect(again.body.status).toBe(ActivityStatus.PENDING);
+    const cal = await request(http).get(`/api/activities/me/calendar?challengeId=${challengeId}`).set(auth(token.ana));
+    const entry = cal.body.days.find((d: { date: string }) => d.date === day);
+    expect(entry.activity).toMatchObject({ id: again.body.id, status: 'PENDING' });
+    expect(entry.activity.id).not.toBe(created.body.id);
+
+    // Deja el reto como estaba para las pruebas siguientes
+    expect((await request(http).delete(`/api/activities/${again.body.id}`).set(auth(token.ana))).status).toBe(204);
   });
 
   // ---------------- Premiación ----------------
@@ -676,12 +709,15 @@ describe('Reglas de la plataforma (e2e)', () => {
     expect(pending && validated).toBeTruthy();
     const before = await request(http).get(`/api/challenges/${challengeId}/results`).set(auth(token.admin));
     const msg = 'El reto está cerrado; sus actividades son definitivas';
+    const rejectedOne = acts.find((a) => a.status === ActivityStatus.REJECTED);
+    expect(rejectedOne).toBeTruthy();
 
     for (const res of [
       await request(http).post(`/api/activities/${pending!.id}/validate`).set(auth(token.admin)),
       await request(http).post(`/api/activities/${validated!.id}/validate`).set(auth(token.admin)),
       await request(http).post(`/api/activities/${validated!.id}/reject`).set(auth(token.admin)).send({ reason: 'tarde' }),
       await request(http).delete(`/api/activities/${pending!.id}`).set(auth(token.admin)),
+      await request(http).delete(`/api/activities/${rejectedOne!.id}`).set(auth(token[Object.entries(id).find(([, uid]) => uid === rejectedOne!.userId)![0] as keyof typeof token])),
     ]) {
       expect(res.status).toBe(400);
       expect(res.body.message).toBe(msg);

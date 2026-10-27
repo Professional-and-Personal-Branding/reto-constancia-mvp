@@ -54,9 +54,9 @@ async function shot(page: Page, file: string, target?: ReturnType<Page['locator'
   }
 }
 
-async function pick(page: Page, path: string) {
+async function pick(page: Page, path: string, id = challengeId) {
   await page.goto(path);
-  await page.evaluate((cid) => window.localStorage.setItem('reto.selectedChallengeId', cid), challengeId);
+  await page.evaluate((cid) => window.localStorage.setItem('reto.selectedChallengeId', cid), id);
   await page.goto(path);
   await page.waitForLoadState('networkidle');
 }
@@ -523,5 +523,53 @@ test.describe('Administrador', () => {
     const sheets = page.getByLabel('Importar desde Google Sheets');
     await expect(sheets).toContainText('GOOGLE_SERVICE_ACCOUNT_EMAIL');
     await shot(page, '21-importar-sheets.jpg', sheets);
+  });
+
+  test('renovar un reto: vista previa y nota de lo que no se copia', async ({ page }) => {
+    await page.goto('/dashboard/admin/challenges');
+    const row = page.getByLabel(`Reto ${NAME}`);
+    await row.getByRole('button', { name: 'Renovar' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Se creará Reto Noviembre 2026 en borrador');
+    await expect(dialog).toContainText('2026-11-30');
+    await expect(dialog.getByLabel(/^Inscribir a los 5 participantes activos de/)).toBeChecked();
+    await expect(dialog).toContainText('No se copian pagos, comprobantes, actividades ni premiaciones');
+    await shot(page, '33-renovar-reto.jpg', dialog);
+    // Se cancela para no crear el borrador de noviembre en la demostración
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('inscripción en bloque desde Participantes', async ({ page }) => {
+    // Reto temporal sin inscritos, para que haya candidatos; se borra al terminar
+    const { deleteTestChallenges } = await import('../../scripts/lib/test-db.mjs');
+    await deleteTestChallenges([{ month: 2, year: YEAR }]);
+    const { admin } = tokens();
+    const created = await api<{ id: string }>('POST', '/challenges', {
+      token: admin,
+      body: {
+        name: 'Reto Febrero 2026 (guía)',
+        month: 2,
+        year: YEAR,
+        startDate: `${YEAR}-02-01T00:00:00.000Z`,
+        endDate: `${YEAR}-02-28T00:00:00.000Z`,
+        feePerParticipant: 150,
+        currency: 'BOB',
+      },
+    });
+    if (created.status !== 201) throw new Error(`No se pudo crear el reto temporal: ${JSON.stringify(created.body)}`);
+    try {
+      await api('POST', `/challenges/${created.body.id}/activate`, { token: admin });
+      await pick(page, '/dashboard/admin/participants', created.body.id);
+      await page.getByLabel(`Seleccionar a ${NAMES.ana}`).check();
+      await page.getByLabel(`Seleccionar a ${NAMES.bruno}`).check();
+      const bulk = page.getByRole('button', { name: 'Inscribir seleccionados (2)' });
+      await expect(bulk).toBeEnabled();
+      await shot(page, '34-inscripcion-en-bloque.jpg', page.locator('.card').filter({ has: page.getByRole('heading', { name: 'Agregar participante' }) }));
+      await bulk.click();
+      await expect(page.getByRole('status').filter({ hasText: '2 inscritos' })).toBeVisible();
+    } finally {
+      await deleteTestChallenges([{ month: 2, year: YEAR }]);
+    }
   });
 });
