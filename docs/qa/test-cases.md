@@ -1,7 +1,7 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-24** · rama `release/1.11.0` · commit `5a61bb2`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-27** · rama `release/1.11.0` · commit `ab5582a`. Detalle en [validation-report.md](validation-report.md).
 
 **144 casos** · 144 aprobados · 0 fallidos · 0 con limitación conocida · 143 automatizados.
 
