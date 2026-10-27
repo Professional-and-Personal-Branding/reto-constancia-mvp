@@ -390,6 +390,70 @@ describe('ActivitiesService.remove: libera las fotos (upload-asset-cleanup)', ()
   });
 });
 
+describe('ActivitiesService.remove: retirar una actividad rechazada (activity-withdrawal)', () => {
+  const photoIds = ['reto-constancia/c1/u1/activity/a', 'reto-constancia/c1/u1/activity/hr'];
+  function build(status: ActivityStatus, ch: unknown = challenge) {
+    const activity = {
+      id: 'act1',
+      challengeId: 'c1',
+      userId: 'u1',
+      status,
+      challenge: ch,
+      photos: photoIds.map((cloudinaryId) => ({ cloudinaryId })),
+    };
+    const { prisma } = buildPrisma({ activity, challenge: ch });
+    const remove = jest.fn().mockResolvedValue(undefined);
+    (prisma as unknown as { dailyActivity: Record<string, unknown> }).dailyActivity.delete = remove;
+    const uploads = localUploads();
+    const later = jest.spyOn(uploads, 'deleteAssetsLater').mockResolvedValue(undefined);
+    const svc = new ActivitiesService(prisma, new ChallengesService(prisma, uploads, new ResultsService(prisma)), uploads);
+    return { prisma, svc, later, remove };
+  }
+
+  it('el dueño retira su actividad rechazada y se liberan sus fotos', async () => {
+    const { svc, later, remove } = build(ActivityStatus.REJECTED);
+    await svc.remove('act1', 'u1', UserRole.PARTICIPANT);
+    expect(remove).toHaveBeenCalledWith({ where: { id: 'act1' } });
+    expect(later).toHaveBeenCalledWith(photoIds);
+  });
+
+  it('una actividad validada no se retira y no libera nada', async () => {
+    const { svc, later, remove } = build(ActivityStatus.VALIDATED);
+    await expect(svc.remove('act1', 'u1', UserRole.PARTICIPANT)).rejects.toThrow(
+      'Solo se pueden eliminar actividades pendientes o rechazadas',
+    );
+    expect(remove).not.toHaveBeenCalled();
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it('la rechazada de otro participante responde 403', async () => {
+    const { svc, later, remove } = build(ActivityStatus.REJECTED);
+    await expect(svc.remove('act1', 'otro', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(remove).not.toHaveBeenCalled();
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it('la rechazada de un reto cerrado responde 400 antes del chequeo de dueño', async () => {
+    const closed = { ...challenge, status: ChallengeStatus.COMPLETED };
+    const { svc, remove } = build(ActivityStatus.REJECTED, closed);
+    await expect(svc.remove('act1', 'otro', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.remove('act1', 'u1', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(BadRequestException);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('retirar decide con el estado releído bajo el lock', async () => {
+    const { prisma, svc, remove, later } = build(ActivityStatus.REJECTED);
+    const base = { id: 'act1', challengeId: 'c1', userId: 'u1', challenge, photos: [] };
+    // Fuera del lock se ve REJECTED; adentro ya está VALIDATED
+    (prisma as unknown as { dailyActivity: { findUnique: jest.Mock } }).dailyActivity.findUnique
+      .mockResolvedValueOnce({ ...base, status: ActivityStatus.REJECTED })
+      .mockResolvedValueOnce({ ...base, status: ActivityStatus.VALIDATED });
+    await expect(svc.remove('act1', 'u1', UserRole.PARTICIPANT)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(remove).not.toHaveBeenCalled();
+    expect(later).not.toHaveBeenCalled();
+  });
+});
+
 describe('ActivitiesService.myCalendar (calendario propio, solo lectura)', () => {
   function build(opts: { challenge?: unknown; enrolled?: boolean; many?: unknown[] } = {}) {
     const found = opts.challenge === undefined ? challenge : opts.challenge;

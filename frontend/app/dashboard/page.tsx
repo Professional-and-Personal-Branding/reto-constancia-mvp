@@ -9,7 +9,7 @@ import { useActiveChallenge } from '@/lib/use-active-challenge';
 import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { amountOwed, formatUploadDate } from '@/lib/payment';
-import { todayDuty } from '@/lib/calendar';
+import { canRegisterAgain, todayDuty } from '@/lib/calendar';
 import { MyMonth } from '@/components/my-month';
 import type {
   ChallengeParticipant,
@@ -95,19 +95,26 @@ export default function DashboardPage() {
     enabled: !!challenge,
   });
 
-  // Retirar una actividad propia pendiente (la API solo lo permite mientras está pendiente)
+  // Retirar una actividad propia pendiente o rechazada (la API no deja retirar una validada)
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  // Día de la actividad rechazada recién retirada: ofrece registrarlo de nuevo
+  const [withdrawnDate, setWithdrawnDate] = useState<string | null>(null);
   const withdrawMut = useMutation({
-    mutationFn: (id: string) => api(`/activities/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
+    mutationFn: (target: { id: string; date: string; rejected: boolean }) =>
+      api(`/activities/${target.id}`, { method: 'DELETE' }),
+    onSuccess: (_data, target) => {
       setWithdrawError(null);
+      setWithdrawnDate(target.rejected ? toDayKey(target.date) : null);
       qc.invalidateQueries({ queryKey: ['activities'] });
       qc.invalidateQueries({ queryKey: ['results'] });
     },
     onError: (e) => {
+      setWithdrawnDate(null);
       const body = (e as ApiError).body as { message?: string | string[] } | null;
       const msg = body?.message ?? (e instanceof Error ? e.message : 'No se pudo retirar la actividad');
       setWithdrawError(Array.isArray(msg) ? msg.join(', ') : msg);
+      // La actividad pudo cambiar mientras tanto (por ejemplo, validada): se refresca la lista
+      qc.invalidateQueries({ queryKey: ['activities'] });
     },
   });
 
@@ -284,14 +291,24 @@ export default function DashboardPage() {
             {withdrawError}
           </div>
         )}
+        {withdrawnDate && (
+          <div role="status" className="text-sm bg-ok/10 border border-ok/30 rounded-md px-4 py-2.5 mb-3 flex flex-wrap items-center gap-3">
+            <span>Actividad retirada.</span>
+            {challenge.status === 'ACTIVE' && canRegisterAgain(calendar, withdrawnDate) && (
+              <Link href={`/dashboard/upload?date=${withdrawnDate}`} className="underline font-medium">
+                Registrar ese día
+              </Link>
+            )}
+          </div>
+        )}
         {activities && activities.length > 0 ? (
           <div className="card divide-y divide-line" aria-label="Mis actividades">
             {activities.map((a) => (
               <ActivityRow
                 key={a.id}
                 activity={a}
-                withdrawing={withdrawMut.isPending && withdrawMut.variables === a.id}
-                onWithdraw={() => withdrawMut.mutate(a.id)}
+                withdrawing={withdrawMut.isPending && withdrawMut.variables?.id === a.id}
+                onWithdraw={() => withdrawMut.mutate({ id: a.id, date: a.date, rejected: a.status === 'REJECTED' })}
               />
             ))}
           </div>
@@ -418,7 +435,8 @@ function ActivityRow({
 }) {
   // Confirmación en la misma fila: el retiro borra la actividad y no se puede deshacer
   const [confirming, setConfirming] = useState(false);
-  const pending = activity.status === 'PENDING';
+  const rejected = activity.status === 'REJECTED';
+  const withdrawable = activity.status === 'PENDING' || rejected;
   return (
     <div id={`actividad-${activity.id}`} className="p-4 flex flex-wrap items-center gap-4 scroll-mt-20">
       <div className="display text-2xl text-ink-dim w-16 text-center">
@@ -432,12 +450,19 @@ function ActivityRow({
         {activity.rejectionReason && (
           <p className="text-sm text-bad mt-1">⚠ {activity.rejectionReason}</p>
         )}
+        {rejected && (
+          <p className="text-sm text-ink-dim mt-1">Puedes retirarla y registrar ese día de nuevo.</p>
+        )}
       </div>
       <StatusBadge status={activity.status} />
-      {pending &&
+      {withdrawable &&
         (confirming ? (
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-ink-dim">¿Retirar esta actividad?</span>
+            <span className="text-ink-dim">
+              {rejected
+                ? '¿Retirar esta actividad rechazada? Se borrará con sus fotos y podrás registrar ese día de nuevo.'
+                : '¿Retirar esta actividad?'}
+            </span>
             <button
               type="button"
               onClick={onWithdraw}
