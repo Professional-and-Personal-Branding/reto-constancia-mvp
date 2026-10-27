@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-17** · rama `release/1.10.0` · commit `480e48d`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-20** · rama `feature/monthly-challenge-renewal` · commit `4090a5d` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**139 casos** · 139 aprobados · 0 fallidos · 0 con limitación conocida · 138 automatizados.
+**141 casos** · 141 aprobados · 0 fallidos · 0 con limitación conocida · 140 automatizados.
 
 ## Cómo leer cada caso
 
@@ -20,7 +20,7 @@
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 22 | 22 | 0 |
-| [Participantes y pagos](#part) | 7 | 7 | 0 |
+| [Participantes y pagos](#part) | 9 | 9 | 0 |
 | [Actividades y validación](#act) | 23 | 23 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
@@ -1810,6 +1810,8 @@
 | [TC-PART-04](#tc-part-04) | Registrar el pago de un participante | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-05](#tc-part-05) | Comprobante de pago del participante | Media | Funcional | ✅ Aprobado |
 | [TC-PART-07](#tc-part-07) | Estado de pago propio en el inicio del participante | Alta | Funcional | ✅ Aprobado |
+| [TC-PART-08](#tc-part-08) | Inscribir a varios usuarios de una vez (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-PART-09](#tc-part-09) | Inscripción en bloque desde Participantes | Alta | UI | ✅ Aprobado |
 | [TC-PART-06](#tc-part-06) | Reto cerrado: sin altas ni bajas | Media | Negativo | ✅ Aprobado |
 
 <a id="tc-part-01"></a>
@@ -1829,16 +1831,21 @@
 **Pasos**
 
 1. Inscribir a cada usuario.
+2. Alternativa para un grupo: la inscripción en bloque (TC-PART-08 y TC-PART-09).
 
 **Resultado esperado**
 
 - 201 por cada inscripción y los 5 aparecen en el reto.
+- Solo se inscribe a usuarios activos: uno inactivo da 400 "El usuario está inactivo".
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `challenge-finance.e2e-spec.ts` | admin crea el reto (cuota 120, presupuesto 600) e inscribe 5 participantes |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: la inscripción individual también rechaza a un usuario inactivo con 400 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | la inscripción individual rechaza a un usuario inactivo con 400, sin inscribirlo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | el orden de la inscripción individual: 404 reto, 404 usuario, 400 inactivo, 400 cerrado |
 
 <a id="tc-part-02"></a>
 
@@ -2014,6 +2021,103 @@
 | ✅ | UI | `11-privacy.spec.ts` | el dashboard muestra pendiente de pago, comprobante en revisión, pago parcial y pagado |
 | ✅ | UI | `11-privacy.spec.ts` | un reto gratuito dice que no tiene cuota y no ofrece subir comprobante |
 | ✅ | Guía | `capture.spec.ts` | estado de pago propio: comprobante en revisión |
+
+<a id="tc-part-08"></a>
+
+### TC-PART-08 · Inscribir a varios usuarios de una vez (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | Funcional | 3.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto ACTIVE con Ana inscrita; Bea y Carla activas sin inscribir; Luis inactivo.
+- Un reto COMPLETED y un reto DRAFT.
+
+**Datos de prueba:** POST /api/challenges/:id/participants/bulk con Ana, Bea, Carla, Luis y un UUID sin usuario; la misma lista otra vez; Bea dos veces; lista vacía, 201 ids, un id no UUID; como participante; contra el reto cerrado; POST .../participants con Luis
+
+**Pasos**
+
+1. Enviar la lista mixta.
+2. Repetirla.
+3. Enviar un id repetido.
+4. Enviar listas inválidas.
+5. Llamar como participante.
+6. Llamar contra el reto cerrado y contra el borrador.
+7. Inscribir a Luis con el alta individual.
+
+**Resultado esperado**
+
+- 200 con Bea y Carla en enrolled, Ana en alreadyEnrolled, Luis INACTIVE y el UUID NOT_FOUND en skipped; cada id en una sola lista.
+- Repetir no inscribe a nadie nuevo: todos en alreadyEnrolled.
+- Bea dos veces: una sola vez inscrita.
+- 400 para lista vacía, más de 200 ids, un id que no es UUID, sin userIds y una clave desconocida; 200 ids se aceptan.
+- 403 al participante y 404 "Reto no encontrado" para un reto desconocido.
+- 400 "No se puede modificar un reto cerrado" sin cambios en el roster; en un borrador se inscribe.
+- El alta individual de Luis da 400 "El usuario está inactivo".
+- Los nuevos figuran impagos y sin comprobante en las finanzas.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `enrollment.spec.ts` | reparte un grupo mixto: nuevos, ya inscritos, inactivo y desconocido |
+| ✅ | Unitaria | `enrollment.spec.ts` | los ids repetidos cuentan una sola vez y cada id aparece en una sola lista |
+| ✅ | Unitaria | `enrollment.spec.ts` | las filas insertadas no traen datos de pago |
+| ✅ | Unitaria | `enrollment.spec.ts` | sin nadie que inscribir no inserta nada |
+| ✅ | Unitaria | `enrollment.spec.ts` | un usuario inscrito en paralelo queda como ya inscrito, nunca en las dos listas |
+| ✅ | Unitaria | `challenges.service.spec.ts` | la inscripción en bloque corre bajo el lock del reto y devuelve el resultado por usuario |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en bloque, un reto cerrado bajo el lock rechaza todo con 400 y no inserta |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en bloque, un reto desconocido responde 404 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en bloque se puede inscribir en un borrador |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: lista mixta (ya inscrita, dos nuevas, inactivo, desconocido) con el resultado exacto |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: los inscritos empiezan impagos y sin comprobante en las finanzas |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: repetir la petición no inscribe a nadie nuevo |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un id repetido cuenta una sola vez |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: 400 para lista vacía, 201 ids, un id que no es UUID, sin userIds y una clave desconocida |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: 200 ids son aceptados (el tope es 200) |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un participante recibe 403 y no inscribe a nadie |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: reto desconocido responde 404 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un reto cerrado responde 400 completo y deja el roster intacto |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: se puede inscribir en un borrador |
+
+<a id="tc-part-09"></a>
+
+### TC-PART-09 · Inscripción en bloque desde Participantes
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | UI | 3.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; reto activo con candidatos.
+
+**Datos de prueba:** Dos candidatos marcados
+
+**Pasos**
+
+1. Marcar dos candidatos.
+2. Pulsar "Inscribir seleccionados (2)".
+3. Pulsar "Seleccionar todos".
+
+**Resultado esperado**
+
+- Aparece "2 inscritos" y ambos pasan a Inscritos y salen de los candidatos.
+- El botón queda deshabilitado sin selección; "Seleccionar todos" marca a todos los candidatos.
+- Un omitido se lista con su nombre y motivo ("Luis (usuario inactivo)").
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `14-renewal.spec.ts` | inscribe a varios participantes de una vez y muestra el resultado |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: inscritos, ya inscritos y omitido con nombre y motivo |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: singular y plural |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: varios omitidos se listan con su motivo |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: un usuario desconocido sin nombre muestra solo el motivo |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: omite las partes en cero y no deja el resumen vacío |
 
 <a id="tc-part-06"></a>
 

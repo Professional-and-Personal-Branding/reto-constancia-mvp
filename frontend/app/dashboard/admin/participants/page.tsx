@@ -12,13 +12,22 @@ import {
   PARTICIPANT_FILTERS,
   type ParticipantFilter,
 } from '@/lib/payment';
-import type { ChallengeFinance, ChallengeParticipant, PaymentState, SafeUser } from '@/lib/types';
+import { bulkSummary } from '@/lib/renewal';
+import type {
+  BulkEnrollResult,
+  ChallengeFinance,
+  ChallengeParticipant,
+  PaymentState,
+  SafeUser,
+} from '@/lib/types';
 
 export default function ParticipantsPage() {
   const qc = useQueryClient();
 
   const { challenge } = useActiveChallenge();
   const [filter, setFilter] = useState<ParticipantFilter>('all');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
 
   const { data: participants } = useQuery<ChallengeParticipant[]>({
     queryKey: ['participants', challenge?.id],
@@ -46,6 +55,25 @@ export default function ParticipantsPage() {
         body: { userId },
       }),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['participants'] });
+      qc.invalidateQueries({ queryKey: ['results'] });
+      qc.invalidateQueries({ queryKey: ['challenge'] });
+      qc.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+
+  const bulkMut = useMutation({
+    mutationFn: (userIds: string[]) =>
+      api<BulkEnrollResult>(`/challenges/${challenge!.id}/participants/bulk`, {
+        method: 'POST',
+        body: { userIds },
+      }),
+    onSuccess: (result, userIds) => {
+      const names = Object.fromEntries(
+        (allUsers ?? []).filter((u) => userIds.includes(u.id)).map((u) => [u.id, u.name]),
+      );
+      setBulkMessage(bulkSummary(result, names));
+      setSelected([]);
       qc.invalidateQueries({ queryKey: ['participants'] });
       qc.invalidateQueries({ queryKey: ['results'] });
       qc.invalidateQueries({ queryKey: ['challenge'] });
@@ -94,6 +122,13 @@ export default function ParticipantsPage() {
   const candidates = allUsers?.filter(
     (u) => !enrolledIds.has(u.id) && u.active && u.role === 'PARTICIPANT',
   );
+
+  // Solo cuentan los marcados que siguen siendo candidatos (alguien pudo inscribirse aparte)
+  const candidateIds = new Set(candidates?.map((u) => u.id));
+  const selectedIds = selected.filter((id) => candidateIds.has(id));
+  const allSelected = !!candidates && candidates.length > 0 && selectedIds.length === candidates.length;
+  const toggle = (id: string) =>
+    setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const fee = parseFloat(challenge.feePerParticipant);
   const financeRow = (userId: string) => finance?.participants.find((f) => f.userId === userId);
@@ -203,14 +238,51 @@ export default function ParticipantsPage() {
 
       <div className="card p-5">
         <h2 className="display text-xl tracking-wider mb-4">Agregar participante</h2>
+        {bulkMessage && (
+          <p role="status" className="text-sm text-ok mb-3">
+            {bulkMessage}
+          </p>
+        )}
+        {bulkMut.isError && (
+          <p role="alert" className="text-sm text-bad mb-3">
+            {bulkMut.error instanceof Error ? bulkMut.error.message : 'No se pudo inscribir'}
+          </p>
+        )}
         {candidates && candidates.length > 0 ? (
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+              <label className="flex items-center gap-2 text-sm text-ink-dim">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={() => setSelected(allSelected ? [] : candidates.map((u) => u.id))}
+                />
+                Seleccionar todos
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkMessage(null);
+                  bulkMut.mutate(selectedIds);
+                }}
+                disabled={selectedIds.length === 0 || bulkMut.isPending}
+                className="btn-primary py-1.5 px-3 text-sm"
+              >
+                Inscribir seleccionados ({selectedIds.length})
+              </button>
+            </div>
             {candidates.map((u) => (
               <div
                 key={u.id}
                 className="flex items-center justify-between gap-3 p-3 rounded-md border border-line"
               >
-                <div>
+                <input
+                  type="checkbox"
+                  aria-label={`Seleccionar a ${u.name}`}
+                  checked={selectedIds.includes(u.id)}
+                  onChange={() => toggle(u.id)}
+                />
+                <div className="flex-1">
                   <p className="font-medium">{u.name}</p>
                   <p className="text-xs text-ink-mute">{u.email}</p>
                 </div>
