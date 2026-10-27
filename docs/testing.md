@@ -160,7 +160,7 @@ automatizados, 1 manual) con 739 pruebas ejecutadas y 0 fallidas: unitarias del 
 de la web 49, e2e de API 167, recorridos de UI 72, capturas de la guía 25 y sesiones paralelas 70;
 "Pruebas sin caso: 0".
 
-**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones. `next` y `eslint-config-next` pasan a 15.5.28 en el frontend (GHSA-2464-fhr4-w9xw y GHSA-p3m5-59mp-jv5r): el 20 oct el aviso no existía, apareció el 23 oct y la CI lo detectó; el 24 oct aparecieron además avisos de `multer` (ahora 2.5.0 con `overrides`), `body-parser` (2.4.0) y `zod` (se quitó del frontend, sin uso); se refrescó la rama con `develop` y con el fix y se volvió a verificar el 24 oct.
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones. `next` y `eslint-config-next` pasan a 15.5.28 en el frontend (GHSA-2464-fhr4-w9xw y GHSA-p3m5-59mp-jv5r): el 20 oct el aviso no existía, apareció el 23 oct y la CI lo detectó; el 24 oct aparecieron además avisos de `multer` (ahora 2.5.0 con `overrides`), `body-parser` (2.4.0) y `zod` (se quitó del frontend, sin uso); se refrescó la rama con `develop` y con el fix y se volvió a verificar el 24 oct. El 27 oct se fusionó de nuevo `develop` (PR #73 a #79 ya fusionados): el árbol de código coincide con `develop` salvo la versión 1.11.0 y la batería dio 13 de 13 y el catálogo 144 de 144 (739 pruebas); en una primera corrida del validador falló una vez el recorrido de la cola de comprobantes (TC-FIN-09) y pasó solo y en la corrida completa siguiente, sin cambios de código.
 El archivo de OpenSpec creó los specs `challenge-enrollment` y `challenge-renewal` con Purpose real
 y actualizó `activity-withdrawal`; `openspec validate --all --strict` pasa (13 de 13).
 
