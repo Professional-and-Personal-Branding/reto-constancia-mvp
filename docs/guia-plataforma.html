@@ -284,6 +284,7 @@
         <li>Un reto cerrado es definitivo: no se edita ni vuelve a borrador (6.3).</li>
         <li>El encabezado entra completo también en el celular: el nombre del reto ya no se corta y las secciones van en una fila propia que se desplaza.</li>
         <li>Los retos cerrados se consultan en el Ranking: ganadores y premio final, con dirección para compartir (paso 6.5).</li>
+        <li>Nueva página Mi cuenta: cambia tu nombre y tu contraseña desde la web; cambiar la contraseña cierra tus otras sesiones y, una vez, todos vuelven a iniciar sesión tras la actualización (paso 1.5).</li>
         <li>Nuevo modo claro con interruptor en el encabezado; por defecto sigue el tema de tu dispositivo (paso 1.4).</li>
         <li>Capturas de la web real en modo claro, dentro de un marco de ventana para no confundirlas con la guía; pulsa una para ampliarla.</li>
         <li>Cada referencia <b>TC-…</b> abre su caso en el catálogo validado (<code>docs/qa/test-cases.md</code>).</li>
@@ -388,7 +389,7 @@
         {
           id: '1.3', role: 'admin', title: 'Reconocer las secciones de cada rol', route: '/dashboard',
           why: 'Las secciones de administración solo aparecen para el rol administrador, y la API las protege igual.',
-          actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.'],
+          actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.', 'Todos ven <span class="ui">Mi cuenta</span> como última sección (paso 1.5).'],
           expect: 'Un participante que intenta una acción de administración por la API recibe 403.',
           refs: ['TC-UI-01', 'TC-UI-02', 'TC-UI-10', 'TC-AUTH-07', 'TC-SEC-01']
         },
@@ -399,6 +400,14 @@
           expect: 'El tema cambia al instante en la página donde estás y este navegador lo recuerda en las próximas visitas, sin parpadeos.',
           note: 'Mientras no lo toques, la web sigue el modo claro u oscuro de tu dispositivo. Cada navegador guarda su propia elección.',
           refs: ['TC-UI-06', 'TC-UI-07', 'TC-UI-08', 'TC-UI-09']
+        },
+        {
+          id: '1.5', role: 'participante', title: 'Mi cuenta: nombre y contraseña', route: '/dashboard/account',
+          why: 'Cualquier persona, participante o administrador, corrige su nombre y rota su contraseña sin pedir ayuda. El administrador del seed la cambia aquí tras su primer inicio de sesión.',
+          actions: ['Abre <span class="ui">Mi cuenta</span>, la última sección del menú.', 'En <span class="ui">Nombre</span> escribe el nuevo nombre (2 a 80 caracteres) y pulsa <span class="ui">Guardar nombre</span>.', 'En <span class="ui">Contraseña</span> escribe la actual, la nueva dos veces (mínimo 8 caracteres, con una letra y un número) y pulsa <span class="ui">Cambiar contraseña</span>.'],
+          expect: '"Nombre actualizado." y el encabezado muestra el nombre nuevo sin recargar. Al cambiar la contraseña ves "Contraseña actualizada…", los campos quedan vacíos y esta sesión sigue abierta.',
+          note: 'Las sesiones abiertas en otros dispositivos se cierran en su próxima renovación (hasta 15 minutos). Una contraseña actual incorrecta no cierra tu sesión: solo muestra el error. Hay un límite de 5 intentos por minuto.',
+          refs: ['TC-AUTH-15', 'TC-AUTH-16', 'TC-AUTH-17', 'TC-AUTH-18']
         }
       ]
     },
@@ -737,6 +746,7 @@
     ['Sesión que resiste picos de tráfico y cortes de red', '1.2', 'auto'],
     ['Control de acceso por rol', '1.3', 'auto'],
     ['Modo claro y oscuro con interruptor recordado', '1.4', 'auto'],
+    ['Mi cuenta: cambiar el nombre y la contraseña, y cerrar las otras sesiones', '1.5', 'auto'],
     ['Crear reto con período, días válidos, cuota, presupuesto y premio', '2.1', 'auto'],
     ['Reglas de puntaje configurables', '2.1', 'auto'],
     ['Activar reto (transición explícita, sin reactivar cerrados)', '2.2', 'auto'],
@@ -791,7 +801,7 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263], '33-renovar-reto.jpg': [576, 578], '34-inscripcion-en-bloque.jpg': [1232, 562] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263], '33-renovar-reto.jpg': [576, 578], '34-inscripcion-en-bloque.jpg': [1232, 562], '35-mi-cuenta.jpg': [1280, 978] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
@@ -799,6 +809,7 @@
     '1.1': [['02-registro-error.jpg', 'La política de contraseña se explica en el mismo formulario.']],
     '1.2': [['01-login.jpg', 'Pantalla de inicio de sesión.']],
     '1.4': [['23-tema-interruptor.jpg', 'El interruptor junto al nombre: encendido, la web está en modo claro.']],
+    '1.5': [['35-mi-cuenta.jpg', 'Mi cuenta: tus datos, el formulario del nombre y el de la contraseña.']],
     '1.3': [['04-menu-admin.jpg', 'El administrador ve además Retos, Participantes, Validaciones e Importar.']],
     '2.1': [['06-reto-formulario.jpg', 'Formulario de nuevo reto con período, días válidos, cuota, premio y reglas de puntaje.']],
     '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],

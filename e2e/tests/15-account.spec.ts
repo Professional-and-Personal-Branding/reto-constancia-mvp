@@ -65,7 +65,9 @@ test('cambia su nombre y su contraseña desde Mi cuenta', async ({ page, request
   await expect(page).toHaveURL(/\/dashboard\/account$/);
 
   // Cambio correcto: tokens nuevos guardados, campos vacíos y la sesión sigue tras recargar
-  const before = await page.evaluate(() => JSON.parse(window.localStorage.getItem('reto.tokens')!).refreshToken as string);
+  const before = await page.evaluate(
+    () => JSON.parse(window.localStorage.getItem('reto.tokens')!).refreshToken as string,
+  );
   await fill(oldPassword, newPassword, newPassword);
   await expect(
     page.getByText('Contraseña actualizada. Las sesiones abiertas en otros dispositivos se cerrarán en unos minutos.'),
@@ -73,7 +75,9 @@ test('cambia su nombre y su contraseña desde Mi cuenta', async ({ page, request
   await expect(passwordForm.getByLabel('Contraseña actual')).toHaveValue('');
   await expect(passwordForm.getByLabel('Nueva contraseña', { exact: true })).toHaveValue('');
   await expect(passwordForm.getByLabel('Repite la nueva contraseña')).toHaveValue('');
-  const after = await page.evaluate(() => JSON.parse(window.localStorage.getItem('reto.tokens')!).refreshToken as string);
+  const after = await page.evaluate(
+    () => JSON.parse(window.localStorage.getItem('reto.tokens')!).refreshToken as string,
+  );
   expect(after).not.toBe(before);
   expect(passwordRequests).toEqual(['PATCH', 'PATCH']);
 
