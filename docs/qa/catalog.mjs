@@ -391,6 +391,7 @@ export const CASES = [
       A('challenge-scoring.e2e-spec.ts', 'crea un reto con reglas propias y las persiste'),
       W('05-challenges-scoring.spec.ts', 'el formulario de reto trae las reglas de puntaje con sus valores por defecto'),
       G('menú de administración y lista de retos'),
+      U('create-challenge.dto.spec.ts', 'acepta 100 caracteres y rechaza 101 con mensaje en español'),
     ],
   },
   {
@@ -922,6 +923,8 @@ export const CASES = [
       F('renewal.test.ts', 'bulkSummary: varios omitidos se listan con su motivo'),
       F('renewal.test.ts', 'bulkSummary: un usuario desconocido sin nombre muestra solo el motivo'),
       F('renewal.test.ts', 'bulkSummary: omite las partes en cero y no deja el resumen vacío'),
+      F('renewal.test.ts', 'chunk: reparte la selección en lotes de a lo más 200'),
+      F('renewal.test.ts', 'mergeBulkResults: combina los lotes en un solo resultado'),
     ],
   },
   {

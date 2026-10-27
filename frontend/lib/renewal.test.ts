@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bulkSummary } from './renewal.ts';
+import { BULK_BATCH_SIZE, bulkSummary, chunk, mergeBulkResults } from './renewal.ts';
 import type { BulkEnrollResult } from './types.ts';
 
 const row = (id: string, name = id) => ({ userId: id, name, email: `${id}@x` });
@@ -59,4 +59,27 @@ test('bulkSummary: omite las partes en cero y no deja el resumen vacío', () => 
     '1 inscrito · 1 ya estaba inscrito',
   );
   assert.equal(bulkSummary(result({})), 'Sin cambios');
+});
+
+test('chunk: reparte la selección en lotes de a lo más 200', () => {
+  const ids = Array.from({ length: 450 }, (_, i) => `u${i}`);
+  const batches = chunk(ids, BULK_BATCH_SIZE);
+  assert.deepEqual(
+    batches.map((b) => b.length),
+    [200, 200, 50],
+  );
+  assert.equal(BULK_BATCH_SIZE, 200);
+  assert.deepEqual(chunk([], 200), []);
+});
+
+test('mergeBulkResults: combina los lotes en un solo resultado', () => {
+  const merged = mergeBulkResults([
+    result({ enrolled: [row('a')], skipped: [{ userId: 'x', reason: 'INACTIVE', message: 'm' }] }),
+    result({ enrolled: [row('b'), row('c')], alreadyEnrolled: [row('d')] }),
+  ]);
+  assert.equal(merged.enrolled.length, 3);
+  assert.equal(merged.alreadyEnrolled.length, 1);
+  assert.equal(merged.skipped.length, 1);
+  assert.equal(bulkSummary(merged), '3 inscritos · 1 ya estaba inscrito · 1 omitido: usuario inactivo');
+  assert.equal(bulkSummary(mergeBulkResults([])), 'Sin cambios');
 });
