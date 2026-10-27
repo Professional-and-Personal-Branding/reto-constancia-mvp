@@ -12,7 +12,7 @@
   - register user U (tokens A); `PATCH /users/me` renames (200, trimmed, no `passwordHash`); `{ name, role: 'ADMIN' }` → 400 and role unchanged; `"A"` → 400; without token → 401
   - password sequence with A, in this order: weak new (400), equal inputs (400), wrong current (400 "Contraseña actual incorrecta"), success (200 with tokens C); refresh with A's refresh token → 401, with C's → 200; login with the old password → 401, with the new → 200; two more password requests so the sixth answers 429
   - register a second user V and check `register` with "corta1" answers 400 "La contraseña debe tener al menos 8 caracteres" (counts as the second registration)
-- [ ] 1.5 Run them and check they fail for the expected reason
+- [x] 1.5 Run them and check they fail for the expected reason
 
 ## 2. Backend
 
@@ -33,7 +33,7 @@
 ## 4. Playwright (bounded: one new journey, no extra login)
 
 - [x] 4.1 `e2e/tests/15-account.spec.ts` (next free number), test "cambia su nombre y su contraseña desde Mi cuenta": register a throwaway user `account-<timestamp>@e2e.local` by API, inject its tokens into `localStorage`, open `/dashboard`, follow "Mi cuenta"; rename and see "Nombre actualizado." and the new name in the header; mismatched confirmation shows "Las contraseñas no coinciden" with no request to `/users/me/password`; wrong current shows "Contraseña actual incorrecta" with no request to `/auth/refresh` and the page stays; right current saves, shows the success message, the fields are empty, the stored refresh token changed and a reload stays on the page. Two password requests and one registration in total; never a seed user (D10)
-- [ ] 4.2 Re-run `09-header-layout.spec.ts` (TC-UI-10) for admin and participant; adjust it only if the extra item breaks the fit
+- [x] 4.2 Re-run `09-header-layout.spec.ts` (TC-UI-10) for admin and participant; adjust it only if the extra item breaks the fit
 - [x] 4.3 Guide capture of the new step only if the guide suite already captures every section-1 step; otherwise none
 
 ## 5. QA catalog (`docs/qa/catalog.mjs`)
@@ -67,5 +67,5 @@
 - [x] 6.2 Guide `docs/guia-plataforma.html`: new step "Mi cuenta: nombre y contraseña" in section 1 (who, route, what happens to other sessions)
 - [x] 6.3 `docs/security-owasp.md`: refresh tokens end on a password change (fingerprint); keep `jti`/revocation list and lockout in "Mejoras futuras"
 - [x] 6.4 `CHANGELOG.md` Sin publicar: "Mi cuenta: cambiar el nombre y la contraseña desde la web; cambiar la contraseña cierra las otras sesiones; tras desplegar, todos inician sesión de nuevo una vez"
-- [ ] 6.5 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
+- [x] 6.5 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
 - [ ] 6.6 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the next release
