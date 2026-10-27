@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -9,6 +10,8 @@ import { Prisma, User, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
+import { AuthService, AuthTokens } from '../auth/auth.service';
 
 export type SafeUser = Omit<User, 'passwordHash'>;
 
@@ -24,7 +27,10 @@ const SAFE_USER_SELECT: Prisma.UserSelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
 
   findAll(): Promise<SafeUser[]> {
     return this.prisma.user.findMany({
@@ -55,18 +61,36 @@ export class UsersService {
     }) as Promise<SafeUser>;
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+  /** Cambia solo el nombre de la propia persona (nunca rol, estado ni correo). */
+  async updateMe(userId: string, dto: UpdateMeDto): Promise<SafeUser> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { name: dto.name.trim() },
+      select: SAFE_USER_SELECT,
+    }) as Promise<SafeUser>;
+  }
 
+  /**
+   * Cambia la contraseña y devuelve un par de tokens nuevo para la sesión que lo pidió:
+   * la huella del refresh cambia con el hash y las demás sesiones dejan de renovarse.
+   * Una contraseña actual incorrecta es 400 (error de formulario), no 401 (sin sesión).
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<AuthTokens> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.active) throw new UnauthorizedException('Sesión no válida');
+
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException('La nueva contraseña debe ser distinta de la actual');
+    }
     const ok = await argon2.verify(user.passwordHash, dto.currentPassword);
-    if (!ok) throw new UnauthorizedException('Contraseña actual incorrecta');
+    if (!ok) throw new BadRequestException('Contraseña actual incorrecta');
 
     const passwordHash = await argon2.hash(dto.newPassword);
-    await this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
     });
+    return this.auth.issueTokens(updated);
   }
 
   async resetPassword(id: string, newPassword: string): Promise<void> {

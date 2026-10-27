@@ -39,6 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           { href: '/dashboard/admin/challenges', label: 'Retos', admin: true },
         ]
       : []),
+    { href: '/dashboard/account', label: 'Mi cuenta' },
   ];
 
   return (
