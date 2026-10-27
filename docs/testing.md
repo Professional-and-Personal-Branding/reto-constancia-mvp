@@ -1,7 +1,7 @@
 # Pruebas automatizadas — Reto de Constancia
 
 Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
-catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (140 casos, cada uno con las
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (141 casos, cada uno con las
 pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
 [`test-cases.md`](./test-cases.md).
 
@@ -59,6 +59,7 @@ La primera vez, instala también el navegador de Playwright:
 | `challenges/challenges.service.spec.ts` | Activación (DRAFT→ACTIVE, idempotencia, 400 en cerrado), lista de activos, reto por defecto, marcado de pago |
 | `challenges/results.service.spec.ts` | Ranking, ganadores, premiación manual, payout y reglas de puntaje configurables |
 | `challenges/scoring.spec.ts` | Fórmula de puntaje, calificación y desempates (`DRAW`, `TOTAL_KM`, `SHARE_ALL`) |
+| `challenges/enrollment.spec.ts` | Regla de inscripción compartida: nuevos, ya inscritos, inactivos y desconocidos, ids repetidos, sin datos de pago, carrera con otra inscripción |
 | `challenges/finance.service.spec.ts` | Estados de pago, comprobante por revisar y estado de pago propio, totales esperado/recaudado/pendiente, cobertura y reparto del premio |
 | `activities/activities.service.spec.ts` | Regla de FC, derivación de la captura, override de validación, `heartRateCompliant` |
 | `import/import.service.spec.ts` | Validación de filas, plantilla, advertencias de FC, lectura de hojas de cálculo |
@@ -74,6 +75,7 @@ La primera vez, instala también el navegador de Playwright:
 | `app.e2e-spec.ts` | Salud, registro, login, perfil, RBAC básico |
 | `challenge-lifecycle.e2e-spec.ts` | Varios retos activos, lista de activos, reto por defecto, actividades por reto |
 | `activity-heart-rate.e2e-spec.ts` | Rechazos por regla de FC, override con nota, reto sin regla |
+| `challenge-renewal.e2e-spec.ts` | Inscripción en bloque (`BULK:`): lista mixta, repetición, ids repetidos, límites, roles, reto cerrado y borrador, alta individual de inactivos |
 | `challenge-finance.e2e-spec.ts` | Resumen financiero, estados de pago, cola de comprobantes, payout, permisos |
 | `challenge-scoring.e2e-spec.ts` | Puntaje configurable, mínimo para calificar, desempates, validación de configuración |
 | `import-sheet.e2e-spec.ts` | Importación desde Google Sheets con un cliente falso (CI no habla con Google) |
@@ -127,8 +129,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 69 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades pendientes o rechazadas, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 22 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 140 casos de `docs/qa/` están enlazados a 676 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 70 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 21 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 141 casos de `docs/qa/` están enlazados a 695 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -169,6 +171,29 @@ Pruebas existentes modificadas: el recorrido "las actividades validadas o rechaz
 retirar" se renombró "las actividades validadas no ofrecen retirar" (mismo cuerpo), y las e2e de API
 "el participante no puede borrar una actividad ya validada" y "FREEZE: en un reto cerrado..." se
 ampliaron (nuevo texto del 403 y una actividad rechazada de un reto cerrado).
+
+### 2026-10-20 · rama `feature/monthly-challenge-renewal`, PR 1 (inscripción en bloque)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Una primera batería falló solo en Playwright (el nuevo spec importaba el helper `.mjs`
+de forma estática); se corrigió con el `import()` dinámico que ya usa `fixtures/api.ts` y se repitió
+completa.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **141 de 141 casos aprobados** (140
+automatizados, 1 manual) con 695 pruebas ejecutadas y 0 fallidas: unitarias del backend 332, unitarias
+de la web 45, e2e de API 155, recorridos de UI 70, capturas de la guía 23 y sesiones paralelas 70;
+"Pruebas sin caso: 0". Casos nuevos: TC-PART-08 (API de inscripción en bloque) y TC-PART-09
+(selección en bloque en Participantes); TC-PART-01 ahora cubre la regla de usuarios inactivos.
+
+**Cambio en pruebas existentes:** el mock de usuario de la prueba "inscribir, quitar y registrar pagos
+se rechazan si el reto se cerró bajo el lock" ahora es `{ id: 'u', active: true }`, porque la
+inscripción individual comprueba `active`.
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
+`openspec validate --all --strict` pasa (12 de 12).
 
 ### 2026-10-17 · v1.10.0 (rama `release/1.10.0`)
 

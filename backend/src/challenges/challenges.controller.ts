@@ -35,6 +35,7 @@ import { FinanceService } from './finance.service';
 import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
+import { BulkAddParticipantsDto } from './dto/bulk-add-participants.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
 import { AwardChallengeDto } from './dto/award-challenge.dto';
@@ -217,6 +218,15 @@ export class ChallengesController {
   @ApiOperation({ summary: 'Agregar participante al reto (admin)' })
   addParticipant(@Param('id') id: string, @Body() dto: AddParticipantDto) {
     return this.challenges.addParticipant(id, dto.userId);
+  }
+
+  @Post(':id/participants/bulk')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Inscribir varios usuarios a la vez (admin): resultado por usuario' })
+  @ApiResponse({ status: 400, description: 'Lista inválida o reto cerrado' })
+  bulkAddParticipants(@Param('id') id: string, @Body() dto: BulkAddParticipantsDto) {
+    return this.challenges.bulkAddParticipants(id, dto.userIds);
   }
 
   @Delete(':id/participants/:userId')
