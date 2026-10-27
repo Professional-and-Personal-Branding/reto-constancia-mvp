@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-20** · rama `feature/monthly-challenge-renewal` · commit `4090a5d` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-20** · rama `feature/challenge-renewal` · commit `e0748f0`. Detalle en [validation-report.md](validation-report.md).
 
-**141 casos** · 141 aprobados · 0 fallidos · 0 con limitación conocida · 140 automatizados.
+**143 casos** · 143 aprobados · 0 fallidos · 0 con limitación conocida · 142 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 22 | 22 | 0 |
+| [Gestión de retos](#chal) | 24 | 24 | 0 |
 | [Participantes y pagos](#part) | 9 | 9 | 0 |
 | [Actividades y validación](#act) | 23 | 23 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -975,6 +975,8 @@
 | [TC-CHAL-20](#tc-chal-20) | Cerrar o premiar desde la web pasa por la revisión previa | Alta | UI | ✅ Aprobado |
 | [TC-CHAL-21](#tc-chal-21) | Acta del reto cerrado en CSV (solo admin, solo lectura) | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-22](#tc-chal-22) | Descargar el acta desde el ranking de un reto cerrado | Media | UI | ✅ Aprobado |
+| [TC-CHAL-23](#tc-chal-23) | Renovar un reto en el mes siguiente (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-24](#tc-chal-24) | Renovar desde la lista de retos | Alta | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1798,6 +1800,112 @@
 | ✅ | UI | `08-closed-results.spec.ts` | si la descarga falla, el error se ve junto al botón |
 | ✅ | Web (unitaria) | `export.test.ts` | el nombre del acta sale del año y el mes con dos dígitos |
 
+<a id="tc-chal-23"></a>
+
+### TC-CHAL-23 · Renovar un reto en el mes siguiente (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 2.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto 10/AAAA ACTIVE con reglas no default, Ana con pago registrado, Bea con comprobante y Luis inactivo.
+- Un reto COMPLETED con actividades y premiación; un reto DRAFT; un reto de diciembre.
+
+**Datos de prueba:** GET .../renewal-preview; POST .../renew con {}, con copyParticipants: true, con nombre propio y con nombre en blanco; renovar dos veces y dos a la vez; como participante
+
+**Pasos**
+
+1. Pedir la vista previa de un reto activo, de uno de diciembre y de uno cerrado.
+2. Renovar sin copiar participantes y revisar el borrador.
+3. Renovar otra vez.
+4. Renovar el reto cerrado con nombre propio y copyParticipants true.
+5. Lanzar dos renovaciones a la vez.
+6. Renovar un borrador; enviar nombre en blanco y una clave desconocida; llamar como participante.
+7. Activar el reto renovado.
+
+**Resultado esperado**
+
+- La vista previa trae el mes siguiente (enero del año siguiente para diciembre), el período del primer al último día, las reglas con budgetMode, toCopy, skipped y existing.
+- 201 con un reto DRAFT con exactamente las once reglas, sin pagos, comprobantes, actividades ni premiación, y sin participantes si no se pidió copiarlos.
+- Con copyParticipants: Ana y Bea quedan inscritas impagas y sin comprobante, Luis se omite como INACTIVE; el reto origen no cambia (estado, reglas, pagos, comprobantes, actividades y premios).
+- El segundo intento da 409 "Ya existe un reto para M/AAAA" con existingChallengeId y no inscribe a nadie.
+- Dos renovaciones simultáneas: un 201 y un 409; queda un solo reto.
+- 400 "Solo se puede renovar un reto activo o cerrado" para un borrador; 400 con nombre en blanco o clave desconocida; 403 al participante; 404 para un reto desconocido.
+- El borrador renovado se activa con la regla de siempre.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `renewal.spec.ts` | avanza al mes siguiente del mismo año |
+| ✅ | Unitaria | `renewal.spec.ts` | diciembre pasa a enero del año siguiente |
+| ✅ | Unitaria | `renewal.spec.ts` | cubre del primer al último día en meses de 30 y 31 días |
+| ✅ | Unitaria | `renewal.spec.ts` | febrero tiene 28 días en 2027 y 29 en 2028 |
+| ✅ | Unitaria | `renewal.spec.ts` | usa el nombre del mes en español |
+| ✅ | Unitaria | `renewal.spec.ts` | devuelve exactamente las once reglas, sin identidad, estado, fechas ni relaciones |
+| ✅ | Unitaria | `renewal.spec.ts` | copia el arreglo de días sin compartir la referencia |
+| ✅ | Unitaria | `challenges.service.spec.ts` | devuelve mes siguiente, período, reglas, a quién copiar y a quién omitir, sin escribir |
+| ✅ | Unitaria | `challenges.service.spec.ts` | marca el presupuesto manual y informa el reto que ya ocupa el mes |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador responde 400 y un reto desconocido 404 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | crea el borrador del mes siguiente con las reglas y el período, en una transacción, sin inscribir |
+| ✅ | Unitaria | `challenges.service.spec.ts` | con copyParticipants inscribe a los activos en la misma transacción y reporta al inactivo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | el nombre propio se guarda recortado; el vacío usa el sugerido |
+| ✅ | Unitaria | `challenges.service.spec.ts` | diciembre renueva en enero del año siguiente |
+| ✅ | Unitaria | `challenges.service.spec.ts` | si el mes ya existe responde 409 con existingChallengeId y no crea ni inscribe |
+| ✅ | Unitaria | `challenges.service.spec.ts` | una carrera (P2002 al crear) responde el mismo 409 con el id del reto ganador |
+| ✅ | Unitaria | `challenges.service.spec.ts` | si falla la copia de inscritos, el error sale de la transacción (se revierte el reto) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | nunca modifica el reto origen ni copia actividades ni premios |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador responde 400 y nada se crea; un reto desconocido 404 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de un reto activo trae mes siguiente, período, reglas y a quién se copia |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de diciembre cae en enero del año siguiente y la de un cerrado marca el presupuesto manual |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar sin copiar participantes crea el borrador exacto del mes siguiente |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar otra vez responde 409 con existingChallengeId y no inscribe a nadie |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un reto cerrado con nombre propio copia a los activos impagos y sin comprobante; el origen no cambia |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: diciembre se renueva en enero del año siguiente |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: dos renovaciones simultáneas dejan un solo reto: un 201 y un 409 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un borrador de origen responde 400 en la vista previa y al renovar, sin crear nada |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: nombre en blanco y clave desconocida responden 400 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un participante recibe 403 en ambas rutas y un reto desconocido 404 |
+
+<a id="tc-chal-24"></a>
+
+### TC-CHAL-24 · Renovar desde la lista de retos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | UI | 2.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; reto origen ACTIVE con dos participantes; mes siguiente libre.
+
+**Datos de prueba:** Reto origen con Ana y Bruno inscritos
+
+**Pasos**
+
+1. Pulsar "Renovar" en el reto origen.
+2. Revisar el diálogo.
+3. Pulsar "Crear borrador".
+4. Pulsar "Renovar" otra vez en el origen.
+
+**Resultado esperado**
+
+- El diálogo muestra el mes nuevo, el período, las reglas, el nombre editable, la casilla de participantes marcada con las personas a inscribir y la nota de lo que no se copia.
+- Al confirmar aparece el borrador con 2 participantes y el aviso "<nombre> creado en borrador con 2 inscritos"; el borrador no ofrece "Renovar" pero sí "Activar".
+- El segundo intento dice "Ya existe un reto para <Mes AAAA> (borrador)" con "Crear borrador" deshabilitado; Escape cierra el diálogo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `14-renewal.spec.ts` | renueva el reto en el mes siguiente con sus participantes y avisa si el mes ya existe |
+| ✅ | Guía | `capture.spec.ts` | renovar un reto: vista previa y nota de lo que no se copia |
+| ✅ | Web (unitaria) | `renewal.test.ts` | monthLabel: nombre del mes en español y año |
+| ✅ | Web (unitaria) | `renewal.test.ts` | renewedMessage: aviso de reto creado en borrador, con singular y plural |
+| ✅ | Web (unitaria) | `renewal.test.ts` | rulesSummary: presupuesto automático, o ajustado con su monto |
+
 <a id="part"></a>
 
 ## Participantes y pagos
@@ -2118,6 +2226,7 @@
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: varios omitidos se listan con su motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: un usuario desconocido sin nombre muestra solo el motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: omite las partes en cero y no deja el resumen vacío |
+| ✅ | Guía | `capture.spec.ts` | inscripción en bloque desde Participantes |
 
 <a id="tc-part-06"></a>
 

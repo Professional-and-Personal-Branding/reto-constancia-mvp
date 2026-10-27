@@ -129,8 +129,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 70 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 21 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 141 casos de `docs/qa/` están enlazados a 695 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 71 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 25 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 143 casos de `docs/qa/` están enlazados a 730 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -143,6 +143,27 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-20 · rama `feature/challenge-renewal`, PR 2 (renovación mensual)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **143 de 143 casos aprobados** (142
+automatizados, 1 manual) con 730 pruebas ejecutadas y 0 fallidas: unitarias del backend 351, unitarias
+de la web 48, e2e de API 165, recorridos de UI 71, capturas de la guía 25 y sesiones paralelas 70;
+"Pruebas sin caso: 0". Casos nuevos: TC-CHAL-23 (API de renovación: vista previa, reglas exactas,
+copia de inscritos con pagos limpios, 409 con `existingChallengeId`, concurrencia, origen borrador,
+roles) y TC-CHAL-24 (renovar desde la lista de retos). La guía suma el paso 2.5 (con captura del
+diálogo) y la inscripción en bloque en el paso 3.1 (con captura).
+
+**Cambio en pruebas existentes:** ninguno.
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
+`openspec validate --all --strict` pasa.
 
 ### 2026-10-20 · rama `feature/resubmit-rejected-activity` (reenviar una actividad rechazada, incremento 1)
 

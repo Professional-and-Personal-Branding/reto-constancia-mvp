@@ -444,6 +444,19 @@
           expect: 'La elección se recuerda en ese navegador. Por defecto se muestra el reto más reciente en el que participas.',
           note: 'Los retos en los que no estás inscrito se marcan "(no inscrito)".',
           refs: ['TC-CHAL-06', 'TC-CHAL-08', 'TC-CHAL-10', 'TC-CHAL-09']
+        },
+        {
+          id: '2.5', role: 'admin', title: 'Renovar el reto en el mes siguiente', route: '/dashboard/admin/challenges',
+          why: 'Cada mes se repiten las mismas reglas y casi las mismas personas: la renovación arma el borrador del mes que viene en un solo paso.',
+          actions: [
+            'En <span class="ui">Retos</span>, pulsa <span class="ui">Renovar</span> en un reto activo o cerrado.',
+            'Revisa el mes nuevo y su período (del primer al último día), las reglas que se copian y el nombre propuesto; cámbialo si quieres.',
+            'Deja marcada <span class="ui">Inscribir a los N participantes activos</span> para llevarte al grupo, o desmárcala.',
+            'Pulsa <span class="ui">Crear borrador</span>.'
+          ],
+          expect: 'El reto del mes siguiente aparece como Borrador, con sus participantes, y la página dice "<nombre> creado en borrador con N inscritos". Revísalo con Editar y actívalo con Activar cuando corresponda.',
+          note: 'No se copian pagos, comprobantes, actividades ni premiaciones: los inscritos nacen sin pago. Si el mes siguiente ya tiene un reto, el diálogo lo dice y no deja confirmar. Un reto en borrador no se renueva.',
+          refs: ['TC-CHAL-23', 'TC-CHAL-24']
         }
       ]
     },
@@ -454,9 +467,13 @@
         {
           id: '3.1', role: 'admin', title: 'Inscribir participantes', route: '/dashboard/admin/participants',
           why: 'Solo los inscritos pueden registrar actividades y competir.',
-          actions: ['En <span class="ui">Agregar participante</span>, pulsa <span class="ui">+ Inscribir</span> junto a cada persona registrada.'],
-          expect: 'La persona pasa a la lista de inscritos con el estado "Debe" y el monto de la cuota.',
-          refs: ['TC-PART-01', 'TC-PART-02']
+          actions: [
+            'En <span class="ui">Agregar participante</span>, pulsa <span class="ui">+ Inscribir</span> junto a cada persona registrada.',
+            'Para un grupo, marca la casilla de cada persona (o <span class="ui">Seleccionar todos</span>) y pulsa <span class="ui">Inscribir seleccionados (N)</span>.'
+          ],
+          expect: 'La persona pasa a la lista de inscritos con el estado "Debe" y el monto de la cuota. Con la inscripción en bloque aparece un resumen, por ejemplo "3 inscritos · 1 ya estaba inscrito · 1 omitido: Luis (usuario inactivo)".',
+          note: 'Solo se inscribe a usuarios activos; una persona inactiva se omite y se lista con su motivo. Repetir la selección no duplica a nadie.',
+          refs: ['TC-PART-01', 'TC-PART-02', 'TC-PART-08', 'TC-PART-09']
         },
         {
           id: '3.2', role: 'admin', title: 'Quitar a un participante', route: '/dashboard/admin/participants',
@@ -726,6 +743,8 @@
     ['Editar las reglas de un reto en borrador o activo', '2.3', 'auto'],
     ['Varios retos activos y selector de reto', '2.4', 'auto'],
     ['Inscribir y quitar participantes', '3.1', 'auto'],
+    ['Inscripción en bloque con resumen por persona', '3.1', 'auto'],
+    ['Renovar un reto en el mes siguiente, en borrador y con sus participantes', '2.5', 'auto'],
     ['Marcar pago, impago y pago parcial con el monto recibido', '3.3', 'auto'],
     ['Resumen financiero y cobertura del presupuesto', '3.4', 'auto'],
     ['Cola de comprobantes por revisar con filtros y contadores', '3.3', 'auto'],
@@ -772,7 +791,7 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263], '33-renovar-reto.jpg': [576, 578], '34-inscripcion-en-bloque.jpg': [1232, 562] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
@@ -785,6 +804,8 @@
     '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],
     '2.4': [['07-selector-reto.jpg', 'Con varios retos activos, el selector de la cabecera elige con cuál trabajar.']],
     '2.3': [['24-editar-reto.jpg', 'Edición de un reto activo: valores actuales, mes y año fijos, y el aviso de que el ranking se recalcula.']],
+    '2.5': [['33-renovar-reto.jpg', 'Diálogo de renovación: mes y período nuevos, reglas que se copian, nombre editable, casilla de participantes y lo que no se copia.']],
+    '3.1': [['34-inscripcion-en-bloque.jpg', 'Inscripción en bloque: casilla por persona, "Seleccionar todos" e "Inscribir seleccionados (N)".']],
     '3.3': [
       ['28-cola-comprobantes.jpg', 'Cola de comprobantes: la tarjeta Por revisar, los filtros con contador y la insignia con la fecha de subida.'],
       ['25-pago-parcial.jpg', 'Pago parcial: el monto viene con la cuota y se corrige antes de guardar.']

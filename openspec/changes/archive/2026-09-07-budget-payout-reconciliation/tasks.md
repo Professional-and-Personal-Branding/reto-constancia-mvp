@@ -36,4 +36,4 @@
 - [x] 7.1 `openspec validate budget-payout-reconciliation --strict`; map every scenario to a test or manual check above
 - [x] 7.2 Backend lint+build+unit+e2e and frontend lint+tsc+build green locally
 - [x] 7.3 Conventional Commits on `feature/budget-payout-reconciliation`, PR to `develop`, CI green
-- [ ] 7.4 After merge: `/opsx:archive budget-payout-reconciliation` and verify `openspec/specs/challenge-finance/spec.md`
+- [x] 7.4 After merge: `/opsx:archive budget-payout-reconciliation` and verify `openspec/specs/challenge-finance/spec.md`

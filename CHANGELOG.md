@@ -8,9 +8,11 @@ Versionado [SemVer](https://semver.org/lang/es/).
 ### Corregido
 
 - El nombre de un reto admite como máximo 100 caracteres (`400` con mensaje en español; el campo web
-  también lo limita).
+  también lo limita), también al renovar.
 - "Seleccionar todos" en Participantes con más de 200 candidatos ya no falla: la inscripción en bloque
   se envía en lotes de 200 y se muestra un solo resumen.
+- Renovar con `copyParticipants` en texto (por ejemplo `"false"`) se leía como verdadero; ahora la API responde
+  `400` si no es un booleano.
 
 ### Seguridad
 
@@ -48,6 +50,25 @@ Versionado [SemVer](https://semver.org/lang/es/).
   - Participantes (admin): casilla por candidato, "Seleccionar todos" e "Inscribir seleccionados (N)",
     con un resumen del resultado ("3 inscritos · 1 ya estaba inscrito · 1 omitido: Luis (usuario
     inactivo)"). El "+ Inscribir" por fila sigue igual.
+
+- **Renovación mensual** (cambio `monthly-challenge-renewal`, PR 2): **sin migración, sin
+  dependencias y sin variables nuevas**; API y web se despliegan juntas. Para volver atrás se
+  redespliega la versión anterior (los retos creados por una renovación son retos normales: no hay
+  nada que deshacer).
+  - `GET /api/challenges/:id/renewal-preview` (solo admin, solo lectura): mes siguiente, nombre
+    sugerido, período (del primer al último día; diciembre pasa a enero del año siguiente), las reglas
+    que se copiarían (con `budgetMode`), a quién se inscribiría y a quién se omite por inactivo, y el
+    reto que ya ocupa ese mes (`existing`).
+  - `POST /api/challenges/:id/renew` (solo admin) con `{ name?, copyParticipants? }`: crea el reto del
+    mes siguiente en **borrador** con solo las once reglas (días válidos, minutos de FC, cuota,
+    presupuesto, moneda, premio y las cinco reglas de puntaje); nunca copia pagos, comprobantes,
+    actividades ni premiaciones. Con `copyParticipants: true` inscribe, en la misma transacción, a los
+    participantes activos del origen, impagos y sin comprobante. Un mes ya ocupado (también por una
+    carrera entre dos renovaciones) responde `409` "Ya existe un reto para M/AAAA" con
+    `existingChallengeId`; un borrador de origen responde `400`. El origen no cambia.
+  - Retos (admin): botón "Renovar" en los retos activos y cerrados, con un diálogo que muestra el mes
+    y el período, las reglas, el nombre editable, la casilla de inscribir a los participantes activos y
+    lo que no se copia; con el mes ocupado, no deja confirmar.
 
 ### Cambiado
 

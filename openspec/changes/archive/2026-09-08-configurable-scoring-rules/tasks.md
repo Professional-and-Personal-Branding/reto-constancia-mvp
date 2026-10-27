@@ -38,5 +38,5 @@
 
 - [x] 8.1 `openspec validate configurable-scoring-rules --strict`; map every scenario to a test or manual check above
 - [x] 8.2 Backend lint+build+unit+e2e and frontend lint+tsc+build green locally
-- [ ] 8.3 Conventional Commits on `feature/configurable-scoring-rules`, PR to `develop`, CI green
-- [ ] 8.4 After merge: `/opsx:archive configurable-scoring-rules` and verify `openspec/specs/challenge-scoring/spec.md`
+- [x] 8.3 Conventional Commits on `feature/configurable-scoring-rules`, PR to `develop`, CI green
+- [x] 8.4 After merge: `/opsx:archive configurable-scoring-rules` and verify `openspec/specs/challenge-scoring/spec.md`
