@@ -31,4 +31,4 @@
 - [x] 5.1 Run `openspec validate multi-active-challenges --strict` and verify every scenario in `specs/challenge-lifecycle/spec.md` maps to a passing automated test or a manual check listed here
 - [x] 5.2 Run backend lint+build+unit+e2e and frontend lint+build+tsc; verify all green locally
 - [x] 5.3 Commit with Conventional Commits in English on `feature/multi-active-challenges` and open a PR to `develop`; verify CI is green
-- [ ] 5.4 After merge, run `/opsx:archive multi-active-challenges` and verify `openspec/specs/challenge-lifecycle/spec.md` contains the requirements
+- [x] 5.4 After merge, run `/opsx:archive multi-active-challenges` and verify `openspec/specs/challenge-lifecycle/spec.md` contains the requirements

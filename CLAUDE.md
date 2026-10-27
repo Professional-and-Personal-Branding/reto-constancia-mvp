@@ -97,8 +97,8 @@ visibles al usuario, la documentación y la guía, en español.
 
 - La rama por defecto es `main` (la última release); el trabajo nuevo parte de `develop`.
 - El análisis de funcionalidades que originó el roadmap está en
-  `docs/propuestas-features-2026-10-04.md`. Pendientes del roadmap (pospuestos): corregir/reenviar
-  la misma actividad rechazada (incremento 2, con migración) y el código de invitación; cada uno necesita
-  su propuesta y la aprobación del owner antes de escribir código.
+  `docs/propuestas-features-2026-10-04.md`. Pendientes del roadmap: reenviar una
+  actividad rechazada y renovación mensual del reto; cada uno necesita su propuesta y la aprobación del
+  owner antes de escribir código.
 - Producción (Seenode + Cloudinary) depende de las cuentas del owner; los pasos están en
   `docs/runbook-despliegue.md`. Nunca se usan credenciales reales en pruebas ni en el repositorio.
