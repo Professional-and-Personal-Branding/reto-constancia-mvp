@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bulkSummary } from './renewal.ts';
+import { bulkSummary, monthLabel, renewedMessage, rulesSummary } from './renewal.ts';
 import type { BulkEnrollResult } from './types.ts';
 
 const row = (id: string, name = id) => ({ userId: id, name, email: `${id}@x` });
@@ -59,4 +59,42 @@ test('bulkSummary: omite las partes en cero y no deja el resumen vacío', () => 
     '1 inscrito · 1 ya estaba inscrito',
   );
   assert.equal(bulkSummary(result({})), 'Sin cambios');
+});
+
+test('monthLabel: nombre del mes en español y año', () => {
+  assert.equal(monthLabel(11, 2026), 'Noviembre 2026');
+  assert.equal(monthLabel(1, 2027), 'Enero 2027');
+});
+
+test('renewedMessage: aviso de reto creado en borrador, con singular y plural', () => {
+  assert.equal(renewedMessage('Reto Noviembre 2026', 2), 'Reto Noviembre 2026 creado en borrador con 2 inscritos');
+  assert.equal(renewedMessage('Reto Noviembre 2026', 1), 'Reto Noviembre 2026 creado en borrador con 1 inscrito');
+  assert.equal(renewedMessage('Reto Noviembre 2026', 0), 'Reto Noviembre 2026 creado en borrador con 0 inscritos');
+});
+
+test('rulesSummary: presupuesto automático, o ajustado con su monto', () => {
+  const rules = {
+    validDays: [1, 2, 3],
+    minHeartRateMinutes: 25,
+    feePerParticipant: '150',
+    budgetTotal: null,
+    budgetMode: 'auto' as const,
+    currency: 'USD',
+    prizeDescription: 'Zapatillas',
+    pointsPerValidatedDay: 2,
+    pointsPerKm: '0.5',
+    minValidatedDaysToQualify: 10,
+    maxWinners: 3,
+    tiebreakRule: 'TOTAL_KM' as const,
+  };
+  const auto = rulesSummary(rules);
+  assert.ok(auto.includes('Lun, Mar, Mié'));
+  assert.ok(auto.includes('cuota 150 USD'));
+  assert.ok(auto.includes('presupuesto automático'));
+  assert.ok(auto.includes('3 ganadores'));
+  assert.ok(auto.includes('desempate por más kilómetros'));
+  const manual = rulesSummary({ ...rules, budgetTotal: '600', budgetMode: 'manual' });
+  assert.ok(manual.includes('presupuesto ajustado 600 USD'));
+  assert.ok(!manual.includes('presupuesto automático'));
+  assert.ok(rulesSummary({ ...rules, maxWinners: 1 }).includes('1 ganador'));
 });

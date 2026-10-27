@@ -291,8 +291,9 @@ Comandos, variables y pasos: `docs/deploy-seenode.md`. Migraciones con
 |---|---|---|
 | Auth | `POST /auth/register` · `POST /auth/login` · `POST /auth/refresh` · `GET /auth/me` | público / autenticado |
 | Retos | `POST /challenges` · `PATCH /challenges/:id` · `:id/activate` · `:id/close` · `:id/awards` · `GET :id/finance` | ADMIN |
+| Renovación | `GET /challenges/:id/renewal-preview` (solo lectura) · `POST /challenges/:id/renew` `{ name?, copyParticipants? }` (crea el mes siguiente en borrador; `409` con `existingChallengeId`) | ADMIN |
 | Retos | `GET /challenges` · `GET /challenges/active` · `GET /challenges/active/list` · `GET /challenges/:id` · `:id/results` · `:id/participants` | autenticado |
-| Participantes | `POST/DELETE /challenges/:id/participants...` · `PATCH .../payment` | ADMIN |
+| Participantes | `POST/DELETE /challenges/:id/participants...` · `POST .../participants/bulk` (hasta 200 ids, resultado por usuario) · `PATCH .../payment` | ADMIN |
 | Pagos | `PATCH /challenges/:id/participants/me/payment-proof` | participante |
 | Actividades | `POST /activities` · `GET /activities/me` · `GET /activities/me/calendar?challengeId=` · `DELETE /activities/:id` | autenticado |
 | Actividades | `GET /activities` · `GET /activities/pending` · `:id/validate` · `:id/reject` | ADMIN |
