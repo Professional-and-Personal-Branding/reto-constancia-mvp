@@ -111,7 +111,7 @@ export class ActivitiesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar actividad (propia si pendiente, o admin; nunca en un reto cerrado)' })
+  @ApiOperation({ summary: 'Eliminar actividad (propia si pendiente o rechazada, o admin; nunca en un reto cerrado)' })
   @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
   @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
   async remove(

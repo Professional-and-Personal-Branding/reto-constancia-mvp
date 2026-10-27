@@ -280,7 +280,7 @@
         <li>Privacidad: el ranking muestra nombres sin emails, y cada participante ve solo su propio estado de pago; el admin sigue viendo todo (paso 6.1).</li>
         <li>El premio se reparte con lo recaudado y el presupuesto se calcula solo con las cuotas (cuota × inscritos), con ajuste manual opcional (pasos 2.1, 3.4 y 6.1).</li>
         <li>Un reto cerrado ya no acepta pagos: el pago tardío va al reto siguiente (3.3 y 6.3).</li>
-        <li>Desde la web ya se puede editar un reto (2.3), registrar un pago parcial (3.3) y retirar una actividad pendiente (4.5): nada de eso requiere la API.</li>
+        <li>Desde la web ya se puede editar un reto (2.3), registrar un pago parcial (3.3) y retirar una actividad pendiente o rechazada (4.5): nada de eso requiere la API.</li>
         <li>Un reto cerrado es definitivo: no se edita ni vuelve a borrador (6.3).</li>
         <li>El encabezado entra completo también en el celular: el nombre del reto ya no se corta y las secciones van en una fila propia que se desplaza.</li>
         <li>Los retos cerrados se consultan en el Ranking: ganadores y premio final, con dirección para compartir (paso 6.5).</li>
@@ -532,12 +532,12 @@
           refs: ['TC-ACT-10', 'TC-ACT-23']
         },
         {
-          id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente', route: '/dashboard',
-          why: 'Para corregir un registro antes de que lo validen.',
-          actions: ['En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Retirar</span> en una actividad pendiente.', 'Confirma con <span class="ui">Sí, retirar</span> (o <span class="ui">No</span> para dejarla).'],
-          expect: 'La actividad desaparece, el contador de pendientes baja y, si era la de hoy, la tarjeta de hoy vuelve a ofrecer <span class="ui">Registrar hoy</span>.',
-          note: 'Solo se retiran las propias y solo mientras están pendientes; las validadas o rechazadas no muestran el botón. El administrador puede borrar cualquiera por la API.',
-          refs: ['TC-ACT-12']
+          id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente o rechazada', route: '/dashboard',
+          why: 'Para corregir un registro antes de que lo validen o para registrar de nuevo un día que el administrador rechazó.',
+          actions: ['En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Retirar</span> en una actividad pendiente o rechazada (la rechazada muestra el motivo y el aviso <span class="ui">Puedes retirarla y registrar ese día de nuevo.</span>).', 'Confirma con <span class="ui">Sí, retirar</span> (o <span class="ui">No</span> para dejarla). Si era una rechazada, pulsa <span class="ui">Registrar ese día</span> para abrir el formulario con esa fecha.'],
+          expect: 'La actividad desaparece, el contador baja y, si era la de hoy, la tarjeta de hoy vuelve a ofrecer <span class="ui">Registrar hoy</span>. Al retirar una rechazada aparece <span class="ui">Actividad retirada.</span> con el enlace <span class="ui">Registrar ese día</span>; la nueva actividad queda pendiente de validación.',
+          note: 'Solo se retiran las propias, pendientes o rechazadas, y mientras el reto está abierto; las validadas no muestran el botón. Retirar una rechazada borra su motivo y sus fotos, y se puede repetir cuantas veces haga falta. El administrador puede borrar cualquiera por la API.',
+          refs: ['TC-ACT-12', 'TC-ACT-24']
         }
       ]
     },
@@ -741,7 +741,8 @@
     ['Fechas sin desfase de zona horaria', '4.3', 'auto'],
     ['Mi mes: estados del día, leyenda, días registrados y racha', '4.4', 'auto'],
     ['Estado y motivo de rechazo de cada actividad', '4.4', 'auto'],
-    ['Retirar una actividad pendiente', '4.5', 'auto'],
+    ['Retirar una actividad pendiente o rechazada', '4.5', 'auto'],
+    ['Corregir un día rechazado: retirar y registrar de nuevo', '4.5', 'auto'],
     ['Validación con chip de cumplimiento de FC', '5.1', 'auto'],
     ['Validar con nota de excepción', '5.2', 'auto'],
     ['Rechazar con motivo', '5.3', 'auto'],
@@ -788,7 +789,7 @@
       ['28-cola-comprobantes.jpg', 'Cola de comprobantes: la tarjeta Por revisar, los filtros con contador y la insignia con la fecha de subida.'],
       ['25-pago-parcial.jpg', 'Pago parcial: el monto viene con la cuota y se corrige antes de guardar.']
     ],
-    '4.5': [['26-retirar-actividad.jpg', 'Retirar pide confirmación en la misma fila; las validadas y rechazadas no tienen el botón.']],
+    '4.5': [['26-retirar-actividad.jpg', 'Retirar pide confirmación en la misma fila; las validadas no tienen el botón y las rechazadas añaden el aviso para registrar ese día de nuevo.']],
     '3.4': [['08-participantes-finanzas.jpg', 'Inscritos, estado de pago y resumen financiero: recaudado, pendiente y cobertura del presupuesto.']],
     '4.1': [
       ['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.'],
