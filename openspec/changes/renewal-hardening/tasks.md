@@ -38,7 +38,7 @@
 ## 5. Verification (once, at the end, before opening the PR)
 
 - [x] 5.1 `node scripts/run-tests.mjs` 13/13; reset the local database; `node scripts/validate-test-cases.mjs` ends with "Pruebas sin caso: 0"; `openspec validate --all --strict`
-- [ ] 5.2 CI green on the three jobs (Backend, Frontend, E2E de UI); the owner merges
+- [x] 5.2 CI green on the three jobs (Backend, Frontend, E2E de UI); the owner merges
 
 ## 6. Release 1.12.1
 
