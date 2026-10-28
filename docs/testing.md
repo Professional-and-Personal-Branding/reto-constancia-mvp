@@ -144,6 +144,22 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-28 · v1.12.1 (rama `release/1.12.1`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Se archivó `renewal-hardening`; la versión pasa a 1.12.1 (parche) y no hay migraciones,
+dependencias ni variables nuevas.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**, sin fallos intermitentes.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **149 de 149 casos aprobados** (148
+automatizados, 1 manual) con 789 pruebas y 0 fallidas: unitarias del backend 375, unitarias de la web
+62, e2e de API 179, recorridos de UI 77, capturas de la guía 26 y sesiones paralelas 70;
+"Pruebas sin caso: 0". `openspec validate --all --strict`: 14 de 14 (el cambio ya está archivado).
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e.
+
 ### 2026-10-28 · cambio `renewal-hardening` (rama `feature/renewal-hardening`)
 
 Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con

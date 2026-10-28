@@ -5,6 +5,13 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.12.1] — 2026-10-28
+
+Parche sin migraciones, variables de entorno ni cambios de contrato. Para volver a la 1.12.0 se
+despliegan API y web juntas. Endurece la inscripción en bloque (resultado determinista con
+`createManyAndReturn`), vuelve accesible el diálogo de renovar (trampa de foco, 0 y 1 participantes) y
+anota la deuda del diálogo de cerrar reto.
+
 ### Corregido
 
 - La inscripción en bloque informa con exactitud a quién inscribió cuando otra petición inscribe a la
