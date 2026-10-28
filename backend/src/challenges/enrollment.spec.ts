@@ -13,30 +13,24 @@ const user = (n: number, active = true): UserRow => ({
 });
 const row = (n: number) => ({ userId: U(n), name: `Usuario ${n}`, email: `u${n}@x` });
 
-/** Cliente transaccional falso: usuarios existentes, ya inscritos y filas insertadas. */
+/** Cliente transaccional falso: usuarios existentes, ya inscritos y filas que devuelve el insert. */
 function fakeTx(users: UserRow[], enrolledIds: string[] = [], raced: string[] = []) {
-  const createMany = jest.fn(async (args: { data: { userId: string }[]; skipDuplicates?: boolean }) => ({
-    count: args.data.filter((d) => !raced.includes(d.userId)).length,
-  }));
+  const createManyAndReturn = jest.fn(
+    async (args: { data: { userId: string }[]; skipDuplicates?: boolean; select?: unknown }) =>
+      args.data.filter((d) => !raced.includes(d.userId)).map((d) => ({ userId: d.userId })),
+  );
+  const findMany = jest.fn(async (args: { where: { userId: { in: string[] } } }) =>
+    args.where.userId.in.filter((id) => enrolledIds.includes(id)).map((userId) => ({ userId })),
+  );
   const tx = {
     user: {
       findMany: jest.fn(async (args: { where: { id: { in: string[] } } }) =>
         users.filter((u) => args.where.id.in.includes(u.id)),
       ),
     },
-    challengeParticipant: {
-      findMany: jest.fn(async (args: { where: { userId: { in: string[] }; joinedAt?: Date } }) => {
-        if (args.where.joinedAt) {
-          // relectura tras una carrera: solo las filas de esta llamada
-          const ours = createMany.mock.calls[0][0].data.filter((d) => !raced.includes(d.userId));
-          return ours.map((d) => ({ userId: d.userId }));
-        }
-        return args.where.userId.in.filter((id) => enrolledIds.includes(id)).map((userId) => ({ userId }));
-      }),
-      createMany,
-    },
+    challengeParticipant: { findMany, createManyAndReturn },
   };
-  return { tx: tx as unknown as Prisma.TransactionClient, createMany };
+  return { tx: tx as unknown as Prisma.TransactionClient, createMany: createManyAndReturn, findMany };
 }
 
 describe('enrollMany (regla de inscripción compartida)', () => {
@@ -50,7 +44,7 @@ describe('enrollMany (regla de inscripción compartida)', () => {
       { userId: U(9), reason: 'NOT_FOUND', message: 'Usuario no encontrado' },
     ]);
     expect(createMany).toHaveBeenCalledTimes(1);
-    expect(createMany.mock.calls[0][0]).toMatchObject({ skipDuplicates: true });
+    expect(createMany.mock.calls[0][0]).toMatchObject({ skipDuplicates: true, select: { userId: true } });
   });
 
   it('los ids repetidos cuentan una sola vez y cada id aparece en una sola lista', async () => {
@@ -89,11 +83,15 @@ describe('enrollMany (regla de inscripción compartida)', () => {
     expect(createMany).not.toHaveBeenCalled();
   });
 
-  it('un usuario inscrito en paralelo queda como ya inscrito, nunca en las dos listas', async () => {
-    const { tx } = fakeTx([user(1), user(2)], [], [U(2)]);
+  it('cuenta como inscritos solo las filas que devolvió el insert; las omitidas por conflicto quedan como ya inscritas', async () => {
+    const { tx, createMany, findMany } = fakeTx([user(1), user(2)], [], [U(2)]);
     const result = await enrollMany(tx, 'c', [U(1), U(2)]);
     expect(result.enrolled).toEqual([row(1)]);
     expect(result.alreadyEnrolled).toEqual([row(2)]);
     expect(result.skipped).toEqual([]);
+    // sin relectura por joinedAt ni joinedAt enviado
+    expect(findMany).toHaveBeenCalledTimes(1);
+    for (const call of findMany.mock.calls) expect(call[0].where).not.toHaveProperty('joinedAt');
+    for (const d of createMany.mock.calls[0][0].data) expect(d).not.toHaveProperty('joinedAt');
   });
 });
