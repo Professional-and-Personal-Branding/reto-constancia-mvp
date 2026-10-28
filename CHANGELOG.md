@@ -5,6 +5,15 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Corregido
+
+- El nombre de un reto admite como máximo 100 caracteres (`400` con mensaje en español; el campo web
+  también lo limita), también al renovar.
+- "Seleccionar todos" en Participantes con más de 200 candidatos ya no falla: la inscripción en bloque
+  se envía en lotes de 200 y se muestra un solo resumen.
+- Renovar con `copyParticipants` en texto (por ejemplo `"false"`) se leía como verdadero; ahora la API responde
+  `400` si no es un booleano.
+
 ### Seguridad
 
 - Tres avisos altos nuevos en dependencias de producción, detectados por la auditoría de la CI:
