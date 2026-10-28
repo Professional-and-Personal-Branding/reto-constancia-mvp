@@ -1,7 +1,7 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-27** · rama `wt/account-self-service` · commit `1a4e708`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-28** · rama `release/1.12.0` · commit `62a979c` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
 **148 casos** · 148 aprobados · 0 fallidos · 0 con limitación conocida · 147 automatizados.
 
@@ -1178,6 +1178,7 @@
 | ✅ | API e2e | `challenge-scoring.e2e-spec.ts` | crea un reto con reglas propias y las persiste |
 | ✅ | UI | `05-challenges-scoring.spec.ts` | el formulario de reto trae las reglas de puntaje con sus valores por defecto |
 | ✅ | Guía | `capture.spec.ts` | menú de administración y lista de retos |
+| ✅ | Unitaria | `create-challenge.dto.spec.ts` | acepta 100 caracteres y rechaza 101 con mensaje en español |
 
 <a id="tc-chal-02"></a>
 
@@ -2028,6 +2029,10 @@
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de un reto activo trae mes siguiente, período, reglas y a quién se copia |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de diciembre cae en enero del año siguiente y la de un cerrado marca el presupuesto manual |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar sin copiar participantes crea el borrador exacto del mes siguiente |
+| ✅ | Unitaria | `renew-challenge.dto.spec.ts` | acepta booleanos reales y conserva su valor |
+| ✅ | Unitaria | `renew-challenge.dto.spec.ts` | rechaza con 400 un valor que no es booleano, incluido el texto "false" |
+| ✅ | Unitaria | `renew-challenge.dto.spec.ts` | el nombre admite 100 caracteres y rechaza 101 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: copyParticipants que no es booleano responde 400 y el nombre pasa de 100 caracteres no |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar otra vez responde 409 con existingChallengeId y no inscribe a nadie |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un reto cerrado con nombre propio copia a los activos impagos y sin comprobante; el origen no cambia |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: diciembre se renueva en enero del año siguiente |
@@ -2393,6 +2398,8 @@
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: varios omitidos se listan con su motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: un usuario desconocido sin nombre muestra solo el motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: omite las partes en cero y no deja el resumen vacío |
+| ✅ | Web (unitaria) | `renewal.test.ts` | chunk: reparte la selección en lotes de a lo más 200 |
+| ✅ | Web (unitaria) | `renewal.test.ts` | mergeBulkResults: combina los lotes en un solo resultado |
 | ✅ | Guía | `capture.spec.ts` | inscripción en bloque desde Participantes |
 
 <a id="tc-part-06"></a>

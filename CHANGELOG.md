@@ -5,6 +5,17 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.12.0] — 2026-10-27
+
+Sin migraciones ni variables de entorno nuevas. Para volver a la 1.11.0 se despliegan API y web juntas;
+las sesiones sobreviven a la reversión y las contraseñas cambiadas siguen cambiadas.
+
+**Atención al desplegar:** todas las personas deben iniciar sesión una vez tras el despliegue (los refresh
+tokens anteriores no llevan la huella de la contraseña y se rechazan). Además cambia el contrato de
+`PATCH /api/users/me/password`: ahora responde 200 con `{ accessToken, refreshToken }` y 400 si la contraseña
+actual es incorrecta.
+
+
 ### Corregido
 
 - El nombre de un reto admite como máximo 100 caracteres (`400` con mensaje en español; el campo web

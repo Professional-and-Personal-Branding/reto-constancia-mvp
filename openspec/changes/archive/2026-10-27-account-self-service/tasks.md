@@ -68,4 +68,4 @@
 - [x] 6.3 `docs/security-owasp.md`: refresh tokens end on a password change (fingerprint); keep `jti`/revocation list and lockout in "Mejoras futuras"
 - [x] 6.4 `CHANGELOG.md` Sin publicar: "Mi cuenta: cambiar el nombre y la contraseña desde la web; cambiar la contraseña cierra las otras sesiones; tras desplegar, todos inician sesión de nuevo una vez"
 - [x] 6.5 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
-- [ ] 6.6 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the next release
+- [x] 6.6 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the next release
