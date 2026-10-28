@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-28** · rama `release/1.12.0` · commit `62a979c` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-28** · rama `feature/renewal-hardening` · commit `21d898a` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**148 casos** · 148 aprobados · 0 fallidos · 0 con limitación conocida · 147 automatizados.
+**149 casos** · 149 aprobados · 0 fallidos · 0 con limitación conocida · 148 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,7 +19,7 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 18 | 18 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 24 | 24 | 0 |
+| [Gestión de retos](#chal) | 25 | 25 | 0 |
 | [Participantes y pagos](#part) | 9 | 9 | 0 |
 | [Actividades y validación](#act) | 24 | 24 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
@@ -1144,6 +1144,7 @@
 | [TC-CHAL-22](#tc-chal-22) | Descargar el acta desde el ranking de un reto cerrado | Media | UI | ✅ Aprobado |
 | [TC-CHAL-23](#tc-chal-23) | Renovar un reto en el mes siguiente (API) | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-24](#tc-chal-24) | Renovar desde la lista de retos | Alta | UI | ✅ Aprobado |
+| [TC-CHAL-25](#tc-chal-25) | Diálogo de renovar: teclado y reto sin participantes | Alta | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -2067,16 +2068,61 @@
 - El diálogo muestra el mes nuevo, el período, las reglas, el nombre editable, la casilla de participantes marcada con las personas a inscribir y la nota de lo que no se copia.
 - Al confirmar aparece el borrador con 2 participantes y el aviso "<nombre> creado en borrador con 2 inscritos"; el borrador no ofrece "Renovar" pero sí "Activar".
 - El segundo intento dice "Ya existe un reto para <Mes AAAA> (borrador)" con "Crear borrador" deshabilitado; Escape cierra el diálogo.
+- Si el servidor responde con un error, se muestra dentro del diálogo y la lista no cambia.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `14-renewal.spec.ts` | renueva el reto en el mes siguiente con sus participantes y avisa si el mes ya existe |
+| ✅ | UI | `14-renewal.spec.ts` | el diálogo de renovar atrapa el foco, ignora Escape mientras crea y muestra el error del servidor |
 | ✅ | Guía | `capture.spec.ts` | renovar un reto: vista previa y nota de lo que no se copia |
 | ✅ | Web (unitaria) | `renewal.test.ts` | monthLabel: nombre del mes en español y año |
 | ✅ | Web (unitaria) | `renewal.test.ts` | renewedMessage: aviso de reto creado en borrador, con singular y plural |
 | ✅ | Web (unitaria) | `renewal.test.ts` | rulesSummary: presupuesto automático, o ajustado con su monto |
+
+<a id="tc-chal-25"></a>
+
+### TC-CHAL-25 · Diálogo de renovar: teclado y reto sin participantes
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | UI | 2.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; un reto ACTIVE con participantes y otro ACTIVE sin ninguno; los meses siguientes libres.
+
+**Datos de prueba:** Reto origen con participantes; reto origen sin participantes; una persona inscrita después en el segundo
+
+**Pasos**
+
+1. Abrir "Renovar" y moverse con Tab y Shift+Tab.
+2. Confirmar con un servidor lento, pulsar Escape y pulsar Tab tras el error.
+3. Cerrar con Escape.
+4. Renovar el reto sin participantes.
+5. Inscribir a una persona en él y abrir "Renovar" otra vez.
+
+**Resultado esperado**
+
+- El foco no sale del diálogo, tampoco después de que el botón de confirmar quedó deshabilitado; el resto de la página queda inerte.
+- Escape no hace nada mientras dice "Creando…" y cierra el diálogo en cualquier otro momento; el foco vuelve al botón "Renovar".
+- Sin participantes no hay casilla, se lee "<reto> no tiene participantes activos para inscribir." y el aviso dice "<nombre> creado en borrador con 0 inscritos".
+- Con una sola persona la casilla dice "Inscribir al participante activo de <reto>".
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `14-renewal.spec.ts` | el diálogo de renovar atrapa el foco, ignora Escape mientras crea y muestra el error del servidor |
+| ✅ | UI | `14-renewal.spec.ts` | renovar un reto sin participantes activos crea el borrador con 0 inscritos |
+| ✅ | UI | `14-renewal.spec.ts` | con un solo participante activo la casilla habla en singular |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: hacia delante avanza y da la vuelta al llegar al último |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: hacia atrás retrocede y da la vuelta al llegar al primero |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: sin foco en ningún control (-1) va al primero o al último |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: sin controles devuelve -1 |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: con un solo control se queda en él |
+| ✅ | Web (unitaria) | `renewal.test.ts` | rosterLabel: sin participantes avisa, con uno va en singular y con varios cuenta |
 
 <a id="part"></a>
 
@@ -2337,6 +2383,7 @@
 - 400 "No se puede modificar un reto cerrado" sin cambios en el roster; en un borrador se inscribe.
 - El alta individual de Luis da 400 "El usuario está inactivo".
 - Los nuevos figuran impagos y sin comprobante en las finanzas.
+- Con dos peticiones en bloque simultáneas, cada persona figura en una sola lista de cada respuesta, en inscritos de a lo más una de ellas, y una sola vez en el roster; la inscrita por otra transacción queda como ya inscrita.
 
 **Validación automatizada**
 
@@ -2346,7 +2393,7 @@
 | ✅ | Unitaria | `enrollment.spec.ts` | los ids repetidos cuentan una sola vez y cada id aparece en una sola lista |
 | ✅ | Unitaria | `enrollment.spec.ts` | las filas insertadas no traen datos de pago |
 | ✅ | Unitaria | `enrollment.spec.ts` | sin nadie que inscribir no inserta nada |
-| ✅ | Unitaria | `enrollment.spec.ts` | un usuario inscrito en paralelo queda como ya inscrito, nunca en las dos listas |
+| ✅ | Unitaria | `enrollment.spec.ts` | cuenta como inscritos solo las filas que devolvió el insert; las omitidas por conflicto quedan como ya inscritas |
 | ✅ | Unitaria | `challenges.service.spec.ts` | la inscripción en bloque corre bajo el lock del reto y devuelve el resultado por usuario |
 | ✅ | Unitaria | `challenges.service.spec.ts` | en bloque, un reto cerrado bajo el lock rechaza todo con 400 y no inserta |
 | ✅ | Unitaria | `challenges.service.spec.ts` | en bloque, un reto desconocido responde 404 |
@@ -2361,6 +2408,8 @@
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: reto desconocido responde 404 |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un reto cerrado responde 400 completo y deja el roster intacto |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: se puede inscribir en un borrador |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: una inscripción hecha por otra transacción abierta queda como ya inscrita |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: dos inscripciones en bloque simultáneas dejan a cada usuario en una sola lista de cada respuesta y una sola vez en el roster |
 
 <a id="tc-part-09"></a>
 
@@ -2386,13 +2435,15 @@
 
 - Aparece "2 inscritos" y ambos pasan a Inscritos y salen de los candidatos.
 - El botón queda deshabilitado sin selección; "Seleccionar todos" marca a todos los candidatos.
-- Un omitido se lista con su nombre y motivo ("Luis (usuario inactivo)").
+- Un omitido se lista con su nombre y motivo ("Luis (usuario inactivo)"), también el desactivado después de cargar la página.
+- El botón de "Seleccionar todos" muestra la cantidad exacta de candidatos y el resumen financiero cuenta las inscripciones nuevas como impagas.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `14-renewal.spec.ts` | inscribe a varios participantes de una vez y muestra el resultado |
+| ✅ | UI | `14-renewal.spec.ts` | lista como omitido a un candidato desactivado después de cargar la página |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: inscritos, ya inscritos y omitido con nombre y motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: singular y plural |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: varios omitidos se listan con su motivo |

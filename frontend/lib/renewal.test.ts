@@ -10,6 +10,7 @@ import {
   mergeBulkResults,
   monthLabel,
   renewedMessage,
+  rosterLabel,
   rulesSummary,
 } from './renewal.ts';
 import type { BulkEnrollResult } from './types.ts';
@@ -128,4 +129,10 @@ test('rulesSummary: presupuesto automático, o ajustado con su monto', () => {
   assert.ok(manual.includes('presupuesto ajustado 600 USD'));
   assert.ok(!manual.includes('presupuesto automático'));
   assert.ok(rulesSummary({ ...rules, maxWinners: 1 }).includes('1 ganador'));
+});
+
+test('rosterLabel: sin participantes avisa, con uno va en singular y con varios cuenta', () => {
+  assert.equal(rosterLabel(0, 'Octubre 2026'), 'Octubre 2026 no tiene participantes activos para inscribir.');
+  assert.equal(rosterLabel(1, 'Octubre 2026'), 'Inscribir al participante activo de Octubre 2026');
+  assert.equal(rosterLabel(3, 'Octubre 2026'), 'Inscribir a los 3 participantes activos de Octubre 2026');
 });

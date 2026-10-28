@@ -1,10 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 import { api } from '@/lib/api';
-import { monthLabel, rulesSummary } from '@/lib/renewal';
+import { monthLabel, rosterLabel, rulesSummary } from '@/lib/renewal';
+import { useModalDialog } from '@/lib/use-modal-dialog';
 import type { ChallengeStatus, RenewalPreview } from '@/lib/types';
 import { closeErrorFrom, type CloseError } from '@/components/close-challenge-dialog';
 
@@ -22,6 +24,8 @@ interface Props {
   error: CloseError | null;
   onConfirm: (input: { name: string; copyParticipants: boolean }) => void;
   onCancel: () => void;
+  /** Botón que abrió el diálogo: recibe el foco al cerrar */
+  returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -29,7 +33,7 @@ interface Props {
  * calcula el servidor, las reglas que se copian, a quién se inscribiría y lo que no se copia.
  * Con el mes siguiente ya ocupado, la confirmación queda deshabilitada.
  */
-export function RenewChallengeDialog({ sourceId, open, isPending, error, onConfirm, onCancel }: Props) {
+export function RenewChallengeDialog({ sourceId, open, isPending, error, onConfirm, onCancel, returnFocusTo }: Props) {
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [name, setName] = useState('');
@@ -46,38 +50,36 @@ export function RenewChallengeDialog({ sourceId, open, isPending, error, onConfi
     staleTime: 0,
   });
 
-  useEffect(() => {
-    if (!open) return;
-    cancelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending) onCancel();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // isPending y onCancel no deben reiniciar el foco mientras el diálogo está abierto
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const { container, dialogRef } = useModalDialog({
+    isPending,
+    onCancel,
+    initialFocusRef: cancelRef,
+    returnFocusTo,
+  });
 
   const suggested = preview?.target.name;
   useEffect(() => {
     if (suggested) setName(suggested);
   }, [suggested]);
 
-  if (!open) return null;
+  if (!open || !container) return null;
 
   const previewMessage = previewError ? closeErrorFrom(previewError).message : null;
   const taken = preview?.existing ?? null;
   const toCopy = preview?.participants.toCopy ?? [];
   const skipped = preview?.participants.skipped ?? [];
+  const hasRoster = toCopy.length > 0;
   const canConfirm = !!preview && !taken && !isPending && name.trim().length > 0;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="card w-full max-w-xl max-h-full overflow-y-auto p-6 space-y-5"
+        className="card w-full max-w-xl max-h-full overflow-y-auto p-6 space-y-5 outline-none"
       >
         <div>
           <p className="text-accent text-xs uppercase tracking-[0.2em] font-semibold mb-1">Renovar reto</p>
@@ -131,18 +133,20 @@ export function RenewChallengeDialog({ sourceId, open, isPending, error, onConfi
             </div>
 
             <section aria-label="Participantes" className="space-y-2">
-              <label className="flex items-start gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-1 accent-accent"
-                  checked={copyParticipants}
-                  onChange={(e) => setCopyParticipants(e.target.checked)}
-                  disabled={isPending}
-                />
-                <span>
-                  Inscribir a los {toCopy.length} participantes activos de {preview.source.name}
-                </span>
-              </label>
+              {hasRoster ? (
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-1 accent-accent"
+                    checked={copyParticipants}
+                    onChange={(e) => setCopyParticipants(e.target.checked)}
+                    disabled={isPending}
+                  />
+                  <span>{rosterLabel(toCopy.length, preview.source.name)}</span>
+                </label>
+              ) : (
+                <p className="text-sm text-ink-dim">{rosterLabel(0, preview.source.name)}</p>
+              )}
               {toCopy.length > 0 && (
                 <details className="text-sm text-ink-dim">
                   <summary className="cursor-pointer">Ver quiénes se inscriben</summary>
@@ -182,13 +186,14 @@ export function RenewChallengeDialog({ sourceId, open, isPending, error, onConfi
           <button
             type="button"
             className="btn-primary"
-            onClick={() => onConfirm({ name: name.trim(), copyParticipants })}
+            onClick={() => onConfirm({ name: name.trim(), copyParticipants: hasRoster && copyParticipants })}
             disabled={!canConfirm}
           >
             {isPending ? 'Creando…' : 'Crear borrador'}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    container,
   );
 }

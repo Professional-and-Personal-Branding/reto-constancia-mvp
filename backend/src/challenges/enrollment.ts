@@ -67,22 +67,16 @@ export async function enrollMany(
   const enrolledBefore = new Set(existing.map((e) => e.userId));
   const toInsert = activeIds.filter((id) => !enrolledBefore.has(id));
 
-  let inserted = new Set(toInsert);
+  let inserted = new Set<string>();
   if (toInsert.length > 0) {
-    // Mismo joinedAt para todas las filas de esta llamada: si otra petición inscribió a alguien
-    // entre la lectura y el insert (skipDuplicates lo omite), se distingue qué filas son nuestras.
-    const joinedAt = new Date();
-    const { count } = await tx.challengeParticipant.createMany({
-      data: toInsert.map((userId) => ({ challengeId, userId, joinedAt })),
+    // INSERT ... ON CONFLICT DO NOTHING RETURNING: solo vuelven las filas que insertó esta
+    // sentencia; si otra transacción inscribió a alguien en medio, esa persona queda como ya inscrita.
+    const created = await tx.challengeParticipant.createManyAndReturn({
+      data: toInsert.map((userId) => ({ challengeId, userId })),
       skipDuplicates: true,
+      select: { userId: true },
     });
-    if (count < toInsert.length) {
-      const ours = await tx.challengeParticipant.findMany({
-        where: { challengeId, userId: { in: toInsert }, joinedAt },
-        select: { userId: true },
-      });
-      inserted = new Set(ours.map((o) => o.userId));
-    }
+    inserted = new Set(created.map((c) => c.userId));
   }
 
   for (const id of activeIds) {
