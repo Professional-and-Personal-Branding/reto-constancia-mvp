@@ -124,6 +124,7 @@ export function RenewChallengeDialog({ sourceId, open, isPending, error, onConfi
                 id={`${titleId}-name`}
                 className="input mt-1"
                 value={name}
+                maxLength={100}
                 onChange={(e) => setName(e.target.value)}
                 disabled={isPending}
               />

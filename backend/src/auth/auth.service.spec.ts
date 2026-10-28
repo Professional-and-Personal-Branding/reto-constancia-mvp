@@ -92,4 +92,61 @@ describe('AuthService', () => {
       service.login({ email: 'a@x.com', password: 'secret123' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  describe('huella de la contraseña en el refresh token (pwv)', () => {
+    const user = (passwordHash: string) => ({
+      id: 'u1',
+      email: 'a@x.com',
+      name: 'Ana',
+      role: 'PARTICIPANT',
+      active: true,
+      passwordHash,
+    });
+
+    const fingerprintOf = (passwordHash: string): string => {
+      jwt.sign.mockClear();
+      service.issueTokens(user(passwordHash) as never);
+      return (jwt.sign.mock.calls[1] as [{ pwv: string }])[0].pwv;
+    };
+
+    it('el refresh token lleva pwv y el access token no', () => {
+      service.issueTokens(user('hash-1') as never);
+      const [accessPayload] = jwt.sign.mock.calls[0] as [Record<string, unknown>];
+      const [refreshPayload] = jwt.sign.mock.calls[1] as [Record<string, unknown>];
+      expect(accessPayload.pwv).toBeUndefined();
+      expect(typeof refreshPayload.pwv).toBe('string');
+      expect((refreshPayload.pwv as string).length).toBe(22);
+    });
+
+    it('la huella no es ni contiene el hash de la contraseña', () => {
+      const hash = '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA';
+      const pwv = fingerprintOf(hash);
+      expect(pwv).not.toBe(hash);
+      expect(hash.includes(pwv)).toBe(false);
+      expect(pwv.includes(hash)).toBe(false);
+    });
+
+    it('refresh acepta un token cuya huella coincide con el hash actual', async () => {
+      const pwv = fingerprintOf('hash-1');
+      jwt.verifyAsync.mockResolvedValue({ sub: 'u1', pwv });
+      prisma.user.findUnique.mockResolvedValue(user('hash-1'));
+      const res = await service.refresh('refresh-token');
+      expect(res.accessToken).toBe('token');
+    });
+
+    it('refresh rechaza (401 Refresh token inválido) un token sin huella', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'u1' });
+      prisma.user.findUnique.mockResolvedValue(user('hash-1'));
+      await expect(service.refresh('refresh-token')).rejects.toThrow('Refresh token inválido');
+    });
+
+    it('refresh rechaza un token emitido antes del último cambio de contraseña', async () => {
+      const pwv = fingerprintOf('hash-viejo');
+      jwt.verifyAsync.mockResolvedValue({ sub: 'u1', pwv });
+      prisma.user.findUnique.mockResolvedValue(user('hash-nuevo'));
+      const err = await service.refresh('refresh-token').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(UnauthorizedException);
+      expect((err as Error).message).toBe('Refresh token inválido');
+    });
+  });
 });

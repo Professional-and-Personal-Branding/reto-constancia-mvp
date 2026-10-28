@@ -766,7 +766,7 @@ describe('Reglas de la plataforma (e2e)', () => {
     // Sin número, demasiado corta y sin letra: ninguna crea la cuenta
     const cases: Array<[string, RegExp]> = [
       ['soloLetras', /al menos una letra y un número/],
-      ['corta1', /8 characters/],
+      ['corta1', /al menos 8 caracteres/],
       ['12345678', /al menos una letra y un número/],
     ];
     for (const [password, message] of cases) {

@@ -119,12 +119,23 @@ alcanza con reiniciar.
    ```
    En producción el seed **solo** crea el administrador y falla si falta
    `SEED_ADMIN_PASSWORD`. Nunca uses `SEED_DEMO=true` en producción.
-3. Entra a la web con el administrador y **cambia su contraseña**.
+3. Entra a la web con `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, abre **Mi cuenta** y cambia la
+   contraseña por una nueva, guardada en el gestor de secretos del equipo. Después **borra
+   `SEED_ADMIN_PASSWORD` del servicio API** (no hace falta redesplegar). Motivo: el seed
+   sobrescribe la contraseña de un administrador que ya existe, así que un `npx prisma db seed`
+   posterior por descuido revertiría la rotación; sin la variable, el seed falla en producción.
+4. **Si pierdes la contraseña del administrador** (no hay recuperación por correo): define una
+   `SEED_ADMIN_PASSWORD` temporal en el servicio API, ejecuta `npx prisma db seed` desde su shell,
+   entra con ella, rótala en **Mi cuenta** y borra la variable otra vez. El seed cambia el hash,
+   así que también cierra las sesiones anteriores del administrador.
 
 ### 1.6 Verificación del primer despliegue
 
 Haz la prueba de humo de §3 completa y además:
 
+- [ ] La contraseña del administrador ya no es `SEED_ADMIN_PASSWORD`: **Mi cuenta** muestra al
+      administrador, entrar con la contraseña vieja del seed responde "Credenciales inválidas" y
+      `SEED_ADMIN_PASSWORD` ya no está definida en el servicio API.
 - [ ] Ningún usuario de demo en la base: `SELECT email FROM "User";` no trae `@reto.local`.
 - [ ] Subir una foto desde "Subir actividad": si Cloudinary falta, la subida queda
       deshabilitada a propósito.
@@ -164,6 +175,12 @@ redespliega al recibir el push.
    Si Seenode despliega ambos a la vez, espera a que los dos terminen antes de verificar.
 5. **Prueba de humo** (§3).
 6. **Back-merge** `release/X.Y.Z` → `develop` y registro de la versión (§8).
+
+**Versión con «Mi cuenta»:** no trae migraciones ni variables nuevas, pero cambia el contenido del
+refresh token: tras desplegarla, cada usuario vuelve a iniciar sesión una vez (su primera
+renovación de sesión responde 401 y la web lo envía al login). Despliega API y web juntas: la web
+espera que `PATCH /api/users/me/password` responda 200 con tokens. Avisa a los participantes. Si
+es el primer despliegue, sigue el paso 3 de §1.5.
 
 **Migraciones:** se aplican solas en el arranque de la API (`prisma migrate deploy`). Son
 solo hacia adelante. Si la versión trae alguna, toma el respaldo de §5.1 antes del paso 3.
@@ -238,6 +255,7 @@ campos nuevos de finanzas. La 1.10.0 tampoco trae migraciones; para volver a la 
 juntas, porque la web usa el endpoint `GET /activities/me/calendar`. La 1.11.0 tampoco trae migraciones; para
 volver a la 1.10.0 se despliegan API y web juntas, porque la web usa `renewal-preview`, `renew` y
 `participants/bulk`, y la API cambia el retiro de actividades rechazadas.
+Esta versión (con «Mi cuenta») tampoco trae migraciones: para volver a la 1.11.0 se despliegan API y web juntas. Los refresh tokens que emite llevan un dato extra que la anterior ignora, así que las sesiones sobreviven a la reversión; las contraseñas cambiadas mientras tanto quedan cambiadas (son hashes normales).
 
 ---
 
@@ -351,7 +369,7 @@ sobre `ERROR`. La respuesta de toda petición trae el código en la cabecera `X-
 | `JWT_REFRESH_EXPIRES_IN` | Sí | `7d` | Ídem |
 | `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` | Sí | | Sin ellas no hay subida de fotos |
 | `CLOUDINARY_FOLDER` | No | `reto-constancia` | |
-| `SEED_ADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Para el primer seed | | La contraseña se cambia tras el primer login |
+| `SEED_ADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Solo para el primer seed o para recuperar el acceso | | Se borra `SEED_ADMIN_PASSWORD` tras cambiar la contraseña en Mi cuenta (§1.5) |
 | `TRUST_PROXY` | No | `1` | Por defecto 1 en producción; `false` si no hay proxy |
 | `THROTTLE_LIMIT` / `THROTTLE_TTL_MS` | No | `100` / `60000` | Límite global por usuario |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEETS_DEFAULT_RANGE` | No | | Importación desde Google Sheets |

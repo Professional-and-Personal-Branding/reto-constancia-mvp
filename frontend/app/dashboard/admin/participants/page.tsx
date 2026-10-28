@@ -12,7 +12,7 @@ import {
   PARTICIPANT_FILTERS,
   type ParticipantFilter,
 } from '@/lib/payment';
-import { bulkSummary } from '@/lib/renewal';
+import { BULK_BATCH_SIZE, bulkSummary, chunk, mergeBulkResults } from '@/lib/renewal';
 import type {
   BulkEnrollResult,
   ChallengeFinance,
@@ -63,11 +63,19 @@ export default function ParticipantsPage() {
   });
 
   const bulkMut = useMutation({
-    mutationFn: (userIds: string[]) =>
-      api<BulkEnrollResult>(`/challenges/${challenge!.id}/participants/bulk`, {
-        method: 'POST',
-        body: { userIds },
-      }),
+    // La API acepta hasta 200 ids por petición: se envía en lotes y se combina el resultado.
+    mutationFn: async (userIds: string[]) => {
+      const results: BulkEnrollResult[] = [];
+      for (const batch of chunk(userIds, BULK_BATCH_SIZE)) {
+        results.push(
+          await api<BulkEnrollResult>(`/challenges/${challenge!.id}/participants/bulk`, {
+            method: 'POST',
+            body: { userIds: batch },
+          }),
+        );
+      }
+      return mergeBulkResults(results);
+    },
     onSuccess: (result, userIds) => {
       const names = Object.fromEntries(
         (allUsers ?? []).filter((u) => userIds.includes(u.id)).map((u) => [u.id, u.name]),

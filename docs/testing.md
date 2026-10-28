@@ -129,8 +129,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 72 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades pendientes o rechazadas, la renovación mensual y la inscripción en bloque, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 25 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 144 casos de `docs/qa/` están enlazados a 739 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 73 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 148 casos de `docs/qa/` están enlazados a 770 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -163,6 +163,29 @@ de la web 49, e2e de API 167, recorridos de UI 72, capturas de la guía 25 y ses
 **Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones. `next` y `eslint-config-next` pasan a 15.5.28 en el frontend (GHSA-2464-fhr4-w9xw y GHSA-p3m5-59mp-jv5r): el 20 oct el aviso no existía, apareció el 23 oct y la CI lo detectó; el 24 oct aparecieron además avisos de `multer` (ahora 2.5.0 con `overrides`), `body-parser` (2.4.0) y `zod` (se quitó del frontend, sin uso); se refrescó la rama con `develop` y con el fix y se volvió a verificar el 24 oct. El 27 oct se fusionó de nuevo `develop` (PR #73 a #79 ya fusionados): el árbol de código coincide con `develop` salvo la versión 1.11.0 y la batería dio 13 de 13 y el catálogo 144 de 144 (739 pruebas); en una primera corrida del validador falló una vez el recorrido de la cola de comprobantes (TC-FIN-09) y pasó solo y en la corrida completa siguiente, sin cambios de código.
 El archivo de OpenSpec creó los specs `challenge-enrollment` y `challenge-renewal` con Purpose real
 y actualizó `activity-withdrawal`; `openspec validate --all --strict` pasa (13 de 13).
+
+### 2026-10-27 · rama `feature/account-self-service` (Mi cuenta)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. La web se compila con `frontend/.env.local` (`NEXT_PUBLIC_API_URL` a la API de pruebas
+en 3002); una primera corrida desde un worktree sin ese archivo falló en el inicio de sesión de
+Playwright ("No se pudo conectar al servidor") y no era un defecto del código.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde** (incluye `09-header-layout`,
+TC-UI-10, con "Mi cuenta" en el menú).
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **148 de 148 casos aprobados** (147
+automatizados, 1 manual) con 770 pruebas ejecutadas y 0 fallidas: unitarias del backend 371, unitarias
+de la web 54, e2e de API 176, recorridos de UI 73, capturas de la guía 26 y sesiones paralelas 70;
+"Pruebas sin caso: 0". Casos nuevos: TC-AUTH-15 a TC-AUTH-18; ajustados TC-AUTH-02, 10, 12, 14 y
+TC-UI-10. Guía: paso 1.5 con la captura 35.
+
+**Cambio en pruebas existentes:** `platform-rules.e2e-spec.ts` espera ahora el mensaje en español de
+longitud mínima de la contraseña ("al menos 8 caracteres").
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones,
+dependencias ni variables nuevas. `openspec validate --all --strict` pasa.
 
 ### 2026-10-20 · rama `feature/challenge-renewal`, PR 2 (renovación mensual)
 

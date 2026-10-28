@@ -22,6 +22,16 @@ Resumen de los controles implementados, mapeados a principios de OWASP
     `backend/src/auth/auth.module.ts`.
   - Refresh token: secreto distinto (`JWT_REFRESH_SECRET`) y
     `JWT_REFRESH_EXPIRES_IN` (default 7d) en `auth.service.ts`.
+  - El refresh token termina al cambiar la contraseña: lleva una huella (`pwv`, HMAC-SHA256 del
+    hash con `JWT_REFRESH_SECRET`, 22 caracteres) y `refresh` rechaza con 401 un token sin huella o
+    con una huella que ya no coincide con el hash actual (cambio desde "Mi cuenta" o reinicio por
+    el seed). La sesión que cambia la contraseña recibe tokens nuevos; las demás dejan de renovarse
+    y sus access tokens ya emitidos valen hasta 15 minutos más. Sin migración.
+  - `PATCH /users/me/password`: 5 intentos/min por IP (como el login), 400 si la contraseña actual
+    es incorrecta (no 401, para que la web no confunda el error con una sesión vencida), misma regla
+    de contraseña que el registro (8 a 72 caracteres, con letra y número) y nueva distinta de la actual.
+  - `PATCH /users/me` solo acepta `name` (2 a 80 caracteres, recortado); `role`, `active` o `email`
+    se rechazan con 400 por `forbidNonWhitelisted`.
   - Verificación de firma y expiración del access token en
     `backend/src/auth/strategies/jwt.strategy.ts` (`ignoreExpiration: false`).
 - Control de acceso por roles (RBAC):
@@ -113,7 +123,9 @@ versionarse, rótalo: borrarlo del historial no lo vuelve a hacer privado.
 
 ## Mejoras futuras (no bloqueantes)
 
-- Rotación/invalidación de refresh tokens (lista de revocación o `jti` persistido).
+- Cerrar una sesión concreta y cerrar las otras sesiones al instante (lista de revocación o `jti`
+  persistido, o leer la base en `JwtStrategy`): hoy un cambio de contraseña corta las otras sesiones
+  en su próxima renovación, hasta 15 minutos después.
 - Verificación de correo y flujo de "olvidé mi contraseña".
 - Bloqueo temporal de cuenta tras N fallos (complementa el rate limiting por IP).
 - Cabecera CSP afinada en Helmet para el frontend.

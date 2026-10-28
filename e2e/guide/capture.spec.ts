@@ -324,6 +324,15 @@ test.describe('Participante', () => {
     await expect(page.getByLabel('Premio por ganador')).not.toContainText('proyectado');
     await shot(page, '17-ranking-cerrado.jpg');
   });
+
+  test('Mi cuenta: nombre y contraseña', async ({ page }) => {
+    await page.goto('/dashboard/account');
+    await expect(page.getByRole('heading', { name: 'Mi cuenta' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guardar nombre' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cambiar contraseña' })).toBeVisible();
+    await expect(page.getByText('Mínimo 8 caracteres, con al menos una letra y un número.')).toBeVisible();
+    await shot(page, '35-mi-cuenta.jpg', page.locator('main'));
+  });
 });
 
 const CLOSED_NAME = 'Reto Agosto 2026';
