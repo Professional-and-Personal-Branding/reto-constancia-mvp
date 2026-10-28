@@ -1,7 +1,7 @@
 # Pruebas automatizadas — Reto de Constancia
 
 Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
-catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (144 casos, cada uno con las
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (148 casos, cada uno con las
 pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
 [`test-cases.md`](./test-cases.md).
 
@@ -143,6 +143,22 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-27 · v1.12.0 (rama `release/1.12.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Se archivó `account-self-service` (spec nuevo con Purpose real); la versión pasa a 1.12.0
+y no hay migraciones ni dependencias nuevas.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**, sin fallos intermitentes.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **148 de 148 casos aprobados** (147
+automatizados, 1 manual) con 777 pruebas y 0 fallidas: unitarias del backend 375, unitarias de la web
+56, e2e de API 177, recorridos de UI 73, capturas de la guía 26 y sesiones paralelas 70;
+"Pruebas sin caso: 0". `openspec validate --all --strict`: 14 de 14.
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e.
 
 ### 2026-10-20 · v1.11.0 (rama `release/1.11.0`)
 

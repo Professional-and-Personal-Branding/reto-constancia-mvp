@@ -1,7 +1,7 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-10-27 08:30 (UTC)
-- **Código:** rama `wt/account-self-service`, commit `1a4e708`
+- **Fecha:** 2026-10-28 02:00 (UTC)
+- **Código:** rama `release/1.12.0`, commit `62a979c` (con cambios sin commit)
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs`
 
@@ -9,18 +9,18 @@
 
 **148 de 148 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
 
-Se ejecutaron **770 pruebas** automatizadas: 770 pasaron y 0 fallaron.
+Se ejecutaron **777 pruebas** automatizadas: 777 pasaron y 0 fallaron.
 
 ## Suites ejecutadas
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 371 | 371 | 0 | 6.1 s | 2026-10-27 08:28 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 54 | 54 | 0 | 1.3 s | 2026-10-27 08:28 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 176 | 176 | 0 | 20.0 s | 2026-10-27 08:29 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 73 | 73 | 0 | 53.3 s | 2026-10-27 08:30 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 26 | 26 | 0 | 27.6 s | 2026-10-27 08:30 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.0 s | 2026-10-27 08:30 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 375 | 375 | 0 | 25.1 s | 2026-10-28 01:57 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 56 | 56 | 0 | 2.3 s | 2026-10-28 01:57 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 177 | 177 | 0 | 30.4 s | 2026-10-28 01:58 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 73 | 73 | 0 | 74.5 s | 2026-10-28 01:59 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 26 | 26 | 0 | 33.4 s | 2026-10-28 02:00 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.3 s | 2026-10-28 02:00 |
 
 ## Casos por prioridad
 
