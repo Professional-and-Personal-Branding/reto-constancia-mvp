@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-27** · rama `release/1.11.0` · commit `ab5582a`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-28** · rama `release/1.12.0` · commit `62a979c` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**144 casos** · 144 aprobados · 0 fallidos · 0 con limitación conocida · 143 automatizados.
+**148 casos** · 148 aprobados · 0 fallidos · 0 con limitación conocida · 147 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,7 +17,7 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 14 | 14 | 0 |
+| [Autenticación y sesión](#auth) | 18 | 18 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 24 | 24 | 0 |
 | [Participantes y pagos](#part) | 9 | 9 | 0 |
@@ -51,6 +51,10 @@
 | [TC-AUTH-12](#tc-auth-12) | Refresh token inválido | Media | Seguridad | ✅ Aprobado |
 | [TC-AUTH-13](#tc-auth-13) | Un 429 transitorio no cierra la sesión | Alta | Regresión | ✅ Aprobado |
 | [TC-AUTH-14](#tc-auth-14) | Un corte de red al renovar el token no cierra la sesión | Alta | Regresión | ✅ Aprobado |
+| [TC-AUTH-15](#tc-auth-15) | Cambiar el nombre desde Mi cuenta | Media | Funcional | ✅ Aprobado |
+| [TC-AUTH-16](#tc-auth-16) | Cambiar la contraseña desde Mi cuenta | Alta | Funcional | ✅ Aprobado |
+| [TC-AUTH-17](#tc-auth-17) | Contraseña actual incorrecta y política de la nueva | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-18](#tc-auth-18) | Límite de intentos de cambio de contraseña | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -105,15 +109,17 @@
 
 **Resultado esperado**
 
-- 400 en los tres casos: "La contraseña debe incluir al menos una letra y un número" o el mínimo de 8 caracteres.
+- 400 en los tres casos: "La contraseña debe incluir al menos una letra y un número" o "La contraseña debe tener al menos 8 caracteres".
 - No se crea el usuario (el login posterior responde 401).
 - La web muestra el error junto al formulario y no navega.
+- El registro y el cambio de contraseña comparten la misma regla (8 a 72 caracteres, con letra y número), con los mensajes en español.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | AUTH: el registro rechaza contraseñas sin número (400) |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el registro usa la misma regla de contraseña, con el mensaje en español |
 | ✅ | UI | `01-auth-navigation.spec.ts` | el registro exige una contraseña que cumpla la política |
 | ✅ | Guía | `capture.spec.ts` | inicio de sesión y registro |
 
@@ -352,6 +358,7 @@
 
 - Con refresh válido: la web llama a /auth/refresh, guarda un token nuevo y sigue en /dashboard sin pedir login.
 - Con refresh inválido: redirige a /login y borra los tokens guardados.
+- Si los tokens guardados ya son otros (otra pestaña cambió la contraseña mientras tanto), un refresh rechazado no los borra y se continúa con ellos.
 
 **Validación automatizada**
 
@@ -359,6 +366,8 @@
 |---|---|---|---|
 | ✅ | UI | `01-auth-navigation.spec.ts` | un access token vencido se renueva solo con el refresh token |
 | ✅ | UI | `01-auth-navigation.spec.ts` | si el refresh token también es inválido, vuelve al login y borra la sesión |
+| ✅ | Web (unitaria) | `account.test.ts` | Sesión: un refresh rechazado conserva los tokens que otra pestaña guardó mientras tanto |
+| ✅ | Web (unitaria) | `account.test.ts` | Sesión: un refresh rechazado cierra la sesión si siguen guardados los mismos tokens o ninguno |
 
 <a id="tc-auth-11"></a>
 
@@ -400,21 +409,24 @@
 
 - Ninguna.
 
-**Datos de prueba:** refreshToken "no-es-un-token"
+**Datos de prueba:** refreshToken "no-es-un-token"; un refresh token sin huella de contraseña (anterior a Mi cuenta); un refresh token emitido antes del último cambio de contraseña
 
 **Pasos**
 
 1. POST /api/auth/refresh con un token inválido.
+2. Repetir con un token firmado sin huella y con uno de antes del último cambio de contraseña.
 
 **Resultado esperado**
 
-- 401.
+- 401 "Refresh token inválido" en los tres casos: token malformado, sin huella, o emitido antes del último cambio de contraseña.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | AUTH: un refresh token inválido se rechaza (401) |
+| ✅ | Unitaria | `auth.service.spec.ts` | refresh rechaza (401 Refresh token inválido) un token sin huella |
+| ✅ | Unitaria | `auth.service.spec.ts` | refresh rechaza un token emitido antes del último cambio de contraseña |
 
 <a id="tc-auth-13"></a>
 
@@ -479,6 +491,161 @@
 |---|---|---|---|
 | ✅ | UI | `01-auth-navigation.spec.ts` | un corte de red al renovar el token no cierra la sesión |
 | ✅ | UI | `01-auth-navigation.spec.ts` | un access token vencido se renueva solo con el refresh token |
+| ✅ | Web (unitaria) | `account.test.ts` | Sesión: un refresh rechazado conserva los tokens que otra pestaña guardó mientras tanto |
+
+<a id="tc-auth-15"></a>
+
+### TC-AUTH-15 · Cambiar el nombre desde Mi cuenta
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Media | Funcional | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante con sesión.
+
+**Datos de prueba:** nombre "  Ana María "; luego { name, role: "ADMIN" }; luego "A"
+
+**Pasos**
+
+1. Abrir Mi cuenta y guardar el nombre.
+2. Por la API, enviar el cuerpo con role.
+3. Enviar el nombre "A".
+
+**Resultado esperado**
+
+- 200 con el nombre recortado ("Ana María"), "Nombre actualizado." y el encabezado con el nombre nuevo sin recargar.
+- 400 y el rol no cambia.
+- 400 "El nombre debe tener entre 2 y 80 caracteres".
+- Sin sesión, 401.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | updateMe recorta el nombre, guarda solo name y no devuelve passwordHash |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: PATCH /users/me renombra al usuario con el nombre recortado y sin passwordHash |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: PATCH /users/me rechaza role y otras propiedades con 400 y el rol no cambia |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un nombre inválido ("A", en blanco o de más de 80 caracteres) responde 400 con el mensaje |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: PATCH /users/me sin sesión responde 401 |
+| ✅ | UI | `15-account.spec.ts` | cambia su nombre y su contraseña desde Mi cuenta |
+| ✅ | Guía | `capture.spec.ts` | Mi cuenta: nombre y contraseña |
+
+<a id="tc-auth-16"></a>
+
+### TC-AUTH-16 · Cambiar la contraseña desde Mi cuenta
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Funcional | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Usuario con una sesión y una segunda sesión del mismo usuario.
+
+**Datos de prueba:** contraseña actual; nueva "Nuev0Pass2" dos veces; luego una confirmación distinta
+
+**Pasos**
+
+1. Cambiar la contraseña.
+2. Renovar la segunda sesión.
+3. Iniciar sesión con la contraseña vieja y con la nueva.
+4. Probar una confirmación distinta en la web.
+
+**Resultado esperado**
+
+- 200 con un par de tokens nuevo y el mensaje de éxito; los campos quedan vacíos y la sesión sigue tras recargar.
+- La renovación de la segunda sesión responde 401 y la de la sesión nueva 200.
+- La contraseña vieja responde 401 "Credenciales inválidas" y la nueva 200.
+- Una confirmación distinta muestra "Las contraseñas no coinciden" sin llamar a la API.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `auth.service.spec.ts` | el refresh token lleva pwv y el access token no |
+| ✅ | Unitaria | `auth.service.spec.ts` | la huella no es ni contiene el hash de la contraseña |
+| ✅ | Unitaria | `auth.service.spec.ts` | refresh acepta un token cuya huella coincide con el hash actual |
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: guarda el hash nuevo y devuelve un par de tokens nuevo |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el cambio de contraseña devuelve tokens nuevos, cierra la otra sesión y reemplaza la clave |
+| ✅ | UI | `15-account.spec.ts` | cambia su nombre y su contraseña desde Mi cuenta |
+| ✅ | Guía | `capture.spec.ts` | Mi cuenta: nombre y contraseña |
+
+<a id="tc-auth-17"></a>
+
+### TC-AUTH-17 · Contraseña actual incorrecta y política de la nueva
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Usuario con sesión.
+
+**Datos de prueba:** contraseña actual equivocada; nueva "soloLetras", "corta1" y "12345678"; nueva igual a la actual; usuario desactivado con access token vivo
+
+**Pasos**
+
+1. Enviar cada combinación a PATCH /api/users/me/password.
+2. Probar la contraseña actual equivocada en la web.
+
+**Resultado esperado**
+
+- 400 "Contraseña actual incorrecta" sin renovar el token ni cerrar la sesión en la web.
+- 400 con cada mensaje en español de la política.
+- 400 "La nueva contraseña debe ser distinta de la actual".
+- La contraseña nunca cambia en estos casos.
+- 401 si el usuario ya no existe o está inactivo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: usuario ausente o inactivo responde 401 |
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: contraseñas iguales responde 400 sin llamar a argon2 |
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: contraseña actual incorrecta responde 400 y no actualiza |
+| ✅ | Unitaria | `password-policy.spec.ts` | "soloLetras" falla por no tener un número |
+| ✅ | Unitaria | `password-policy.spec.ts` | "corta1" falla por tener menos de 8 caracteres |
+| ✅ | Unitaria | `password-policy.spec.ts` | "12345678" falla por no tener una letra |
+| ✅ | Unitaria | `password-policy.spec.ts` | una contraseña de 73 caracteres falla por superar el máximo |
+| ✅ | Unitaria | `password-policy.spec.ts` | "Passw0rd1" y una de 72 caracteres pasan |
+| ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: el mensaje de la API se muestra tal cual, o el primero si es una lista |
+| ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: la confirmación debe coincidir exactamente |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: contraseña nueva débil, igual o actual incorrecta responden 400 y no cambian nada |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un usuario desactivado con access token vivo recibe 401 al cambiar la contraseña |
+| ✅ | UI | `15-account.spec.ts` | cambia su nombre y su contraseña desde Mi cuenta |
+
+<a id="tc-auth-18"></a>
+
+### TC-AUTH-18 · Límite de intentos de cambio de contraseña
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Misma IP, dentro de un minuto.
+
+**Datos de prueba:** seis peticiones a PATCH /api/users/me/password
+
+**Pasos**
+
+1. Enviar seis cambios de contraseña seguidos.
+
+**Resultado esperado**
+
+- La sexta responde 429 y la contraseña no cambia.
+- En la web, el 429 se muestra como "Demasiados intentos. Espera un minuto e inténtalo de nuevo." sin cerrar la sesión.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el sexto cambio de contraseña en un minuto responde 429 y la contraseña no cambia |
+| ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: un 429 muestra el texto de demasiados intentos y un cuerpo ilegible el texto genérico |
 
 <a id="sec"></a>
 
@@ -1011,6 +1178,7 @@
 | ✅ | API e2e | `challenge-scoring.e2e-spec.ts` | crea un reto con reglas propias y las persiste |
 | ✅ | UI | `05-challenges-scoring.spec.ts` | el formulario de reto trae las reglas de puntaje con sus valores por defecto |
 | ✅ | Guía | `capture.spec.ts` | menú de administración y lista de retos |
+| ✅ | Unitaria | `create-challenge.dto.spec.ts` | acepta 100 caracteres y rechaza 101 con mensaje en español |
 
 <a id="tc-chal-02"></a>
 
@@ -1861,6 +2029,10 @@
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de un reto activo trae mes siguiente, período, reglas y a quién se copia |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de diciembre cae en enero del año siguiente y la de un cerrado marca el presupuesto manual |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar sin copiar participantes crea el borrador exacto del mes siguiente |
+| ✅ | Unitaria | `renew-challenge.dto.spec.ts` | acepta booleanos reales y conserva su valor |
+| ✅ | Unitaria | `renew-challenge.dto.spec.ts` | rechaza con 400 un valor que no es booleano, incluido el texto "false" |
+| ✅ | Unitaria | `renew-challenge.dto.spec.ts` | el nombre admite 100 caracteres y rechaza 101 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: copyParticipants que no es booleano responde 400 y el nombre pasa de 100 caracteres no |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar otra vez responde 409 con existingChallengeId y no inscribe a nadie |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un reto cerrado con nombre propio copia a los activos impagos y sin comprobante; el origen no cambia |
 | ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: diciembre se renueva en enero del año siguiente |
@@ -2226,6 +2398,8 @@
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: varios omitidos se listan con su motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: un usuario desconocido sin nombre muestra solo el motivo |
 | ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: omite las partes en cero y no deja el resumen vacío |
+| ✅ | Web (unitaria) | `renewal.test.ts` | chunk: reparte la selección en lotes de a lo más 200 |
+| ✅ | Web (unitaria) | `renewal.test.ts` | mergeBulkResults: combina los lotes en un solo resultado |
 | ✅ | Guía | `capture.spec.ts` | inscripción en bloque desde Participantes |
 
 <a id="tc-part-06"></a>
@@ -4914,13 +5088,13 @@
 **Precondiciones**
 
 - Dos retos activos (aparece el selector de reto).
-- Sesión de administrador (siete secciones) y de participante.
+- Sesión de administrador (siete secciones más Mi cuenta) y de participante.
 
 **Datos de prueba:** Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador
 
 **Pasos**
 
-1. Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible.
+1. Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible (el menú incluye "Mi cuenta" como última sección).
 2. Abrir /dashboard en móvil.
 
 **Resultado esperado**

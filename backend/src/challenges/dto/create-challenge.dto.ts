@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -18,6 +19,7 @@ import { TiebreakRule } from '@prisma/client';
 export class CreateChallengeDto {
   @ApiProperty({ example: 'Reto Mayo 2026' })
   @IsString()
+  @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres' })
   name!: string;
 
   @ApiProperty({ example: 5, minimum: 1, maximum: 12 })

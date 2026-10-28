@@ -5,6 +5,47 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.12.0] — 2026-10-27
+
+Sin migraciones ni variables de entorno nuevas. Para volver a la 1.11.0 se despliegan API y web juntas;
+las sesiones sobreviven a la reversión y las contraseñas cambiadas siguen cambiadas.
+
+**Atención al desplegar:** todas las personas deben iniciar sesión una vez tras el despliegue (los refresh
+tokens anteriores no llevan la huella de la contraseña y se rechazan). Además cambia el contrato de
+`PATCH /api/users/me/password`: ahora responde 200 con `{ accessToken, refreshToken }` y 400 si la contraseña
+actual es incorrecta.
+
+
+### Corregido
+
+- El nombre de un reto admite como máximo 100 caracteres (`400` con mensaje en español; el campo web
+  también lo limita), también al renovar.
+- "Seleccionar todos" en Participantes con más de 200 candidatos ya no falla: la inscripción en bloque
+  se envía en lotes de 200 y se muestra un solo resumen.
+- Renovar con `copyParticipants` en texto (por ejemplo `"false"`) se leía como verdadero; ahora la API responde
+  `400` si no es un booleano.
+
+### Añadido
+
+- **Mi cuenta** (cambio `account-self-service`): cada persona, participante o administrador,
+  cambia su nombre (`PATCH /api/users/me`, 2 a 80 caracteres) y su contraseña desde la web ("Mi
+  cuenta", último elemento del menú). Así el administrador del seed rota su contraseña tras el primer
+  inicio de sesión (runbook §1.5).
+  - **Cambiar la contraseña cierra las otras sesiones:** el refresh token lleva una huella de la
+    contraseña; los dispositivos con otra sesión salen al login en su próxima renovación (hasta 15
+    minutos). La sesión que hizo el cambio continúa con tokens nuevos.
+  - **Tras desplegar, todos inician sesión de nuevo una vez:** los refresh tokens emitidos antes no
+    llevan la huella y se rechazan.
+  - **Contrato de `PATCH /api/users/me/password`:** ahora responde 200 con `{ accessToken,
+    refreshToken }` (antes 204) y una contraseña actual incorrecta responde 400 (antes 401); límite de
+    5 intentos por minuto por IP; la contraseña nueva sigue la misma regla que el registro, que ahora
+    muestra los mensajes de longitud en español.
+  - La web conserva los tokens que otra pestaña guardó mientras un refresh era rechazado.
+  - **Sin migración, sin dependencias y sin variables nuevas.** Para volver atrás se redespliegan API
+    y web anteriores juntas; las sesiones sobreviven y las contraseñas cambiadas siguen cambiadas.
+  - Runbook: rotación de la contraseña del administrador semilla, borrar `SEED_ADMIN_PASSWORD` y
+    recuperación de una contraseña perdida.
+
 ## [1.11.0] — 2026-10-27
 
 Renovación mensual del reto, inscripción en bloque y retiro de actividades rechazadas. **No trae

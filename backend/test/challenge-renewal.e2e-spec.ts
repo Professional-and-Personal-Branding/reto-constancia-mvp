@@ -492,6 +492,11 @@ describe('RENEW: renovación mensual (e2e)', () => {
     expect(await roster(created.id)).toEqual([]);
   });
 
+  it('RENEW: copyParticipants que no es booleano responde 400 y el nombre pasa de 100 caracteres no', async () => {
+    expect((await renew(octubre.id, { copyParticipants: 'false' })).status).toBe(400);
+    expect((await renew(octubre.id, { name: 'a'.repeat(101) })).status).toBe(400);
+  });
+
   it('RENEW: renovar otra vez responde 409 con existingChallengeId y no inscribe a nadie', async () => {
     const existing = await prisma.challenge.findUniqueOrThrow({
       where: { month_year: { month: 11, year: YEAR } },
