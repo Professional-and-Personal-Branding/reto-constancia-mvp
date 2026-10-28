@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-20** · rama `feature/challenge-renewal` · commit `e0748f0`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-27** · rama `wt/account-self-service` · commit `1a4e708`. Detalle en [validation-report.md](validation-report.md).
 
-**143 casos** · 143 aprobados · 0 fallidos · 0 con limitación conocida · 142 automatizados.
+**148 casos** · 148 aprobados · 0 fallidos · 0 con limitación conocida · 147 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,11 +17,11 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 14 | 14 | 0 |
+| [Autenticación y sesión](#auth) | 18 | 18 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 24 | 24 | 0 |
 | [Participantes y pagos](#part) | 9 | 9 | 0 |
-| [Actividades y validación](#act) | 23 | 23 | 0 |
+| [Actividades y validación](#act) | 24 | 24 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
@@ -51,6 +51,10 @@
 | [TC-AUTH-12](#tc-auth-12) | Refresh token inválido | Media | Seguridad | ✅ Aprobado |
 | [TC-AUTH-13](#tc-auth-13) | Un 429 transitorio no cierra la sesión | Alta | Regresión | ✅ Aprobado |
 | [TC-AUTH-14](#tc-auth-14) | Un corte de red al renovar el token no cierra la sesión | Alta | Regresión | ✅ Aprobado |
+| [TC-AUTH-15](#tc-auth-15) | Cambiar el nombre desde Mi cuenta | Media | Funcional | ✅ Aprobado |
+| [TC-AUTH-16](#tc-auth-16) | Cambiar la contraseña desde Mi cuenta | Alta | Funcional | ✅ Aprobado |
+| [TC-AUTH-17](#tc-auth-17) | Contraseña actual incorrecta y política de la nueva | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-18](#tc-auth-18) | Límite de intentos de cambio de contraseña | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -105,15 +109,17 @@
 
 **Resultado esperado**
 
-- 400 en los tres casos: "La contraseña debe incluir al menos una letra y un número" o el mínimo de 8 caracteres.
+- 400 en los tres casos: "La contraseña debe incluir al menos una letra y un número" o "La contraseña debe tener al menos 8 caracteres".
 - No se crea el usuario (el login posterior responde 401).
 - La web muestra el error junto al formulario y no navega.
+- El registro y el cambio de contraseña comparten la misma regla (8 a 72 caracteres, con letra y número), con los mensajes en español.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | AUTH: el registro rechaza contraseñas sin número (400) |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el registro usa la misma regla de contraseña, con el mensaje en español |
 | ✅ | UI | `01-auth-navigation.spec.ts` | el registro exige una contraseña que cumpla la política |
 | ✅ | Guía | `capture.spec.ts` | inicio de sesión y registro |
 
@@ -352,6 +358,7 @@
 
 - Con refresh válido: la web llama a /auth/refresh, guarda un token nuevo y sigue en /dashboard sin pedir login.
 - Con refresh inválido: redirige a /login y borra los tokens guardados.
+- Si los tokens guardados ya son otros (otra pestaña cambió la contraseña mientras tanto), un refresh rechazado no los borra y se continúa con ellos.
 
 **Validación automatizada**
 
@@ -359,6 +366,8 @@
 |---|---|---|---|
 | ✅ | UI | `01-auth-navigation.spec.ts` | un access token vencido se renueva solo con el refresh token |
 | ✅ | UI | `01-auth-navigation.spec.ts` | si el refresh token también es inválido, vuelve al login y borra la sesión |
+| ✅ | Web (unitaria) | `account.test.ts` | Sesión: un refresh rechazado conserva los tokens que otra pestaña guardó mientras tanto |
+| ✅ | Web (unitaria) | `account.test.ts` | Sesión: un refresh rechazado cierra la sesión si siguen guardados los mismos tokens o ninguno |
 
 <a id="tc-auth-11"></a>
 
@@ -400,21 +409,24 @@
 
 - Ninguna.
 
-**Datos de prueba:** refreshToken "no-es-un-token"
+**Datos de prueba:** refreshToken "no-es-un-token"; un refresh token sin huella de contraseña (anterior a Mi cuenta); un refresh token emitido antes del último cambio de contraseña
 
 **Pasos**
 
 1. POST /api/auth/refresh con un token inválido.
+2. Repetir con un token firmado sin huella y con uno de antes del último cambio de contraseña.
 
 **Resultado esperado**
 
-- 401.
+- 401 "Refresh token inválido" en los tres casos: token malformado, sin huella, o emitido antes del último cambio de contraseña.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | AUTH: un refresh token inválido se rechaza (401) |
+| ✅ | Unitaria | `auth.service.spec.ts` | refresh rechaza (401 Refresh token inválido) un token sin huella |
+| ✅ | Unitaria | `auth.service.spec.ts` | refresh rechaza un token emitido antes del último cambio de contraseña |
 
 <a id="tc-auth-13"></a>
 
@@ -479,6 +491,161 @@
 |---|---|---|---|
 | ✅ | UI | `01-auth-navigation.spec.ts` | un corte de red al renovar el token no cierra la sesión |
 | ✅ | UI | `01-auth-navigation.spec.ts` | un access token vencido se renueva solo con el refresh token |
+| ✅ | Web (unitaria) | `account.test.ts` | Sesión: un refresh rechazado conserva los tokens que otra pestaña guardó mientras tanto |
+
+<a id="tc-auth-15"></a>
+
+### TC-AUTH-15 · Cambiar el nombre desde Mi cuenta
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Media | Funcional | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante con sesión.
+
+**Datos de prueba:** nombre "  Ana María "; luego { name, role: "ADMIN" }; luego "A"
+
+**Pasos**
+
+1. Abrir Mi cuenta y guardar el nombre.
+2. Por la API, enviar el cuerpo con role.
+3. Enviar el nombre "A".
+
+**Resultado esperado**
+
+- 200 con el nombre recortado ("Ana María"), "Nombre actualizado." y el encabezado con el nombre nuevo sin recargar.
+- 400 y el rol no cambia.
+- 400 "El nombre debe tener entre 2 y 80 caracteres".
+- Sin sesión, 401.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | updateMe recorta el nombre, guarda solo name y no devuelve passwordHash |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: PATCH /users/me renombra al usuario con el nombre recortado y sin passwordHash |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: PATCH /users/me rechaza role y otras propiedades con 400 y el rol no cambia |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un nombre inválido ("A", en blanco o de más de 80 caracteres) responde 400 con el mensaje |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: PATCH /users/me sin sesión responde 401 |
+| ✅ | UI | `15-account.spec.ts` | cambia su nombre y su contraseña desde Mi cuenta |
+| ✅ | Guía | `capture.spec.ts` | Mi cuenta: nombre y contraseña |
+
+<a id="tc-auth-16"></a>
+
+### TC-AUTH-16 · Cambiar la contraseña desde Mi cuenta
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Funcional | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Usuario con una sesión y una segunda sesión del mismo usuario.
+
+**Datos de prueba:** contraseña actual; nueva "Nuev0Pass2" dos veces; luego una confirmación distinta
+
+**Pasos**
+
+1. Cambiar la contraseña.
+2. Renovar la segunda sesión.
+3. Iniciar sesión con la contraseña vieja y con la nueva.
+4. Probar una confirmación distinta en la web.
+
+**Resultado esperado**
+
+- 200 con un par de tokens nuevo y el mensaje de éxito; los campos quedan vacíos y la sesión sigue tras recargar.
+- La renovación de la segunda sesión responde 401 y la de la sesión nueva 200.
+- La contraseña vieja responde 401 "Credenciales inválidas" y la nueva 200.
+- Una confirmación distinta muestra "Las contraseñas no coinciden" sin llamar a la API.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `auth.service.spec.ts` | el refresh token lleva pwv y el access token no |
+| ✅ | Unitaria | `auth.service.spec.ts` | la huella no es ni contiene el hash de la contraseña |
+| ✅ | Unitaria | `auth.service.spec.ts` | refresh acepta un token cuya huella coincide con el hash actual |
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: guarda el hash nuevo y devuelve un par de tokens nuevo |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el cambio de contraseña devuelve tokens nuevos, cierra la otra sesión y reemplaza la clave |
+| ✅ | UI | `15-account.spec.ts` | cambia su nombre y su contraseña desde Mi cuenta |
+| ✅ | Guía | `capture.spec.ts` | Mi cuenta: nombre y contraseña |
+
+<a id="tc-auth-17"></a>
+
+### TC-AUTH-17 · Contraseña actual incorrecta y política de la nueva
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Usuario con sesión.
+
+**Datos de prueba:** contraseña actual equivocada; nueva "soloLetras", "corta1" y "12345678"; nueva igual a la actual; usuario desactivado con access token vivo
+
+**Pasos**
+
+1. Enviar cada combinación a PATCH /api/users/me/password.
+2. Probar la contraseña actual equivocada en la web.
+
+**Resultado esperado**
+
+- 400 "Contraseña actual incorrecta" sin renovar el token ni cerrar la sesión en la web.
+- 400 con cada mensaje en español de la política.
+- 400 "La nueva contraseña debe ser distinta de la actual".
+- La contraseña nunca cambia en estos casos.
+- 401 si el usuario ya no existe o está inactivo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: usuario ausente o inactivo responde 401 |
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: contraseñas iguales responde 400 sin llamar a argon2 |
+| ✅ | Unitaria | `users.service.spec.ts` | changePassword: contraseña actual incorrecta responde 400 y no actualiza |
+| ✅ | Unitaria | `password-policy.spec.ts` | "soloLetras" falla por no tener un número |
+| ✅ | Unitaria | `password-policy.spec.ts` | "corta1" falla por tener menos de 8 caracteres |
+| ✅ | Unitaria | `password-policy.spec.ts` | "12345678" falla por no tener una letra |
+| ✅ | Unitaria | `password-policy.spec.ts` | una contraseña de 73 caracteres falla por superar el máximo |
+| ✅ | Unitaria | `password-policy.spec.ts` | "Passw0rd1" y una de 72 caracteres pasan |
+| ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: el mensaje de la API se muestra tal cual, o el primero si es una lista |
+| ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: la confirmación debe coincidir exactamente |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: contraseña nueva débil, igual o actual incorrecta responden 400 y no cambian nada |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un usuario desactivado con access token vivo recibe 401 al cambiar la contraseña |
+| ✅ | UI | `15-account.spec.ts` | cambia su nombre y su contraseña desde Mi cuenta |
+
+<a id="tc-auth-18"></a>
+
+### TC-AUTH-18 · Límite de intentos de cambio de contraseña
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Misma IP, dentro de un minuto.
+
+**Datos de prueba:** seis peticiones a PATCH /api/users/me/password
+
+**Pasos**
+
+1. Enviar seis cambios de contraseña seguidos.
+
+**Resultado esperado**
+
+- La sexta responde 429 y la contraseña no cambia.
+- En la web, el 429 se muestra como "Demasiados intentos. Espera un minuto e inténtalo de nuevo." sin cerrar la sesión.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el sexto cambio de contraseña en un minuto responde 429 y la contraseña no cambia |
+| ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: un 429 muestra el texto de demasiados intentos y un cuerpo ilegible el texto genérico |
 
 <a id="sec"></a>
 
@@ -2286,6 +2453,7 @@
 | [TC-ACT-21](#tc-act-21) | Tarjeta de hoy en el panel | Alta | UI | ✅ Aprobado |
 | [TC-ACT-22](#tc-act-22) | Avisos y límites de fecha en la subida | Alta | UI | ✅ Aprobado |
 | [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
+| [TC-ACT-24](#tc-act-24) | Corregir un día rechazado | Alta | Funcional | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -2630,7 +2798,7 @@
 
 **Precondiciones**
 
-- Actividades propias PENDING y VALIDATED; actividad ajena.
+- Actividades propias PENDING, REJECTED y VALIDATED; actividad ajena.
 - Web: el navegador con fecha 2025-01-06, dentro del reto de prueba, y una actividad pendiente ese día.
 
 **Datos de prueba:** Web: Mis actividades > Retirar (Cancelar y luego Sí, retirar). API: DELETE /api/activities/:id
@@ -2640,25 +2808,28 @@
 1. En Mis actividades pulsar Retirar y cancelar.
 2. Pulsar Retirar y confirmar.
 3. Ver una actividad validada.
-4. Por API: borrar la propia pendiente, una ajena y la propia validada; luego como admin.
+4. Por API: borrar la propia pendiente, la propia rechazada, una ajena y la propia validada; luego como admin.
 
 **Resultado esperado**
 
 - Cancelar no borra nada.
 - Al confirmar, la actividad desaparece, Pendientes baja a 0 y vuelve "Subir actividad de hoy".
-- Las validadas y rechazadas no ofrecen Retirar.
-- API: propia pendiente 204; ajena 403; validada 403 para el participante y 204 para el admin.
+- Las validadas no ofrecen Retirar; las pendientes y las rechazadas sí.
+- API: propia pendiente 204; propia rechazada 204; ajena 403; validada 403 para el participante y 204 para el admin.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `10-api-only-actions.spec.ts` | retira una actividad pendiente con confirmación y el día queda libre otra vez |
-| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas o rechazadas no ofrecen retirar |
+| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas no ofrecen retirar |
 | ✅ | Guía | `capture.spec.ts` | retirar una actividad pendiente pide confirmación |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante borra su actividad pendiente (204) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar actividades ajenas (403) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar una actividad ya validada (403); el admin sí |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden |
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño retira su actividad rechazada y se liberan sus fotos |
+| ✅ | Unitaria | `activities.service.spec.ts` | una actividad validada no se retira y no libera nada |
 
 <a id="tc-act-13"></a>
 
@@ -3072,6 +3243,52 @@
 | ✅ | UI | `13-my-month.spec.ts` | Mi mes muestra cada estado, la racha y cabe en el teléfono |
 | ✅ | UI | `13-my-month.spec.ts` | un día sin registro abre la subida con esa fecha |
 | ✅ | Guía | `capture.spec.ts` | Mi mes con los estados, la leyenda y la racha |
+
+<a id="tc-act-24"></a>
+
+### TC-ACT-24 · Corregir un día rechazado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Funcional | 4.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con una actividad rechazada (con motivo) de un día válido pasado y otra validada; un segundo participante.
+
+**Datos de prueba:** Web: Mis actividades > Retirar en la fila rechazada. API: DELETE /api/activities/:id, POST /api/activities
+
+**Pasos**
+
+1. Leer la fila rechazada en Mis actividades.
+2. Activar el día rechazado en Mi mes.
+3. Pulsar Retirar y confirmar.
+4. Seguir el enlace "Registrar ese día".
+5. Registrar de nuevo la fecha.
+6. Por API, intentar borrar la actividad rechazada del otro participante y la de un reto cerrado.
+
+**Resultado esperado**
+
+- La fila muestra el motivo, el aviso "Puedes retirarla y registrar ese día de nuevo." y el botón Retirar.
+- Mi mes lleva a esa fila.
+- Aparece la confirmación específica de las rechazadas.
+- Al confirmar la fila desaparece, se ve "Actividad retirada." con el enlace y el día queda "Sin registro".
+- El formulario abre con esa fecha y sin el aviso "ya registraste".
+- La nueva actividad se crea PENDIENTE y solo puntúa si el admin la valida; el ranking no cambia al retirar.
+- La rechazada de otro participante responde 403 y la de un reto cerrado 400.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño retira su actividad rechazada y se liberan sus fotos |
+| ✅ | Unitaria | `activities.service.spec.ts` | la rechazada de otro participante responde 403 |
+| ✅ | Unitaria | `activities.service.spec.ts` | la rechazada de un reto cerrado responde 400 antes del chequeo de dueño |
+| ✅ | Unitaria | `activities.service.spec.ts` | retirar decide con el estado releído bajo el lock |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: en un reto cerrado nadie valida, rechaza ni borra actividades (400) |
+| ✅ | Web (unitaria) | `calendar.test.ts` | canRegisterAgain: ofrece registrar solo un día válido y libre de un reto activo |
+| ✅ | UI | `10-api-only-actions.spec.ts` | corrige un día rechazado: lo retira y lo registra de nuevo |
 
 <a id="res"></a>
 
@@ -4153,7 +4370,7 @@
 
 **Precondiciones**
 
-- Participante inscrito en un reto activo con una actividad PENDIENTE y dos fotos subidas.
+- Participante inscrito en un reto activo con una actividad PENDIENTE (o RECHAZADA) y dos fotos subidas.
 
 **Datos de prueba:** DELETE /api/activities/:id
 
@@ -4161,13 +4378,14 @@
 
 1. Retirar la actividad.
 2. Revisar el almacenamiento (Cloudinary o backend/uploads).
-3. Repetir con una foto que otra actividad también usa y con una foto importada (import/...).
+3. Repetir con una actividad rechazada, con una foto que otra actividad también usa y con una foto importada (import/...).
 
 **Resultado esperado**
 
 - Responde 204 y las fotos se borran después de guardar el cambio, sin esperar al almacenamiento.
 - Si el almacenamiento falla, la respuesta no cambia y queda un aviso en los Logs solo con el id del archivo.
 - Una foto que otra actividad usa se conserva hasta que se borra la última; las fotos importadas nunca se borran.
+- Retirar una actividad rechazada libera sus fotos igual que una pendiente.
 - Si el borrado de la actividad se rechaza (reto cerrado, 403), no se libera nada.
 
 **Validación automatizada**
@@ -4187,6 +4405,7 @@
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad borra sus fotos del almacenamiento y responde 204 |
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última |
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad rechazada también borra sus fotos del almacenamiento |
 
 <a id="tc-up-08"></a>
 
@@ -4862,13 +5081,13 @@
 **Precondiciones**
 
 - Dos retos activos (aparece el selector de reto).
-- Sesión de administrador (siete secciones) y de participante.
+- Sesión de administrador (siete secciones más Mi cuenta) y de participante.
 
 **Datos de prueba:** Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador
 
 **Pasos**
 
-1. Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible.
+1. Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible (el menú incluye "Mi cuenta" como última sección).
 2. Abrir /dashboard en móvil.
 
 **Resultado esperado**

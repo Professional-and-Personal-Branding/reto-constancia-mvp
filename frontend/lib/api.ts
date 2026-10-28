@@ -1,3 +1,4 @@
+import { afterRefreshRejected } from './account';
 import type { AuthTokens } from './types';
 
 const API_URL =
@@ -49,7 +50,13 @@ async function refreshTokens(): Promise<AuthTokens> {
     });
     if (!res.ok) {
       // Solo un refresh token rechazado invalida la sesión; un 429 o un 5xx son transitorios
-      if (isSessionRejected(res.status)) setTokens(null);
+      if (isSessionRejected(res.status)) {
+        // Si otra pestaña guardó tokens nuevos mientras tanto (p. ej. cambió la contraseña),
+        // se conservan y se continúa con ellos; solo se borran los que ya son los rechazados.
+        const stored = getTokens();
+        if (stored && afterRefreshRejected(stored, current.refreshToken) === 'retry') return stored;
+        setTokens(null);
+      }
       throw new ApiError(res.status, await res.json().catch(() => null));
     }
     const tokens = (await res.json()) as AuthTokens;
