@@ -14,18 +14,6 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - Renovar con `copyParticipants` en texto (por ejemplo `"false"`) se leía como verdadero; ahora la API responde
   `400` si no es un booleano.
 
-### Seguridad
-
-- Tres avisos altos nuevos en dependencias de producción, detectados por la auditoría de la CI:
-  - `multer` pasa a 2.5.0 en el backend (GHSA-q7qp-rjg7-q26m, denegación de servicio por un `fileFilter`
-    asíncrono pendiente tras cerrar la petición), con un `overrides` porque `@nestjs/platform-express` lo fija en 2.4.0.
-  - `body-parser` pasa a 2.4.0 (GHSA-27r3-jxmh-p828, denegación de servicio por bytes sobrantes tras un cuerpo comprimido).
-  - Se quita `zod` del frontend (GHSA-mrhx-c7xc-m3w5): era una dependencia directa que ningún archivo importaba.
-
-- `next` pasa a 15.5.28 en el frontend: corrige GHSA-2464-fhr4-w9xw (ejecución remota de código sin
-  autenticación en la API de optimización de imágenes con SVG, crítico) y GHSA-p3m5-59mp-jv5r (denegación de
-  servicio con Server Actions). Producción vuelve a 0 avisos; la CI lo había detectado en la auditoría.
-
 ### Añadido
 
 - **Mi cuenta** (cambio `account-self-service`): cada persona, participante o administrador,
@@ -47,17 +35,15 @@ Versionado [SemVer](https://semver.org/lang/es/).
   - Runbook: rotación de la contraseña del administrador semilla, borrar `SEED_ADMIN_PASSWORD` y
     recuperación de una contraseña perdida.
 
-- **Retirar una actividad rechazada** (cambio `resubmit-rejected-activity`, incremento 1): una
-  actividad rechazada se puede retirar desde "Mis actividades" para registrar ese día de nuevo.
-  **Sin migración, sin dependencias y sin variables nuevas**; para volver atrás se redespliega la
-  versión anterior.
-  - `DELETE /api/activities/:id`: el dueño puede borrar su actividad `PENDING` o `REJECTED` mientras el
-    reto no esté cerrado; una validada responde 403 "Solo se pueden eliminar actividades pendientes o
-    rechazadas". Se borran también sus fotos y el motivo del rechazo; el día queda libre y el registro
-    nuevo pasa por las reglas de siempre (queda pendiente de validación).
-  - Panel: las filas rechazadas muestran el aviso "Puedes retirarla y registrar ese día de nuevo." y el
-    botón *Retirar* con su confirmación; después aparece "Actividad retirada." con el enlace
-    *Registrar ese día*.
+## [1.11.0] — 2026-10-27
+
+Renovación mensual del reto, inscripción en bloque y retiro de actividades rechazadas. **No trae
+migraciones ni variables nuevas; solo actualiza dependencias por avisos de seguridad (`next`, `multer`, `body-parser` y la baja de `zod`).** Para volver a la 1.10.0 se redespliegan API y web
+juntas, porque la web usa `renewal-preview`, `renew` y `participants/bulk`, y la API cambia el retiro de
+actividades rechazadas.
+
+### Añadido
+
 - **Inscripción en bloque** (cambio `monthly-challenge-renewal`, PR 1): **sin migración, sin
   dependencias y sin variables nuevas**; API y web se despliegan juntas. Para volver atrás se
   redespliega la versión anterior (no hay datos que deshacer).
@@ -89,11 +75,35 @@ Versionado [SemVer](https://semver.org/lang/es/).
     y el período, las reglas, el nombre editable, la casilla de inscribir a los participantes activos y
     lo que no se copia; con el mes ocupado, no deja confirmar.
 
+- **Retirar una actividad rechazada** (cambio `resubmit-rejected-activity`, incremento 1): una
+  actividad rechazada se puede retirar desde "Mis actividades" para registrar ese día de nuevo.
+  **Sin migración, sin dependencias y sin variables nuevas**; para volver atrás se redespliega la
+  versión anterior.
+  - `DELETE /api/activities/:id`: el dueño puede borrar su actividad `PENDING` o `REJECTED` mientras el
+    reto no esté cerrado; una validada responde 403 "Solo se pueden eliminar actividades pendientes o
+    rechazadas". Se borran también sus fotos y el motivo del rechazo; el día queda libre y el registro
+    nuevo pasa por las reglas de siempre (queda pendiente de validación).
+  - Panel: las filas rechazadas muestran el aviso "Puedes retirarla y registrar ese día de nuevo." y el
+    botón *Retirar* con su confirmación; después aparece "Actividad retirada." con el enlace
+    *Registrar ese día*.
+
 ### Cambiado
 
 - La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
   inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
   reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
+
+### Seguridad
+
+- Tres avisos altos nuevos en dependencias de producción, detectados por la auditoría de la CI:
+  - `multer` pasa a 2.5.0 en el backend (GHSA-q7qp-rjg7-q26m, denegación de servicio por un `fileFilter`
+    asíncrono pendiente tras cerrar la petición), con un `overrides` porque `@nestjs/platform-express` lo fija en 2.4.0.
+  - `body-parser` pasa a 2.4.0 (GHSA-27r3-jxmh-p828, denegación de servicio por bytes sobrantes tras un cuerpo comprimido).
+  - Se quita `zod` del frontend (GHSA-mrhx-c7xc-m3w5): era una dependencia directa que ningún archivo importaba.
+
+- `next` pasa a 15.5.28 en el frontend: corrige GHSA-2464-fhr4-w9xw (ejecución remota de código sin
+  autenticación en la API de optimización de imágenes con SVG, crítico) y GHSA-p3m5-59mp-jv5r (denegación de
+  servicio con Server Actions). Producción vuelve a 0 avisos; la CI lo había detectado en la auditoría.
 
 ## [1.10.0] — 2026-10-17
 

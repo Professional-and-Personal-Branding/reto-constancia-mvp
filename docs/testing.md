@@ -1,7 +1,7 @@
 # Pruebas automatizadas — Reto de Constancia
 
 Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
-catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (141 casos, cada uno con las
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (144 casos, cada uno con las
 pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
 [`test-cases.md`](./test-cases.md).
 
@@ -144,6 +144,26 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-10-20 · v1.11.0 (rama `release/1.11.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. La rama fusiona `feature/challenge-renewal` (inscripción en bloque y renovación mensual),
+`feature/resubmit-rejected-activity` (retirar una actividad rechazada) y `chore/agent-docker-rule`;
+los conflictos de documentación y del catálogo se resolvieron conservando ambos lados y los
+generados se regeneraron con el validador.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **144 de 144 casos aprobados** (143
+automatizados, 1 manual) con 739 pruebas ejecutadas y 0 fallidas: unitarias del backend 356, unitarias
+de la web 49, e2e de API 167, recorridos de UI 72, capturas de la guía 25 y sesiones paralelas 70;
+"Pruebas sin caso: 0".
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones. `next` y `eslint-config-next` pasan a 15.5.28 en el frontend (GHSA-2464-fhr4-w9xw y GHSA-p3m5-59mp-jv5r): el 20 oct el aviso no existía, apareció el 23 oct y la CI lo detectó; el 24 oct aparecieron además avisos de `multer` (ahora 2.5.0 con `overrides`), `body-parser` (2.4.0) y `zod` (se quitó del frontend, sin uso); se refrescó la rama con `develop` y con el fix y se volvió a verificar el 24 oct. El 27 oct se fusionó de nuevo `develop` (PR #73 a #79 ya fusionados): el árbol de código coincide con `develop` salvo la versión 1.11.0 y la batería dio 13 de 13 y el catálogo 144 de 144 (739 pruebas); en una primera corrida del validador falló una vez el recorrido de la cola de comprobantes (TC-FIN-09) y pasó solo y en la corrida completa siguiente, sin cambios de código.
+El archivo de OpenSpec creó los specs `challenge-enrollment` y `challenge-renewal` con Purpose real
+y actualizó `activity-withdrawal`; `openspec validate --all --strict` pasa (13 de 13).
+
 ### 2026-10-27 · rama `feature/account-self-service` (Mi cuenta)
 
 Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
@@ -188,6 +208,28 @@ diálogo) y la inscripción en bloque en el paso 3.1 (con captura).
 **Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
 `openspec validate --all --strict` pasa.
 
+### 2026-10-20 · rama `feature/monthly-challenge-renewal`, PR 1 (inscripción en bloque)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Una primera batería falló solo en Playwright (el nuevo spec importaba el helper `.mjs`
+de forma estática); se corrigió con el `import()` dinámico que ya usa `fixtures/api.ts` y se repitió
+completa.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **141 de 141 casos aprobados** (140
+automatizados, 1 manual) con 695 pruebas ejecutadas y 0 fallidas: unitarias del backend 332, unitarias
+de la web 45, e2e de API 155, recorridos de UI 70, capturas de la guía 23 y sesiones paralelas 70;
+"Pruebas sin caso: 0". Casos nuevos: TC-PART-08 (API de inscripción en bloque) y TC-PART-09
+(selección en bloque en Participantes); TC-PART-01 ahora cubre la regla de usuarios inactivos.
+
+**Cambio en pruebas existentes:** el mock de usuario de la prueba "inscribir, quitar y registrar pagos
+se rechazan si el reto se cerró bajo el lock" ahora es `{ id: 'u', active: true }`, porque la
+inscripción individual comprueba `active`.
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
+`openspec validate --all --strict` pasa (12 de 12).
 ### 2026-10-20 · rama `feature/resubmit-rejected-activity` (reenviar una actividad rechazada, incremento 1)
 
 Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright con Chromium. Base
@@ -215,29 +257,6 @@ Pruebas existentes modificadas: el recorrido "las actividades validadas o rechaz
 retirar" se renombró "las actividades validadas no ofrecen retirar" (mismo cuerpo), y las e2e de API
 "el participante no puede borrar una actividad ya validada" y "FREEZE: en un reto cerrado..." se
 ampliaron (nuevo texto del 403 y una actividad rechazada de un reto cerrado).
-
-### 2026-10-20 · rama `feature/monthly-challenge-renewal`, PR 1 (inscripción en bloque)
-
-Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
-Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
-del validador. Una primera batería falló solo en Playwright (el nuevo spec importaba el helper `.mjs`
-de forma estática); se corrigió con el `import()` dinámico que ya usa `fixtures/api.ts` y se repitió
-completa.
-
-**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
-
-**Catálogo** (`node scripts/validate-test-cases.mjs`): **141 de 141 casos aprobados** (140
-automatizados, 1 manual) con 695 pruebas ejecutadas y 0 fallidas: unitarias del backend 332, unitarias
-de la web 45, e2e de API 155, recorridos de UI 70, capturas de la guía 23 y sesiones paralelas 70;
-"Pruebas sin caso: 0". Casos nuevos: TC-PART-08 (API de inscripción en bloque) y TC-PART-09
-(selección en bloque en Participantes); TC-PART-01 ahora cubre la regla de usuarios inactivos.
-
-**Cambio en pruebas existentes:** el mock de usuario de la prueba "inscribir, quitar y registrar pagos
-se rechazan si el reto se cerró bajo el lock" ahora es `{ id: 'u', active: true }`, porque la
-inscripción individual comprueba `active`.
-
-**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e. Sin migraciones.
-`openspec validate --all --strict` pasa (12 de 12).
 
 ### 2026-10-17 · v1.10.0 (rama `release/1.10.0`)
 

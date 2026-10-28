@@ -16,7 +16,7 @@
 
 - [x] 3.1 New `e2e/tests/14-renewal.spec.ts` (D13): admin `storageState`, a source month in `E2E_YEAR + 1` not used by any spec nor the seed (5/2026), deleted with `deleteTestChallenges` and recreated by `setupChallenge`-style fixtures; test "inscribe a varios participantes de una vez y muestra el resultado": tick two candidates, press "Inscribir seleccionados (2)", see "2 inscritos" and both under "Inscritos"
 - [x] 3.2 QA catalog: new TC-PART-08 (bulk enrolment API: per-user outcomes, idempotent repeat, limits, closed challenge, lock, inactive rejected by the single endpoint too) and TC-PART-09 (bulk selection in the participants page); update TC-PART-01 to mention the bulk alternative; links to the new tests
-- [ ] 3.3 `CHANGELOG.md` Sin publicar (no migration, no new dependency, no new variable; the single enrolment now rejects inactive users); reset the DB; `node scripts/run-tests.mjs` (13/13), DB reset, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0") and `openspec validate --all --strict`; PR 1 to `develop` with the 3 CI jobs green; the owner merges
+- [x] 3.3 `CHANGELOG.md` Sin publicar (no migration, no new dependency, no new variable; the single enrolment now rejects inactive users); reset the DB; `node scripts/run-tests.mjs` (13/13), DB reset, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0") and `openspec validate --all --strict`; PR 1 to `develop` with the 3 CI jobs green; the owner merges
 
 ## 4. PR 2 - Renewal API (tests first)
 
@@ -39,4 +39,4 @@
 - [x] 6.2 QA catalog: new TC-CHAL-23 (renewal API: preview, target and period, exact copied rules, roster copy with clean payments and inactive skipped, nothing financial or historical copied, `409` with `existingChallengeId`, concurrency, `DRAFT` source, roles) and TC-CHAL-24 (renew from the web: dialog, checkbox, conflict, errors); `node scripts/validate-test-cases.mjs`
 - [x] 6.3 Guide: new step in section 2 "Retos" (renew, with captures of the dialog) and update of 3.1 (bulk enrolment, with a capture) in the guide capture suite; `docs/architecture.md` endpoint list; `docs/security-owasp.md` (admin-only bulk write capped at 200 ids, no self-enrolment)
 - [x] 6.4 `CHANGELOG.md` Sin publicar (no migration, no new dependency, no new environment variable); reset the DB; full battery (13/13), DB reset, catalog validator and `openspec validate --all --strict` once before PR 2; record in `docs/testing.md`
-- [ ] 6.5 PR 2 to `develop` with the 3 CI jobs green; the owner merges; archive the change in the next release branch
+- [x] 6.5 PR 2 to `develop` with the 3 CI jobs green; the owner merges; archive the change in the next release branch
