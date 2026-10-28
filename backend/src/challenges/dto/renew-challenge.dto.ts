@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class RenewChallengeDto {
   @ApiPropertyOptional({
@@ -11,6 +11,7 @@ export class RenewChallengeDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres' })
   name?: string;
 
   @ApiPropertyOptional({
@@ -18,6 +19,8 @@ export class RenewChallengeDto {
     description: 'Inscribir a los participantes activos del reto origen, sin pagos ni comprobantes.',
   })
   @IsOptional()
-  @IsBoolean()
+  // Valor original: la conversión implícita del ValidationPipe volvería "false" en true.
+  @Transform(({ obj }) => obj.copyParticipants)
+  @IsBoolean({ message: 'copyParticipants debe ser verdadero o falso' })
   copyParticipants?: boolean;
 }

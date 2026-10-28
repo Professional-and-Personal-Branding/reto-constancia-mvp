@@ -357,6 +357,7 @@ function ChallengeForm({ challenge, onDone }: { challenge?: ChallengeRow; onDone
           <label className="label" htmlFor="challenge-name">Nombre</label>
           <input
             id="challenge-name"
+            maxLength={100}
             className="input"
             required
             value={name}
