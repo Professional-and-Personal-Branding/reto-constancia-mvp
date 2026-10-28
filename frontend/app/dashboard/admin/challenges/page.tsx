@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { toDayKey } from '@/lib/dates';
-import type { Challenge, TiebreakRule } from '@/lib/types';
+import type { Challenge, RenewResult, TiebreakRule } from '@/lib/types';
+import { renewedMessage } from '@/lib/renewal';
 import { CloseChallengeDialog, closeErrorFrom, type CloseError } from '@/components/close-challenge-dialog';
+import { RenewChallengeDialog } from '@/components/renew-challenge-dialog';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -55,6 +57,24 @@ export default function ChallengesPage() {
     onError: (e) => setCloseError(closeErrorFrom(e)),
   });
 
+  // Renovar: crea el reto del mes siguiente en borrador (spec challenge-renewal)
+  const [renewingId, setRenewingId] = useState<string | null>(null);
+  const [renewError, setRenewError] = useState<CloseError | null>(null);
+  const [renewedNotice, setRenewedNotice] = useState<string | null>(null);
+  const renewMut = useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name: string; copyParticipants: boolean }) =>
+      api<RenewResult>(`/challenges/${id}/renew`, { method: 'POST', body }),
+    onSuccess: (result) => {
+      setActionError(null);
+      setRenewError(null);
+      setRenewingId(null);
+      setRenewedNotice(renewedMessage(result.challenge.name, result.participants.enrolled.length));
+      qc.invalidateQueries({ queryKey: ['challenges'] });
+      qc.invalidateQueries({ queryKey: ['renewal-preview'] });
+    },
+    onError: (e) => setRenewError(closeErrorFrom(e)),
+  });
+
   const activateMut = useMutation({
     mutationFn: (id: string) => api(`/challenges/${id}/activate`, { method: 'POST' }),
     onSuccess: () => {
@@ -77,6 +97,16 @@ export default function ChallengesPage() {
           onCancel={() => setClosingId(null)}
         />
       )}
+      {renewingId && (
+        <RenewChallengeDialog
+          sourceId={renewingId}
+          open
+          isPending={renewMut.isPending}
+          error={renewError}
+          onConfirm={(input) => renewMut.mutate({ id: renewingId, ...input })}
+          onCancel={() => setRenewingId(null)}
+        />
+      )}
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-accent text-xs uppercase tracking-[0.2em] font-semibold mb-2">
@@ -97,6 +127,12 @@ export default function ChallengesPage() {
       </div>
 
       {showForm && <ChallengeForm onDone={() => setShowForm(false)} />}
+
+      {renewedNotice && (
+        <p role="status" className="text-sm text-ok">
+          {renewedNotice}
+        </p>
+      )}
 
       {actionError && (
         <div
@@ -149,6 +185,18 @@ export default function ChallengesPage() {
                     className="btn-primary text-sm py-1.5 px-3"
                   >
                     Activar
+                  </button>
+                )}
+                {c.status !== 'DRAFT' && (
+                  <button
+                    onClick={() => {
+                      setRenewError(null);
+                      setRenewedNotice(null);
+                      setRenewingId(c.id);
+                    }}
+                    className="btn-ghost text-sm py-1.5 px-3"
+                  >
+                    Renovar
                   </button>
                 )}
                 {c.status === 'ACTIVE' && (

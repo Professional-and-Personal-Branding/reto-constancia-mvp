@@ -321,3 +321,58 @@ export interface MyCalendar {
   days: CalendarDay[];
   summary: CalendarSummary;
 }
+
+/** Un usuario inscrito (o ya inscrito) por la inscripción en bloque */
+export interface EnrollmentRow {
+  userId: string;
+  name: string;
+  email: string;
+}
+
+/** Un usuario que la inscripción en bloque omitió, con su motivo */
+export interface EnrollmentSkip {
+  userId: string;
+  reason: 'NOT_FOUND' | 'INACTIVE';
+  message: string;
+}
+
+/** Respuesta de POST /challenges/:id/participants/bulk */
+export interface BulkEnrollResult {
+  enrolled: EnrollmentRow[];
+  alreadyEnrolled: EnrollmentRow[];
+  skipped: EnrollmentSkip[];
+}
+
+/** Reglas que copia una renovación (GET /challenges/:id/renewal-preview) */
+export interface RenewalRules {
+  validDays: number[];
+  minHeartRateMinutes: number;
+  feePerParticipant: string;
+  budgetTotal: string | null;
+  budgetMode: 'auto' | 'manual';
+  currency: string;
+  prizeDescription: string | null;
+  pointsPerValidatedDay: number;
+  pointsPerKm: string;
+  minValidatedDaysToQualify: number;
+  maxWinners: number;
+  tiebreakRule: TiebreakRule;
+}
+
+/** Vista previa de la renovación mensual de un reto */
+export interface RenewalPreview {
+  source: { id: string; name: string; month: number; year: number; status: ChallengeStatus };
+  target: { month: number; year: number; name: string; startDate: string; endDate: string };
+  rules: RenewalRules;
+  participants: {
+    toCopy: EnrollmentRow[];
+    skipped: (EnrollmentRow & { reason: 'INACTIVE'; message: string })[];
+  };
+  existing: { id: string; name: string; status: ChallengeStatus } | null;
+}
+
+/** Respuesta de POST /challenges/:id/renew */
+export interface RenewResult {
+  challenge: { id: string; name: string; month: number; year: number; status: ChallengeStatus };
+  participants: { enrolled: EnrollmentRow[]; skipped: EnrollmentSkip[] };
+}

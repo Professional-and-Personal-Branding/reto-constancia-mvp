@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-17** · rama `release/1.10.0` · commit `480e48d`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-27** · rama `release/1.11.0` · commit `ab5582a`. Detalle en [validation-report.md](validation-report.md).
 
-**139 casos** · 139 aprobados · 0 fallidos · 0 con limitación conocida · 138 automatizados.
+**144 casos** · 144 aprobados · 0 fallidos · 0 con limitación conocida · 143 automatizados.
 
 ## Cómo leer cada caso
 
@@ -19,9 +19,9 @@
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 14 | 14 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
-| [Gestión de retos](#chal) | 22 | 22 | 0 |
-| [Participantes y pagos](#part) | 7 | 7 | 0 |
-| [Actividades y validación](#act) | 23 | 23 | 0 |
+| [Gestión de retos](#chal) | 24 | 24 | 0 |
+| [Participantes y pagos](#part) | 9 | 9 | 0 |
+| [Actividades y validación](#act) | 24 | 24 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
@@ -975,6 +975,8 @@
 | [TC-CHAL-20](#tc-chal-20) | Cerrar o premiar desde la web pasa por la revisión previa | Alta | UI | ✅ Aprobado |
 | [TC-CHAL-21](#tc-chal-21) | Acta del reto cerrado en CSV (solo admin, solo lectura) | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-22](#tc-chal-22) | Descargar el acta desde el ranking de un reto cerrado | Media | UI | ✅ Aprobado |
+| [TC-CHAL-23](#tc-chal-23) | Renovar un reto en el mes siguiente (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-CHAL-24](#tc-chal-24) | Renovar desde la lista de retos | Alta | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -1798,6 +1800,112 @@
 | ✅ | UI | `08-closed-results.spec.ts` | si la descarga falla, el error se ve junto al botón |
 | ✅ | Web (unitaria) | `export.test.ts` | el nombre del acta sale del año y el mes con dos dígitos |
 
+<a id="tc-chal-23"></a>
+
+### TC-CHAL-23 · Renovar un reto en el mes siguiente (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | Funcional | 2.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto 10/AAAA ACTIVE con reglas no default, Ana con pago registrado, Bea con comprobante y Luis inactivo.
+- Un reto COMPLETED con actividades y premiación; un reto DRAFT; un reto de diciembre.
+
+**Datos de prueba:** GET .../renewal-preview; POST .../renew con {}, con copyParticipants: true, con nombre propio y con nombre en blanco; renovar dos veces y dos a la vez; como participante
+
+**Pasos**
+
+1. Pedir la vista previa de un reto activo, de uno de diciembre y de uno cerrado.
+2. Renovar sin copiar participantes y revisar el borrador.
+3. Renovar otra vez.
+4. Renovar el reto cerrado con nombre propio y copyParticipants true.
+5. Lanzar dos renovaciones a la vez.
+6. Renovar un borrador; enviar nombre en blanco y una clave desconocida; llamar como participante.
+7. Activar el reto renovado.
+
+**Resultado esperado**
+
+- La vista previa trae el mes siguiente (enero del año siguiente para diciembre), el período del primer al último día, las reglas con budgetMode, toCopy, skipped y existing.
+- 201 con un reto DRAFT con exactamente las once reglas, sin pagos, comprobantes, actividades ni premiación, y sin participantes si no se pidió copiarlos.
+- Con copyParticipants: Ana y Bea quedan inscritas impagas y sin comprobante, Luis se omite como INACTIVE; el reto origen no cambia (estado, reglas, pagos, comprobantes, actividades y premios).
+- El segundo intento da 409 "Ya existe un reto para M/AAAA" con existingChallengeId y no inscribe a nadie.
+- Dos renovaciones simultáneas: un 201 y un 409; queda un solo reto.
+- 400 "Solo se puede renovar un reto activo o cerrado" para un borrador; 400 con nombre en blanco o clave desconocida; 403 al participante; 404 para un reto desconocido.
+- El borrador renovado se activa con la regla de siempre.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `renewal.spec.ts` | avanza al mes siguiente del mismo año |
+| ✅ | Unitaria | `renewal.spec.ts` | diciembre pasa a enero del año siguiente |
+| ✅ | Unitaria | `renewal.spec.ts` | cubre del primer al último día en meses de 30 y 31 días |
+| ✅ | Unitaria | `renewal.spec.ts` | febrero tiene 28 días en 2027 y 29 en 2028 |
+| ✅ | Unitaria | `renewal.spec.ts` | usa el nombre del mes en español |
+| ✅ | Unitaria | `renewal.spec.ts` | devuelve exactamente las once reglas, sin identidad, estado, fechas ni relaciones |
+| ✅ | Unitaria | `renewal.spec.ts` | copia el arreglo de días sin compartir la referencia |
+| ✅ | Unitaria | `challenges.service.spec.ts` | devuelve mes siguiente, período, reglas, a quién copiar y a quién omitir, sin escribir |
+| ✅ | Unitaria | `challenges.service.spec.ts` | marca el presupuesto manual y informa el reto que ya ocupa el mes |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador responde 400 y un reto desconocido 404 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | crea el borrador del mes siguiente con las reglas y el período, en una transacción, sin inscribir |
+| ✅ | Unitaria | `challenges.service.spec.ts` | con copyParticipants inscribe a los activos en la misma transacción y reporta al inactivo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | el nombre propio se guarda recortado; el vacío usa el sugerido |
+| ✅ | Unitaria | `challenges.service.spec.ts` | diciembre renueva en enero del año siguiente |
+| ✅ | Unitaria | `challenges.service.spec.ts` | si el mes ya existe responde 409 con existingChallengeId y no crea ni inscribe |
+| ✅ | Unitaria | `challenges.service.spec.ts` | una carrera (P2002 al crear) responde el mismo 409 con el id del reto ganador |
+| ✅ | Unitaria | `challenges.service.spec.ts` | si falla la copia de inscritos, el error sale de la transacción (se revierte el reto) |
+| ✅ | Unitaria | `challenges.service.spec.ts` | nunca modifica el reto origen ni copia actividades ni premios |
+| ✅ | Unitaria | `challenges.service.spec.ts` | un borrador responde 400 y nada se crea; un reto desconocido 404 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de un reto activo trae mes siguiente, período, reglas y a quién se copia |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: la vista previa de diciembre cae en enero del año siguiente y la de un cerrado marca el presupuesto manual |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar sin copiar participantes crea el borrador exacto del mes siguiente |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: renovar otra vez responde 409 con existingChallengeId y no inscribe a nadie |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un reto cerrado con nombre propio copia a los activos impagos y sin comprobante; el origen no cambia |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: diciembre se renueva en enero del año siguiente |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: dos renovaciones simultáneas dejan un solo reto: un 201 y un 409 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un borrador de origen responde 400 en la vista previa y al renovar, sin crear nada |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: nombre en blanco y clave desconocida responden 400 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | RENEW: un participante recibe 403 en ambas rutas y un reto desconocido 404 |
+
+<a id="tc-chal-24"></a>
+
+### TC-CHAL-24 · Renovar desde la lista de retos
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | UI | 2.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; reto origen ACTIVE con dos participantes; mes siguiente libre.
+
+**Datos de prueba:** Reto origen con Ana y Bruno inscritos
+
+**Pasos**
+
+1. Pulsar "Renovar" en el reto origen.
+2. Revisar el diálogo.
+3. Pulsar "Crear borrador".
+4. Pulsar "Renovar" otra vez en el origen.
+
+**Resultado esperado**
+
+- El diálogo muestra el mes nuevo, el período, las reglas, el nombre editable, la casilla de participantes marcada con las personas a inscribir y la nota de lo que no se copia.
+- Al confirmar aparece el borrador con 2 participantes y el aviso "<nombre> creado en borrador con 2 inscritos"; el borrador no ofrece "Renovar" pero sí "Activar".
+- El segundo intento dice "Ya existe un reto para <Mes AAAA> (borrador)" con "Crear borrador" deshabilitado; Escape cierra el diálogo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `14-renewal.spec.ts` | renueva el reto en el mes siguiente con sus participantes y avisa si el mes ya existe |
+| ✅ | Guía | `capture.spec.ts` | renovar un reto: vista previa y nota de lo que no se copia |
+| ✅ | Web (unitaria) | `renewal.test.ts` | monthLabel: nombre del mes en español y año |
+| ✅ | Web (unitaria) | `renewal.test.ts` | renewedMessage: aviso de reto creado en borrador, con singular y plural |
+| ✅ | Web (unitaria) | `renewal.test.ts` | rulesSummary: presupuesto automático, o ajustado con su monto |
+
 <a id="part"></a>
 
 ## Participantes y pagos
@@ -1810,6 +1918,8 @@
 | [TC-PART-04](#tc-part-04) | Registrar el pago de un participante | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-05](#tc-part-05) | Comprobante de pago del participante | Media | Funcional | ✅ Aprobado |
 | [TC-PART-07](#tc-part-07) | Estado de pago propio en el inicio del participante | Alta | Funcional | ✅ Aprobado |
+| [TC-PART-08](#tc-part-08) | Inscribir a varios usuarios de una vez (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-PART-09](#tc-part-09) | Inscripción en bloque desde Participantes | Alta | UI | ✅ Aprobado |
 | [TC-PART-06](#tc-part-06) | Reto cerrado: sin altas ni bajas | Media | Negativo | ✅ Aprobado |
 
 <a id="tc-part-01"></a>
@@ -1829,16 +1939,21 @@
 **Pasos**
 
 1. Inscribir a cada usuario.
+2. Alternativa para un grupo: la inscripción en bloque (TC-PART-08 y TC-PART-09).
 
 **Resultado esperado**
 
 - 201 por cada inscripción y los 5 aparecen en el reto.
+- Solo se inscribe a usuarios activos: uno inactivo da 400 "El usuario está inactivo".
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `challenge-finance.e2e-spec.ts` | admin crea el reto (cuota 120, presupuesto 600) e inscribe 5 participantes |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: la inscripción individual también rechaza a un usuario inactivo con 400 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | la inscripción individual rechaza a un usuario inactivo con 400, sin inscribirlo |
+| ✅ | Unitaria | `challenges.service.spec.ts` | el orden de la inscripción individual: 404 reto, 404 usuario, 400 inactivo, 400 cerrado |
 
 <a id="tc-part-02"></a>
 
@@ -2015,6 +2130,104 @@
 | ✅ | UI | `11-privacy.spec.ts` | un reto gratuito dice que no tiene cuota y no ofrece subir comprobante |
 | ✅ | Guía | `capture.spec.ts` | estado de pago propio: comprobante en revisión |
 
+<a id="tc-part-08"></a>
+
+### TC-PART-08 · Inscribir a varios usuarios de una vez (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | Funcional | 3.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto ACTIVE con Ana inscrita; Bea y Carla activas sin inscribir; Luis inactivo.
+- Un reto COMPLETED y un reto DRAFT.
+
+**Datos de prueba:** POST /api/challenges/:id/participants/bulk con Ana, Bea, Carla, Luis y un UUID sin usuario; la misma lista otra vez; Bea dos veces; lista vacía, 201 ids, un id no UUID; como participante; contra el reto cerrado; POST .../participants con Luis
+
+**Pasos**
+
+1. Enviar la lista mixta.
+2. Repetirla.
+3. Enviar un id repetido.
+4. Enviar listas inválidas.
+5. Llamar como participante.
+6. Llamar contra el reto cerrado y contra el borrador.
+7. Inscribir a Luis con el alta individual.
+
+**Resultado esperado**
+
+- 200 con Bea y Carla en enrolled, Ana en alreadyEnrolled, Luis INACTIVE y el UUID NOT_FOUND en skipped; cada id en una sola lista.
+- Repetir no inscribe a nadie nuevo: todos en alreadyEnrolled.
+- Bea dos veces: una sola vez inscrita.
+- 400 para lista vacía, más de 200 ids, un id que no es UUID, sin userIds y una clave desconocida; 200 ids se aceptan.
+- 403 al participante y 404 "Reto no encontrado" para un reto desconocido.
+- 400 "No se puede modificar un reto cerrado" sin cambios en el roster; en un borrador se inscribe.
+- El alta individual de Luis da 400 "El usuario está inactivo".
+- Los nuevos figuran impagos y sin comprobante en las finanzas.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `enrollment.spec.ts` | reparte un grupo mixto: nuevos, ya inscritos, inactivo y desconocido |
+| ✅ | Unitaria | `enrollment.spec.ts` | los ids repetidos cuentan una sola vez y cada id aparece en una sola lista |
+| ✅ | Unitaria | `enrollment.spec.ts` | las filas insertadas no traen datos de pago |
+| ✅ | Unitaria | `enrollment.spec.ts` | sin nadie que inscribir no inserta nada |
+| ✅ | Unitaria | `enrollment.spec.ts` | un usuario inscrito en paralelo queda como ya inscrito, nunca en las dos listas |
+| ✅ | Unitaria | `challenges.service.spec.ts` | la inscripción en bloque corre bajo el lock del reto y devuelve el resultado por usuario |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en bloque, un reto cerrado bajo el lock rechaza todo con 400 y no inserta |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en bloque, un reto desconocido responde 404 |
+| ✅ | Unitaria | `challenges.service.spec.ts` | en bloque se puede inscribir en un borrador |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: lista mixta (ya inscrita, dos nuevas, inactivo, desconocido) con el resultado exacto |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: los inscritos empiezan impagos y sin comprobante en las finanzas |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: repetir la petición no inscribe a nadie nuevo |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un id repetido cuenta una sola vez |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: 400 para lista vacía, 201 ids, un id que no es UUID, sin userIds y una clave desconocida |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: 200 ids son aceptados (el tope es 200) |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un participante recibe 403 y no inscribe a nadie |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: reto desconocido responde 404 |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: un reto cerrado responde 400 completo y deja el roster intacto |
+| ✅ | API e2e | `challenge-renewal.e2e-spec.ts` | BULK: se puede inscribir en un borrador |
+
+<a id="tc-part-09"></a>
+
+### TC-PART-09 · Inscripción en bloque desde Participantes
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | UI | 3.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; reto activo con candidatos.
+
+**Datos de prueba:** Dos candidatos marcados
+
+**Pasos**
+
+1. Marcar dos candidatos.
+2. Pulsar "Inscribir seleccionados (2)".
+3. Pulsar "Seleccionar todos".
+
+**Resultado esperado**
+
+- Aparece "2 inscritos" y ambos pasan a Inscritos y salen de los candidatos.
+- El botón queda deshabilitado sin selección; "Seleccionar todos" marca a todos los candidatos.
+- Un omitido se lista con su nombre y motivo ("Luis (usuario inactivo)").
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `14-renewal.spec.ts` | inscribe a varios participantes de una vez y muestra el resultado |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: inscritos, ya inscritos y omitido con nombre y motivo |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: singular y plural |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: varios omitidos se listan con su motivo |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: un usuario desconocido sin nombre muestra solo el motivo |
+| ✅ | Web (unitaria) | `renewal.test.ts` | bulkSummary: omite las partes en cero y no deja el resumen vacío |
+| ✅ | Guía | `capture.spec.ts` | inscripción en bloque desde Participantes |
+
 <a id="tc-part-06"></a>
 
 ### TC-PART-06 · Reto cerrado: sin altas ni bajas
@@ -2073,6 +2286,7 @@
 | [TC-ACT-21](#tc-act-21) | Tarjeta de hoy en el panel | Alta | UI | ✅ Aprobado |
 | [TC-ACT-22](#tc-act-22) | Avisos y límites de fecha en la subida | Alta | UI | ✅ Aprobado |
 | [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
+| [TC-ACT-24](#tc-act-24) | Corregir un día rechazado | Alta | Funcional | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -2417,7 +2631,7 @@
 
 **Precondiciones**
 
-- Actividades propias PENDING y VALIDATED; actividad ajena.
+- Actividades propias PENDING, REJECTED y VALIDATED; actividad ajena.
 - Web: el navegador con fecha 2025-01-06, dentro del reto de prueba, y una actividad pendiente ese día.
 
 **Datos de prueba:** Web: Mis actividades > Retirar (Cancelar y luego Sí, retirar). API: DELETE /api/activities/:id
@@ -2427,25 +2641,28 @@
 1. En Mis actividades pulsar Retirar y cancelar.
 2. Pulsar Retirar y confirmar.
 3. Ver una actividad validada.
-4. Por API: borrar la propia pendiente, una ajena y la propia validada; luego como admin.
+4. Por API: borrar la propia pendiente, la propia rechazada, una ajena y la propia validada; luego como admin.
 
 **Resultado esperado**
 
 - Cancelar no borra nada.
 - Al confirmar, la actividad desaparece, Pendientes baja a 0 y vuelve "Subir actividad de hoy".
-- Las validadas y rechazadas no ofrecen Retirar.
-- API: propia pendiente 204; ajena 403; validada 403 para el participante y 204 para el admin.
+- Las validadas no ofrecen Retirar; las pendientes y las rechazadas sí.
+- API: propia pendiente 204; propia rechazada 204; ajena 403; validada 403 para el participante y 204 para el admin.
 
 **Validación automatizada**
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `10-api-only-actions.spec.ts` | retira una actividad pendiente con confirmación y el día queda libre otra vez |
-| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas o rechazadas no ofrecen retirar |
+| ✅ | UI | `10-api-only-actions.spec.ts` | las actividades validadas no ofrecen retirar |
 | ✅ | Guía | `capture.spec.ts` | retirar una actividad pendiente pide confirmación |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante borra su actividad pendiente (204) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar actividades ajenas (403) |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el participante no puede borrar una actividad ya validada (403); el admin sí |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden |
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño retira su actividad rechazada y se liberan sus fotos |
+| ✅ | Unitaria | `activities.service.spec.ts` | una actividad validada no se retira y no libera nada |
 
 <a id="tc-act-13"></a>
 
@@ -2859,6 +3076,52 @@
 | ✅ | UI | `13-my-month.spec.ts` | Mi mes muestra cada estado, la racha y cabe en el teléfono |
 | ✅ | UI | `13-my-month.spec.ts` | un día sin registro abre la subida con esa fecha |
 | ✅ | Guía | `capture.spec.ts` | Mi mes con los estados, la leyenda y la racha |
+
+<a id="tc-act-24"></a>
+
+### TC-ACT-24 · Corregir un día rechazado
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Funcional | 4.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con una actividad rechazada (con motivo) de un día válido pasado y otra validada; un segundo participante.
+
+**Datos de prueba:** Web: Mis actividades > Retirar en la fila rechazada. API: DELETE /api/activities/:id, POST /api/activities
+
+**Pasos**
+
+1. Leer la fila rechazada en Mis actividades.
+2. Activar el día rechazado en Mi mes.
+3. Pulsar Retirar y confirmar.
+4. Seguir el enlace "Registrar ese día".
+5. Registrar de nuevo la fecha.
+6. Por API, intentar borrar la actividad rechazada del otro participante y la de un reto cerrado.
+
+**Resultado esperado**
+
+- La fila muestra el motivo, el aviso "Puedes retirarla y registrar ese día de nuevo." y el botón Retirar.
+- Mi mes lleva a esa fila.
+- Aparece la confirmación específica de las rechazadas.
+- Al confirmar la fila desaparece, se ve "Actividad retirada." con el enlace y el día queda "Sin registro".
+- El formulario abre con esa fecha y sin el aviso "ya registraste".
+- La nueva actividad se crea PENDIENTE y solo puntúa si el admin la valida; el ranking no cambia al retirar.
+- La rechazada de otro participante responde 403 y la de un reto cerrado 400.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.service.spec.ts` | el dueño retira su actividad rechazada y se liberan sus fotos |
+| ✅ | Unitaria | `activities.service.spec.ts` | la rechazada de otro participante responde 403 |
+| ✅ | Unitaria | `activities.service.spec.ts` | la rechazada de un reto cerrado responde 400 antes del chequeo de dueño |
+| ✅ | Unitaria | `activities.service.spec.ts` | retirar decide con el estado releído bajo el lock |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | ACT: el dueño retira su actividad rechazada y registra ese día de nuevo; los demás no pueden |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | FREEZE: en un reto cerrado nadie valida, rechaza ni borra actividades (400) |
+| ✅ | Web (unitaria) | `calendar.test.ts` | canRegisterAgain: ofrece registrar solo un día válido y libre de un reto activo |
+| ✅ | UI | `10-api-only-actions.spec.ts` | corrige un día rechazado: lo retira y lo registra de nuevo |
 
 <a id="res"></a>
 
@@ -3940,7 +4203,7 @@
 
 **Precondiciones**
 
-- Participante inscrito en un reto activo con una actividad PENDIENTE y dos fotos subidas.
+- Participante inscrito en un reto activo con una actividad PENDIENTE (o RECHAZADA) y dos fotos subidas.
 
 **Datos de prueba:** DELETE /api/activities/:id
 
@@ -3948,13 +4211,14 @@
 
 1. Retirar la actividad.
 2. Revisar el almacenamiento (Cloudinary o backend/uploads).
-3. Repetir con una foto que otra actividad también usa y con una foto importada (import/...).
+3. Repetir con una actividad rechazada, con una foto que otra actividad también usa y con una foto importada (import/...).
 
 **Resultado esperado**
 
 - Responde 204 y las fotos se borran después de guardar el cambio, sin esperar al almacenamiento.
 - Si el almacenamiento falla, la respuesta no cambia y queda un aviso en los Logs solo con el id del archivo.
 - Una foto que otra actividad usa se conserva hasta que se borra la última; las fotos importadas nunca se borran.
+- Retirar una actividad rechazada libera sus fotos igual que una pendiente.
 - Si el borrado de la actividad se rechaza (reto cerrado, 403), no se libera nada.
 
 **Validación automatizada**
@@ -3974,6 +4238,7 @@
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad borra sus fotos del almacenamiento y responde 204 |
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: un archivo que otra actividad sigue usando se conserva hasta que se borra la última |
 | ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: retirar una actividad rechazada también borra sus fotos del almacenamiento |
 
 <a id="tc-up-08"></a>
 

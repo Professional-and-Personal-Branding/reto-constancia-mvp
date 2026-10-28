@@ -5,6 +5,76 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.11.0] — 2026-10-27
+
+Renovación mensual del reto, inscripción en bloque y retiro de actividades rechazadas. **No trae
+migraciones ni variables nuevas; solo actualiza dependencias por avisos de seguridad (`next`, `multer`, `body-parser` y la baja de `zod`).** Para volver a la 1.10.0 se redespliegan API y web
+juntas, porque la web usa `renewal-preview`, `renew` y `participants/bulk`, y la API cambia el retiro de
+actividades rechazadas.
+
+### Añadido
+
+- **Inscripción en bloque** (cambio `monthly-challenge-renewal`, PR 1): **sin migración, sin
+  dependencias y sin variables nuevas**; API y web se despliegan juntas. Para volver atrás se
+  redespliega la versión anterior (no hay datos que deshacer).
+  - `POST /api/challenges/:id/participants/bulk` (solo admin) con `{ userIds }` (de 1 a 200 UUID):
+    responde `200` con `enrolled`, `alreadyEnrolled` y `skipped` (motivo `NOT_FOUND` o `INACTIVE`).
+    Una sola transacción bajo el lock del reto: un reto cerrado rechaza todo con `400` y un lock que
+    no se obtiene en 5 s responde `409`. Repetir la petición no inscribe a nadie nuevo; los ids
+    repetidos cuentan una vez; los inscritos empiezan impagos y sin comprobante.
+  - Participantes (admin): casilla por candidato, "Seleccionar todos" e "Inscribir seleccionados (N)",
+    con un resumen del resultado ("3 inscritos · 1 ya estaba inscrito · 1 omitido: Luis (usuario
+    inactivo)"). El "+ Inscribir" por fila sigue igual.
+
+- **Renovación mensual** (cambio `monthly-challenge-renewal`, PR 2): **sin migración, sin
+  dependencias y sin variables nuevas**; API y web se despliegan juntas. Para volver atrás se
+  redespliega la versión anterior (los retos creados por una renovación son retos normales: no hay
+  nada que deshacer).
+  - `GET /api/challenges/:id/renewal-preview` (solo admin, solo lectura): mes siguiente, nombre
+    sugerido, período (del primer al último día; diciembre pasa a enero del año siguiente), las reglas
+    que se copiarían (con `budgetMode`), a quién se inscribiría y a quién se omite por inactivo, y el
+    reto que ya ocupa ese mes (`existing`).
+  - `POST /api/challenges/:id/renew` (solo admin) con `{ name?, copyParticipants? }`: crea el reto del
+    mes siguiente en **borrador** con solo las once reglas (días válidos, minutos de FC, cuota,
+    presupuesto, moneda, premio y las cinco reglas de puntaje); nunca copia pagos, comprobantes,
+    actividades ni premiaciones. Con `copyParticipants: true` inscribe, en la misma transacción, a los
+    participantes activos del origen, impagos y sin comprobante. Un mes ya ocupado (también por una
+    carrera entre dos renovaciones) responde `409` "Ya existe un reto para M/AAAA" con
+    `existingChallengeId`; un borrador de origen responde `400`. El origen no cambia.
+  - Retos (admin): botón "Renovar" en los retos activos y cerrados, con un diálogo que muestra el mes
+    y el período, las reglas, el nombre editable, la casilla de inscribir a los participantes activos y
+    lo que no se copia; con el mes ocupado, no deja confirmar.
+
+- **Retirar una actividad rechazada** (cambio `resubmit-rejected-activity`, incremento 1): una
+  actividad rechazada se puede retirar desde "Mis actividades" para registrar ese día de nuevo.
+  **Sin migración, sin dependencias y sin variables nuevas**; para volver atrás se redespliega la
+  versión anterior.
+  - `DELETE /api/activities/:id`: el dueño puede borrar su actividad `PENDING` o `REJECTED` mientras el
+    reto no esté cerrado; una validada responde 403 "Solo se pueden eliminar actividades pendientes o
+    rechazadas". Se borran también sus fotos y el motivo del rechazo; el día queda libre y el registro
+    nuevo pasa por las reglas de siempre (queda pendiente de validación).
+  - Panel: las filas rechazadas muestran el aviso "Puedes retirarla y registrar ese día de nuevo." y el
+    botón *Retirar* con su confirmación; después aparece "Actividad retirada." con el enlace
+    *Registrar ese día*.
+
+### Cambiado
+
+- La inscripción individual (`POST /api/challenges/:id/participants`) ahora rechaza a un usuario
+  inactivo con `400` "El usuario está inactivo" (después de los `404` y antes de la comprobación de
+  reto cerrado). La web nunca ofrecía usuarios inactivos, así que solo cambia para quien llama a la API.
+
+### Seguridad
+
+- Tres avisos altos nuevos en dependencias de producción, detectados por la auditoría de la CI:
+  - `multer` pasa a 2.5.0 en el backend (GHSA-q7qp-rjg7-q26m, denegación de servicio por un `fileFilter`
+    asíncrono pendiente tras cerrar la petición), con un `overrides` porque `@nestjs/platform-express` lo fija en 2.4.0.
+  - `body-parser` pasa a 2.4.0 (GHSA-27r3-jxmh-p828, denegación de servicio por bytes sobrantes tras un cuerpo comprimido).
+  - Se quita `zod` del frontend (GHSA-mrhx-c7xc-m3w5): era una dependencia directa que ningún archivo importaba.
+
+- `next` pasa a 15.5.28 en el frontend: corrige GHSA-2464-fhr4-w9xw (ejecución remota de código sin
+  autenticación en la API de optimización de imágenes con SVG, crítico) y GHSA-p3m5-59mp-jv5r (denegación de
+  servicio con Server Actions). Producción vuelve a 0 avisos; la CI lo había detectado en la auditoría.
+
 ## [1.10.0] — 2026-10-17
 
 Calendario "Mi mes": tarjeta de hoy, pistas de fecha al subir y grilla del mes con racha. **No trae

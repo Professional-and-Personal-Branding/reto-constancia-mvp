@@ -69,7 +69,7 @@ async function bootstrap() {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Reto de Constancia API')
       .setDescription('API para administrar el reto mensual de constancia')
-      .setVersion('1.10.0')
+      .setVersion('1.11.0')
       .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
