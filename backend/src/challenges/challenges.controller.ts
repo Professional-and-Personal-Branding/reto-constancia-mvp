@@ -36,6 +36,7 @@ import { CreateChallengeDto } from './dto/create-challenge.dto';
 import { UpdateChallengeDto } from './dto/update-challenge.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
 import { BulkAddParticipantsDto } from './dto/bulk-add-participants.dto';
+import { BulkMarkPaymentsDto } from './dto/bulk-mark-payments.dto';
 import { RenewChallengeDto } from './dto/renew-challenge.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { PaymentProofDto } from './dto/payment-proof.dto';
@@ -258,6 +259,15 @@ export class ChallengesController {
     @Param('userId') userId: string,
   ): Promise<void> {
     await this.challenges.removeParticipant(id, userId);
+  }
+
+  @Patch(':id/participants/payments')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Registrar la cuota de varios participantes' })
+  @ApiResponse({ status: 400, description: 'Lista inválida, reto cerrado o reto sin cuota' })
+  markPaymentsBulk(@Param('id') id: string, @Body() dto: BulkMarkPaymentsDto) {
+    return this.challenges.markPaymentsBulk(id, dto.userIds);
   }
 
   @Patch(':id/participants/:userId/payment')

@@ -376,3 +376,20 @@ export interface RenewResult {
   challenge: { id: string; name: string; month: number; year: number; status: ChallengeStatus };
   participants: { enrolled: EnrollmentRow[]; skipped: EnrollmentSkip[] };
 }
+
+/** Respuesta de PATCH /challenges/:id/participants/payments (pagos en lote) */
+export interface BulkPaymentEntry {
+  userId: string;
+  name: string;
+  email: string;
+  amountPaid: number;
+}
+
+export interface BulkPaymentResult {
+  feePerParticipant: number;
+  currency: string;
+  marked: BulkPaymentEntry[];
+  alreadyPaid: BulkPaymentEntry[];
+  excluded: (BulkPaymentEntry & { reason: 'PARTIAL' | 'DIFFERENT_AMOUNT' })[];
+  skipped: { userId: string; reason: 'NOT_ENROLLED'; message: string }[];
+}
