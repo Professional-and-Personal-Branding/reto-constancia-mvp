@@ -8,6 +8,7 @@ import * as argon2 from 'argon2';
 import { Prisma, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { WRITER_TX } from '../challenges/challenge-lock';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
@@ -48,17 +49,48 @@ export class UsersService {
     return user as SafeUser;
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<SafeUser> {
-    await this.findById(id); // valida que existe
-    return this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.role !== undefined && { role: dto.role }),
-        ...(dto.active !== undefined && { active: dto.active }),
+  /**
+   * Actualiza un usuario (admin). Reglas (spec user-administration): nadie se desactiva a sí mismo
+   * y siempre queda un administrador activo. El cambio que quita a un admin activo corre en una
+   * transacción que bloquea las filas de los admin activos, para que dos peticiones simultáneas
+   * no puedan dejar la plataforma sin administrador.
+   */
+  async update(id: string, dto: UpdateUserDto, actorId: string): Promise<SafeUser> {
+    const target = await this.findById(id); // valida que existe
+    if (dto.active === false && id === actorId) {
+      throw new BadRequestException('No puedes desactivar tu propia cuenta');
+    }
+    const data = {
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.role !== undefined && { role: dto.role }),
+      ...(dto.active !== undefined && { active: dto.active }),
+    };
+
+    const deactivates = dto.active === false;
+    const demotes = dto.role !== undefined && dto.role !== UserRole.ADMIN;
+    const removesActiveAdmin =
+      target.role === UserRole.ADMIN && target.active && (deactivates || demotes);
+    if (!removesActiveAdmin) {
+      return this.prisma.user.update({ where: { id }, data, select: SAFE_USER_SELECT }) as Promise<SafeUser>;
+    }
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        // SET no admite parámetros: el valor sale de una constante numérica.
+        await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '${WRITER_TX.lockTimeoutMs}ms'`);
+        const admins = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "User" WHERE role = 'ADMIN' AND active = true FOR UPDATE`;
+        if (!admins.some((a) => a.id !== id)) {
+          throw new BadRequestException(
+            deactivates
+              ? 'No puedes desactivar al último administrador activo'
+              : 'No puedes quitar el rol de administrador al último administrador activo',
+          );
+        }
+        return tx.user.update({ where: { id }, data, select: SAFE_USER_SELECT }) as Promise<SafeUser>;
       },
-      select: SAFE_USER_SELECT,
-    }) as Promise<SafeUser>;
+      { maxWait: WRITER_TX.maxWait, timeout: WRITER_TX.timeout },
+    );
   }
 
   /** Cambia solo el nombre de la propia persona (nunca rol, estado ni correo). */
@@ -97,13 +129,5 @@ export class UsersService {
     await this.findById(id);
     const passwordHash = await argon2.hash(newPassword);
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
-  }
-
-  async setActive(id: string, active: boolean): Promise<SafeUser> {
-    return this.update(id, { active });
-  }
-
-  async setRole(id: string, role: UserRole): Promise<SafeUser> {
-    return this.update(id, { role });
   }
 }
