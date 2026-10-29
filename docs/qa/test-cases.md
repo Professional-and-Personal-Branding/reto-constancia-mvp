@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-28** · rama `feature/renewal-hardening` · commit `21d898a` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-29** · rama `feature/bulk-payment-marking` · commit `ea2475a` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**149 casos** · 149 aprobados · 0 fallidos · 0 con limitación conocida · 148 automatizados.
+**151 casos** · 151 aprobados · 0 fallidos · 0 con limitación conocida · 150 automatizados.
 
 ## Cómo leer cada caso
 
@@ -20,7 +20,7 @@
 | [Autenticación y sesión](#auth) | 18 | 18 | 0 |
 | [Seguridad y configuración](#sec) | 13 | 13 | 0 |
 | [Gestión de retos](#chal) | 25 | 25 | 0 |
-| [Participantes y pagos](#part) | 9 | 9 | 0 |
+| [Participantes y pagos](#part) | 11 | 11 | 0 |
 | [Actividades y validación](#act) | 24 | 24 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 7 | 7 | 0 |
@@ -2138,6 +2138,8 @@
 | [TC-PART-07](#tc-part-07) | Estado de pago propio en el inicio del participante | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-08](#tc-part-08) | Inscribir a varios usuarios de una vez (API) | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-09](#tc-part-09) | Inscripción en bloque desde Participantes | Alta | UI | ✅ Aprobado |
+| [TC-PART-10](#tc-part-10) | Registrar la cuota de varios participantes (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-PART-11](#tc-part-11) | Pagos en lote y lista de pendientes desde Participantes | Alta | UI | ✅ Aprobado |
 | [TC-PART-06](#tc-part-06) | Reto cerrado: sin altas ni bajas | Media | Negativo | ✅ Aprobado |
 
 <a id="tc-part-01"></a>
@@ -2255,6 +2257,7 @@
 - Sin monto registra la cuota y paidAt.
 - Con monto respeta el monto.
 - Impago limpia monto y fecha.
+- Para registrar la cuota de varios a la vez ver TC-PART-10 (API) y TC-PART-11 (UI).
 
 **Validación automatizada**
 
@@ -2452,6 +2455,92 @@
 | ✅ | Web (unitaria) | `renewal.test.ts` | chunk: reparte la selección en lotes de a lo más 200 |
 | ✅ | Web (unitaria) | `renewal.test.ts` | mergeBulkResults: combina los lotes en un solo resultado |
 | ✅ | Guía | `capture.spec.ts` | inscripción en bloque desde Participantes |
+
+<a id="tc-part-10"></a>
+
+### TC-PART-10 · Registrar la cuota de varios participantes (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | Funcional | 3.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con cuota 120 BOB; Ana sin pago, Bea con 120, Carla con 60, Diego con 150; Luis no inscrito.
+- Un reto cerrado y uno sin cuota.
+
+**Datos de prueba:** PATCH /api/challenges/:id/participants/payments con { userIds, paid: true } para los cinco ids; el mismo lote otra vez; el lote contra el reto cerrado y contra el reto sin cuota
+
+**Pasos**
+
+1. Enviar el lote mixto.
+2. Repetirlo.
+3. Enviar el lote contra el reto cerrado y contra el reto sin cuota.
+4. Enviar dos lotes iguales a la vez.
+5. Enviar listas inválidas y llamar como participante.
+
+**Resultado esperado**
+
+- 200 con Ana en marked (monto 120), Bea en alreadyPaid, Carla en excluded PARTIAL con 60, Diego en excluded DIFFERENT_AMOUNT con 150 y Luis en skipped NOT_ENROLLED; solo Ana queda escrita, con 120 y paidAt.
+- Repetir no marca a nadie: marked vacío y ningún cambio.
+- Reto cerrado: 400 "No se puede modificar un reto cerrado", sin cambios y con el pozo intacto; reto sin cuota: 400 "Este reto no cobra cuota".
+- Con dos lotes simultáneos cada persona queda con un solo pago y figura en marked de exactamente una respuesta.
+- 400 para lista vacía, 201 ids, un id que no es UUID o paid false; 403 al participante.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk marca solo a quien no tiene pago y reporta cada id en una sola lista |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk compara en centavos y trata un monto nulo como parcial |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk rechaza un reto cerrado sin escribir |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk rechaza un reto sin cuota |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk responde 404 si el reto no existe |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un lote mixto marca solo a quien no tenía pago y reporta el resto aparte |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: repetir el lote no marca a nadie |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: dos lotes iguales a la vez registran un solo pago por persona |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un reto cerrado rechaza el lote y el pozo no cambia |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un reto sin cuota rechaza el lote |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: lote vacío, de 201 ids, con un id inválido o con paid false responde 400 |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un participante recibe 403 |
+
+<a id="tc-part-11"></a>
+
+### TC-PART-11 · Pagos en lote y lista de pendientes desde Participantes
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | UI | 3.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; reto con cuota 120 BOB, dos participantes sin pago y uno con 60.
+
+**Datos de prueba:** "Seleccionar sin pagar", luego también la persona con el pago parcial
+
+**Pasos**
+
+1. Pulsar "Seleccionar sin pagar" y "Marcar seleccionados como pagados (2)".
+2. Marcar también a la persona con pago parcial y volver a abrir la confirmación.
+3. Confirmar.
+4. Pulsar "Copiar pendientes".
+
+**Resultado esperado**
+
+- El diálogo dice "Se registrará la cuota de 120 BOB a 2 personas: 240 BOB." y no se envía nada hasta confirmar.
+- La persona con pago parcial aparece bajo "No se tocan:" ("pago parcial de 60 BOB") y el total sigue contando a dos.
+- Un mensaje de estado informa 2 pagos registrados y 1 sin tocar; "Pagados" sube en 2 y la persona parcial sigue en Parciales.
+- El portapapeles tiene una línea por quien debe ("<nombre>: 60 BOB") y "Total adeudado: 60 BOB", sin emails.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `payment.test.ts` | Pagos en lote: el resumen de confirmación cuenta solo a quien no tiene pago y lista aparte al resto |
+| ✅ | Web (unitaria) | `payment.test.ts` | Pagos en lote: el mensaje del resultado usa singular y plural |
+| ✅ | Web (unitaria) | `payment.test.ts` | Pendientes: una línea por persona sin pago o con pago parcial, ordenada por nombre y sin emails |
+| ✅ | Web (unitaria) | `payment.test.ts` | Pendientes: marca el comprobante por revisar y suma el total adeudado |
+| ✅ | UI | `17-bulk-payments.spec.ts` | marca pagos en lote con confirmación y copia la lista de pendientes |
 
 <a id="tc-part-06"></a>
 

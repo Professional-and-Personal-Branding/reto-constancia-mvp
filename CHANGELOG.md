@@ -18,6 +18,14 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - Se documenta en la especificación el límite aceptado de la liberación de fotos tras retirar una
   actividad (reenviar por API el id de un archivo ya liberado solo afecta a quien lo hace).
 
+### Añadido
+
+- Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y
+  copiar la lista de quienes deben. Nuevo `PATCH /challenges/:id/participants/payments` (admin; 1 a
+  200 ids, una sola transacción bajo el lock del reto, informe exacto en `marked`, `alreadyPaid`,
+  `excluded` y `skipped`); en la web, casillas "Seleccionar el pago de <nombre>", "Seleccionar sin
+  pagar", confirmación con el total y "Copiar pendientes". Sin migración.
+
 ### Deuda conocida
 
 - El diálogo de cerrar reto (`close-challenge-dialog.tsx`) conserva el manejador de Escape antiguo
