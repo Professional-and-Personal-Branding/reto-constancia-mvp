@@ -104,3 +104,86 @@ describe('UsersService (Mi cuenta)', () => {
     expect(tokens).toEqual({ accessToken: 'a', refreshToken: 'r' });
   });
 });
+
+describe('UsersService.update (sesión efectiva y último admin)', () => {
+  let tx: { $executeRawUnsafe: jest.Mock; $queryRaw: jest.Mock; user: { update: jest.Mock } };
+  let prisma: {
+    user: { findUnique: jest.Mock; update: jest.Mock };
+    $transaction: jest.Mock;
+  };
+  let service: UsersService;
+  const order: string[] = [];
+
+  const target = (role: string, active = true) => ({ id: 't1', email: 't@x.com', name: 'T', role, active });
+
+  beforeEach(() => {
+    order.length = 0;
+    tx = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(0),
+      $queryRaw: jest.fn().mockImplementation(async () => {
+        order.push('lock');
+        return [{ id: 't1' }, { id: 'otro' }];
+      }),
+      user: {
+        update: jest.fn().mockImplementation(async () => {
+          order.push('update');
+          return target('PARTICIPANT');
+        }),
+      },
+    };
+    prisma = {
+      user: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue(target('ADMIN')) },
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
+    };
+    service = new UsersService(prisma as unknown as PrismaService, {} as unknown as AuthService);
+  });
+
+  it('update: desactivar la propia cuenta responde 400 y no escribe', async () => {
+    prisma.user.findUnique.mockResolvedValue(target('ADMIN'));
+    const err = await service.update('t1', { active: false }, 't1').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as Error).message).toBe('No puedes desactivar tu propia cuenta');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('update: desactivar al único admin activo (distinto del actor) responde 400 y no escribe', async () => {
+    prisma.user.findUnique.mockResolvedValue(target('ADMIN'));
+    tx.$queryRaw.mockResolvedValue([{ id: 't1' }]);
+    const err = await service.update('t1', { active: false }, 'a1').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as Error).message).toBe('No puedes desactivar al último administrador activo');
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('update: quitar el rol al único admin activo responde 400 y no escribe', async () => {
+    prisma.user.findUnique.mockResolvedValue(target('ADMIN'));
+    tx.$queryRaw.mockResolvedValue([{ id: 't1' }]);
+    const err = await service.update('t1', { role: 'PARTICIPANT' }, 't1').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as Error).message).toBe(
+      'No puedes quitar el rol de administrador al último administrador activo',
+    );
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('update: con dos admins activos la degradación corre dentro de la transacción tras el FOR UPDATE', async () => {
+    prisma.user.findUnique.mockResolvedValue(target('ADMIN'));
+    await service.update('t1', { role: 'PARTICIPANT' }, 'a1');
+    expect(order).toEqual(['lock', 'update']);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(tx.$executeRawUnsafe).toHaveBeenCalledWith(expect.stringContaining('lock_timeout'));
+  });
+
+  it('update: nombre, promoción y reactivación no abren la transacción con bloqueo', async () => {
+    prisma.user.findUnique.mockResolvedValue(target('ADMIN'));
+    await service.update('t1', { name: 'Nuevo' }, 'a1');
+    prisma.user.findUnique.mockResolvedValue(target('PARTICIPANT'));
+    await service.update('t1', { role: 'ADMIN' }, 'a1');
+    prisma.user.findUnique.mockResolvedValue(target('ADMIN', false));
+    await service.update('t1', { active: true }, 'a1');
+    await service.update('t1', { role: 'PARTICIPANT' }, 'a1'); // admin inactivo: no quita un activo
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledTimes(4);
+  });
+});

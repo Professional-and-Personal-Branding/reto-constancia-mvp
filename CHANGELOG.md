@@ -7,6 +7,10 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Corregido
 
+- Desactivar o degradar a un usuario surte efecto en su siguiente petición (antes valía hasta 15
+  minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
+  su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
+  administrador activo (con bloqueo de filas, también en peticiones simultáneas). Sin migración.
 - La inscripción en bloque informa con exactitud a quién inscribió cuando otra petición inscribe a la
   misma persona al mismo tiempo: usa un solo `INSERT ... ON CONFLICT DO NOTHING RETURNING` y cuenta
   solo las filas que ese insert devolvió; las demás quedan como ya inscritas.
