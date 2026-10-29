@@ -5,6 +5,11 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
+  alcanzan, con textos que dejan la calificación para el cierre.
+
 ### Corregido
 
 - La inscripción en bloque informa con exactitud a quién inscribió cuando otra petición inscribe a la
