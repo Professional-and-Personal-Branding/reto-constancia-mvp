@@ -5,6 +5,18 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
+  alcanzan, con textos que dejan la calificación para el cierre.
+
+### Corregido
+
+- Desactivar o degradar a un usuario surte efecto en su siguiente petición (antes valía hasta 15
+  minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
+  su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
+  administrador activo (con bloqueo de filas, también en peticiones simultáneas). Sin migración.
+
 ## [1.12.1] — 2026-10-28
 
 Parche sin migraciones, variables de entorno ni cambios de contrato. Para volver a la 1.12.0 se

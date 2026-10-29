@@ -10,6 +10,7 @@ import { dayEndMs, formatDay, isoToday, toDayKey } from '@/lib/dates';
 import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { amountOwed, formatUploadDate } from '@/lib/payment';
 import { canRegisterAgain, todayDuty } from '@/lib/calendar';
+import { progressMessage, qualifyProgress } from '@/lib/progress';
 import { MyMonth } from '@/components/my-month';
 import type {
   ChallengeParticipant,
@@ -165,6 +166,17 @@ export default function DashboardPage() {
   const myRank = results?.ranking.find((r) => r.userId === user?.id);
   const myParticipation = challenge.me;
   const isFreeChallenge = parseFloat(challenge.feePerParticipant) <= 0;
+  // "Mi avance": solo en un reto activo, inscrito y con fila de ranking y calendario cargados
+  const progress =
+    challenge.status === 'ACTIVE' && myParticipation && myRank && calendar
+      ? qualifyProgress({
+          min: challenge.minValidatedDaysToQualify ?? 0,
+          row: myRank,
+          days: calendar.days,
+        })
+      : null;
+  const progressText = progress ? progressMessage(progress) : null;
+  const customScoring = challenge.pointsPerValidatedDay !== 1 || parseFloat(challenge.pointsPerKm) > 0;
 
   return (
     <div className="space-y-8">
@@ -206,13 +218,33 @@ export default function DashboardPage() {
         <Stat
           label="Top del reto"
           value={results?.topScore ?? 0}
-          suffix={
-            challenge.pointsPerValidatedDay !== 1 || parseFloat(challenge.pointsPerKm) > 0
-              ? ' pts'
-              : ' días'
-          }
+          suffix={customScoring ? ' pts' : ' días'}
         />
       </div>
+
+      {progress && progressText && myRank && (
+        <section aria-labelledby="mi-avance-title" className="card p-5 space-y-3">
+          <h2 id="mi-avance-title" className="display text-2xl">
+            Mi avance
+          </h2>
+          <p className="text-sm font-semibold">
+            Validados: {progress.validated} de {progress.target}
+          </p>
+          <div
+            role="progressbar"
+            aria-label="Días validados para el mínimo"
+            aria-valuemin={0}
+            aria-valuemax={progress.target}
+            aria-valuenow={progress.validated}
+            className="h-2 rounded-full bg-ink-mute/20 overflow-hidden"
+          >
+            <div className="h-full bg-accent" style={{ width: `${progress.percent}%` }} />
+          </div>
+          <p>{progressText.main}</p>
+          {progressText.detail && <p className="text-sm text-ink-dim">{progressText.detail}</p>}
+          {customScoring && <p className="text-sm text-ink-dim">Tu puntaje: {myRank.score} pts</p>}
+        </section>
+      )}
 
       {user?.role === 'PARTICIPANT' && myParticipation && (
         <section className="card p-5">

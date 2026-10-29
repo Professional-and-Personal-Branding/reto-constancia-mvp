@@ -240,7 +240,7 @@ export const CASES = [
     pre: ['Usuario con sesión.'],
     data: 'contraseña actual equivocada; nueva "soloLetras", "corta1" y "12345678"; nueva igual a la actual; usuario desactivado con access token vivo',
     steps: ['Enviar cada combinación a PATCH /api/users/me/password.', 'Probar la contraseña actual equivocada en la web.'],
-    expected: ['400 "Contraseña actual incorrecta" sin renovar el token ni cerrar la sesión en la web.', '400 con cada mensaje en español de la política.', '400 "La nueva contraseña debe ser distinta de la actual".', 'La contraseña nunca cambia en estos casos.', '401 si el usuario ya no existe o está inactivo.'],
+    expected: ['400 "Contraseña actual incorrecta" sin renovar el token ni cerrar la sesión en la web.', '400 con cada mensaje en español de la política.', '400 "La nueva contraseña debe ser distinta de la actual".', 'La contraseña nunca cambia en estos casos.', '401 si el usuario ya no existe o está inactivo, en cualquier ruta (ver TC-AUTH-19).'],
     auto: [
       U('users.service.spec.ts', 'changePassword: usuario ausente o inactivo responde 401'),
       U('users.service.spec.ts', 'changePassword: contraseñas iguales responde 400 sin llamar a argon2'),
@@ -266,6 +266,32 @@ export const CASES = [
     auto: [
       A('account.e2e-spec.ts', 'ACCOUNT: el sexto cambio de contraseña en un minuto responde 429 y la contraseña no cambia'),
       F('account.test.ts', 'Mi cuenta: un 429 muestra el texto de demasiados intentos y un cuerpo ilegible el texto genérico'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-19', title: 'Un usuario desactivado pierde el acceso en su siguiente petición', priority: 'Alta', type: 'Seguridad', guide: '1.2',
+    pre: ['Participante con un access token vivo y su refresh token.'],
+    data: 'el admin pone active: false; después active: true',
+    steps: ['Llamar a GET /api/challenges/active/list y a POST /api/auth/refresh.', 'Reactivar al usuario y llamar de nuevo con el mismo access token.'],
+    expected: ['401 "Sesión no válida" en cualquier ruta y 401 al renovar.', 'Tras la reactivación el mismo access token funciona.'],
+    auto: [
+      U('jwt.strategy.spec.ts', 'validate: usuario inexistente responde 401 "Sesión no válida"'),
+      U('jwt.strategy.spec.ts', 'validate: usuario inactivo responde 401 "Sesión no válida"'),
+      A('session-checks.e2e-spec.ts', 'SESSION: un usuario desactivado con access token vivo recibe 401 en cualquier ruta y no puede renovar'),
+      A('session-checks.e2e-spec.ts', 'SESSION: un usuario reactivado vuelve a usar su access token'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-20', title: 'El rol vigente de la base manda sobre el del token', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Dos admin activos y un participante.'],
+    data: 'degradar al admin A; promover al participante',
+    steps: ['A llama a GET /api/users y a los resultados de un reto donde está inscrito.', 'El promovido llama a GET /api/users.'],
+    expected: ['403 "No tienes permiso para esta acción" y ranking sin email ni paid para A.', '200 para el promovido sin iniciar sesión de nuevo.'],
+    auto: [
+      U('jwt.strategy.spec.ts', 'validate devuelve sub, email y rol leídos de la base y no los del token'),
+      U('jwt.strategy.spec.ts', 'validate busca por id y selecciona solo id, email, role y active'),
+      A('session-checks.e2e-spec.ts', 'SESSION: un admin degradado con access token vivo recibe 403 en rutas de admin y el ranking sin emails'),
+      A('session-checks.e2e-spec.ts', 'SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión'),
     ],
   },
 
@@ -449,6 +475,25 @@ export const CASES = [
     auto: [
       U('http.spec.ts', 'sin configurar: apagado en producción, encendido en desarrollo y pruebas'),
       U('http.spec.ts', 'SWAGGER_ENABLED manda en cualquier entorno'),
+    ],
+  },
+  {
+    id: 'TC-SEC-14', title: 'Siempre queda un administrador activo y nadie se desactiva a sí mismo', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Base limpia con uno o dos admin activos.'],
+    data: '{ active: false } sobre uno mismo; { role: "PARTICIPANT" } sobre el último admin; degradaciones y desactivaciones cruzadas en paralelo',
+    steps: ['Enviar cada PATCH /api/users/:id.'],
+    expected: ['Los tres mensajes 400 en español.', 'Con dos admin la degradación funciona.', 'En una carrera exactamente una petición tiene éxito y queda un admin activo.'],
+    auto: [
+      U('users.service.spec.ts', 'update: desactivar la propia cuenta responde 400 y no escribe'),
+      U('users.service.spec.ts', 'update: desactivar al único admin activo (distinto del actor) responde 400 y no escribe'),
+      U('users.service.spec.ts', 'update: quitar el rol al único admin activo responde 400 y no escribe'),
+      U('users.service.spec.ts', 'update: con dos admins activos la degradación corre dentro de la transacción tras el FOR UPDATE'),
+      U('users.service.spec.ts', 'update: nombre, promoción y reactivación no abren la transacción con bloqueo'),
+      A('session-checks.e2e-spec.ts', 'ADMINS: nadie puede desactivar su propia cuenta'),
+      A('session-checks.e2e-spec.ts', 'ADMINS: el último admin activo no puede quitarse el rol'),
+      A('session-checks.e2e-spec.ts', 'ADMINS: con dos admins activos se puede degradar a uno'),
+      A('session-checks.e2e-spec.ts', 'ADMINS: dos admins que se degradan a la vez dejan exactamente un admin activo'),
+      A('session-checks.e2e-spec.ts', 'ADMINS: dos admins que se desactivan a la vez dejan exactamente un admin activo'),
     ],
   },
 
@@ -1455,6 +1500,31 @@ export const CASES = [
       W('10-api-only-actions.spec.ts', 'corrige un día rechazado: lo retira y lo registra de nuevo'),
     ],
   },
+  {
+    id: 'TC-ACT-25', title: 'Mi avance: cuánto falta para el mínimo', priority: 'Alta', type: 'UI', guide: '4.1',
+    pre: ['Reto activo con minValidatedDaysToQualify = 3; participante inscrito con 1 actividad validada y 1 pendiente.'],
+    data: 'Luego 2 actividades más validadas',
+    steps: [
+      'Abrir Mi reto con el reto seleccionado.',
+      'Validar el resto de actividades.',
+      'Recargar el panel.',
+    ],
+    expected: [
+      'La tarjeta Mi avance muestra "Validados: 1 de 3", "Te faltan 2 días validados para el mínimo; aún puedes llegar." y la línea con los pendientes y los días sin registrar.',
+      'Tras las validaciones muestra "Ya alcanzas el mínimo; se confirma al cierre.".',
+      'Un administrador que no está inscrito no ve la tarjeta.',
+    ],
+    auto: [
+      F('progress.test.ts', 'Mi avance: con la fila calificada el estado es QUALIFIED y el texto se confirma al cierre'),
+      F('progress.test.ts', 'Mi avance: alcanzable con pendientes y días abiertos, en singular y plural'),
+      F('progress.test.ts', 'Mi avance: un día rechazado cuenta como abierto y uno pendiente no'),
+      F('progress.test.ts', 'Mi avance: fuera de alcance cuando faltan más días que pendientes y abiertos'),
+      F('progress.test.ts', 'Mi avance: con mínimo 0 la meta es 1 día validado'),
+      F('progress.test.ts', 'Mi avance: días alcanzados con puntaje 0 dan NO_SCORE'),
+      F('progress.test.ts', 'Mi avance: el porcentaje no supera 100'),
+      W('16-my-progress.spec.ts', 'Mi avance muestra lo que falta para el mínimo y luego que ya se alcanza'),
+    ],
+  },
 
   // ───────────────────────────── RES ─────────────────────────────
   {
@@ -1603,6 +1673,16 @@ export const CASES = [
       W('05-challenges-scoring.spec.ts', 'el ranking describe la regla, muestra puntos y marca a quien no califica'),
       G('ranking con puntos, no califica y premio proyectado'),
       G('panel Mi reto muestra período, cuenta regresiva y métricas'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-08', title: 'La regla de calificación de la web coincide con la del servidor', priority: 'Media', type: 'Regresión', guide: '6.1',
+    pre: ['Ninguna.'], data: 'backend/src/challenges/qualification-parity.json',
+    steps: ['Correr las pruebas unitarias del servidor y las de la web.'],
+    expected: ['Ambas reglas dan el valor qualified de cada caso de la tabla.'],
+    auto: [
+      U('scoring.spec.ts', 'la tabla de paridad coincide con isQualified'),
+      F('progress.test.ts', 'Mi avance: la tabla de paridad coincide con la regla del servidor'),
     ],
   },
 

@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-28** · rama `release/1.12.1` · commit `feb5dbd` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-29** · rama `fix/effective-session-checks` · commit `ea2475a` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**149 casos** · 149 aprobados · 0 fallidos · 0 con limitación conocida · 148 automatizados.
+**152 casos** · 152 aprobados · 0 fallidos · 0 con limitación conocida · 151 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,8 +17,8 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 18 | 18 | 0 |
-| [Seguridad y configuración](#sec) | 13 | 13 | 0 |
+| [Autenticación y sesión](#auth) | 20 | 20 | 0 |
+| [Seguridad y configuración](#sec) | 14 | 14 | 0 |
 | [Gestión de retos](#chal) | 25 | 25 | 0 |
 | [Participantes y pagos](#part) | 9 | 9 | 0 |
 | [Actividades y validación](#act) | 24 | 24 | 0 |
@@ -55,6 +55,8 @@
 | [TC-AUTH-16](#tc-auth-16) | Cambiar la contraseña desde Mi cuenta | Alta | Funcional | ✅ Aprobado |
 | [TC-AUTH-17](#tc-auth-17) | Contraseña actual incorrecta y política de la nueva | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-18](#tc-auth-18) | Límite de intentos de cambio de contraseña | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-19](#tc-auth-19) | Un usuario desactivado pierde el acceso en su siguiente petición | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-20](#tc-auth-20) | El rol vigente de la base manda sobre el del token | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -597,7 +599,7 @@
 - 400 con cada mensaje en español de la política.
 - 400 "La nueva contraseña debe ser distinta de la actual".
 - La contraseña nunca cambia en estos casos.
-- 401 si el usuario ya no existe o está inactivo.
+- 401 si el usuario ya no existe o está inactivo, en cualquier ruta (ver TC-AUTH-19).
 
 **Validación automatizada**
 
@@ -647,6 +649,72 @@
 | ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el sexto cambio de contraseña en un minuto responde 429 y la contraseña no cambia |
 | ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: un 429 muestra el texto de demasiados intentos y un cuerpo ilegible el texto genérico |
 
+<a id="tc-auth-19"></a>
+
+### TC-AUTH-19 · Un usuario desactivado pierde el acceso en su siguiente petición
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante con un access token vivo y su refresh token.
+
+**Datos de prueba:** el admin pone active: false; después active: true
+
+**Pasos**
+
+1. Llamar a GET /api/challenges/active/list y a POST /api/auth/refresh.
+2. Reactivar al usuario y llamar de nuevo con el mismo access token.
+
+**Resultado esperado**
+
+- 401 "Sesión no válida" en cualquier ruta y 401 al renovar.
+- Tras la reactivación el mismo access token funciona.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: usuario inexistente responde 401 "Sesión no válida" |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: usuario inactivo responde 401 "Sesión no válida" |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un usuario desactivado con access token vivo recibe 401 en cualquier ruta y no puede renovar |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un usuario reactivado vuelve a usar su access token |
+
+<a id="tc-auth-20"></a>
+
+### TC-AUTH-20 · El rol vigente de la base manda sobre el del token
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Dos admin activos y un participante.
+
+**Datos de prueba:** degradar al admin A; promover al participante
+
+**Pasos**
+
+1. A llama a GET /api/users y a los resultados de un reto donde está inscrito.
+2. El promovido llama a GET /api/users.
+
+**Resultado esperado**
+
+- 403 "No tienes permiso para esta acción" y ranking sin email ni paid para A.
+- 200 para el promovido sin iniciar sesión de nuevo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate devuelve sub, email y rol leídos de la base y no los del token |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate busca por id y selecciona solo id, email, role y active |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un admin degradado con access token vivo recibe 403 en rutas de admin y el ranking sin emails |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión |
+
 <a id="sec"></a>
 
 ## Seguridad y configuración
@@ -666,6 +734,7 @@
 | [TC-SEC-11](#tc-sec-11) | El admin conserva emails y pagos en el ranking y en la lista de activos | Media | Seguridad | ✅ Aprobado |
 | [TC-SEC-12](#tc-sec-12) | Un error inesperado responde un 500 genérico con el código y sin detalles internos | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-13](#tc-sec-13) | Swagger apagado en producción salvo que se active | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-14](#tc-sec-14) | Siempre queda un administrador activo y nadie se desactiva a sí mismo | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-sec-01"></a>
 
@@ -1113,6 +1182,45 @@
 |---|---|---|---|
 | ✅ | Unitaria | `http.spec.ts` | sin configurar: apagado en producción, encendido en desarrollo y pruebas |
 | ✅ | Unitaria | `http.spec.ts` | SWAGGER_ENABLED manda en cualquier entorno |
+
+<a id="tc-sec-14"></a>
+
+### TC-SEC-14 · Siempre queda un administrador activo y nadie se desactiva a sí mismo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 1.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Base limpia con uno o dos admin activos.
+
+**Datos de prueba:** { active: false } sobre uno mismo; { role: "PARTICIPANT" } sobre el último admin; degradaciones y desactivaciones cruzadas en paralelo
+
+**Pasos**
+
+1. Enviar cada PATCH /api/users/:id.
+
+**Resultado esperado**
+
+- Los tres mensajes 400 en español.
+- Con dos admin la degradación funciona.
+- En una carrera exactamente una petición tiene éxito y queda un admin activo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | update: desactivar la propia cuenta responde 400 y no escribe |
+| ✅ | Unitaria | `users.service.spec.ts` | update: desactivar al único admin activo (distinto del actor) responde 400 y no escribe |
+| ✅ | Unitaria | `users.service.spec.ts` | update: quitar el rol al único admin activo responde 400 y no escribe |
+| ✅ | Unitaria | `users.service.spec.ts` | update: con dos admins activos la degradación corre dentro de la transacción tras el FOR UPDATE |
+| ✅ | Unitaria | `users.service.spec.ts` | update: nombre, promoción y reactivación no abren la transacción con bloqueo |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: nadie puede desactivar su propia cuenta |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: el último admin activo no puede quitarse el rol |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: con dos admins activos se puede degradar a uno |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: dos admins que se degradan a la vez dejan exactamente un admin activo |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: dos admins que se desactivan a la vez dejan exactamente un admin activo |
 
 <a id="chal"></a>
 
