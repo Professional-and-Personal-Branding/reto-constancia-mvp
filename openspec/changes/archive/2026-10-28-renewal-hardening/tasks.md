@@ -42,4 +42,4 @@
 
 ## 6. Release 1.12.1
 
-- [ ] 6.1 `release/1.12.1` from `develop` (not `hotfix/*`); `openspec archive renewal-hardening -y` there, then the usual release steps of `CLAUDE.md`
+- [x] 6.1 `release/1.12.1` from `develop` (not `hotfix/*`); `openspec archive renewal-hardening -y` there, then the usual release steps of `CLAUDE.md`

@@ -53,6 +53,11 @@ with no payment recorded and no payment proof. Repeating the same request SHALL 
 report those users as `alreadyEnrolled`. An unknown challenge SHALL answer `404` "Reto no
 encontrado".
 
+A user SHALL be reported in `enrolled` only by the request whose insert created that enrolment,
+decided from the rows that insert actually created and never from timestamps. When several requests
+enrol the same user at the same time, the user SHALL be enrolled once and SHALL appear in `enrolled`
+of exactly one response and in `alreadyEnrolled` of the others.
+
 #### Scenario: Mixed list
 - **GIVEN** an `ACTIVE` challenge where Ana is already enrolled, Bea and Carla are active and not
   enrolled, Luis is inactive, and an id that matches no user
@@ -77,6 +82,13 @@ encontrado".
 #### Scenario: Participant calls the bulk endpoint
 - **WHEN** a participant calls `POST /challenges/:id/participants/bulk`
 - **THEN** the response is `403` and nobody is enrolled
+
+#### Scenario: Two bulk requests at the same time
+- **GIVEN** an `ACTIVE` challenge where Bea, Carla and Diego are active and not enrolled
+- **WHEN** two admins send Bea, Carla and Diego to the bulk endpoint at the same time
+- **THEN** each of them is enrolled once
+- **AND** each of them appears in `enrolled` of exactly one response and in `alreadyEnrolled` of the
+  other, even if both inserts happen in the same millisecond
 
 ### Requirement: Bulk enrolment is serialized with closing
 The bulk enrolment SHALL run in one transaction that first locks the challenge row as every other
