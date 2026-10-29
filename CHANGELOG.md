@@ -5,6 +5,11 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
+  alcanzan, con textos que dejan la calificación para el cierre.
+
 ### Corregido
 
 - Desactivar o degradar a un usuario surte efecto en su siguiente petición (antes valía hasta 15
