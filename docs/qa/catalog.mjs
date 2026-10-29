@@ -1455,6 +1455,31 @@ export const CASES = [
       W('10-api-only-actions.spec.ts', 'corrige un día rechazado: lo retira y lo registra de nuevo'),
     ],
   },
+  {
+    id: 'TC-ACT-25', title: 'Mi avance: cuánto falta para el mínimo', priority: 'Alta', type: 'UI', guide: '4.1',
+    pre: ['Reto activo con minValidatedDaysToQualify = 3; participante inscrito con 1 actividad validada y 1 pendiente.'],
+    data: 'Luego 2 actividades más validadas',
+    steps: [
+      'Abrir Mi reto con el reto seleccionado.',
+      'Validar el resto de actividades.',
+      'Recargar el panel.',
+    ],
+    expected: [
+      'La tarjeta Mi avance muestra "Validados: 1 de 3", "Te faltan 2 días validados para el mínimo; aún puedes llegar." y la línea con los pendientes y los días sin registrar.',
+      'Tras las validaciones muestra "Ya alcanzas el mínimo; se confirma al cierre.".',
+      'Un administrador que no está inscrito no ve la tarjeta.',
+    ],
+    auto: [
+      F('progress.test.ts', 'Mi avance: con la fila calificada el estado es QUALIFIED y el texto se confirma al cierre'),
+      F('progress.test.ts', 'Mi avance: alcanzable con pendientes y días abiertos, en singular y plural'),
+      F('progress.test.ts', 'Mi avance: un día rechazado cuenta como abierto y uno pendiente no'),
+      F('progress.test.ts', 'Mi avance: fuera de alcance cuando faltan más días que pendientes y abiertos'),
+      F('progress.test.ts', 'Mi avance: con mínimo 0 la meta es 1 día validado'),
+      F('progress.test.ts', 'Mi avance: días alcanzados con puntaje 0 dan NO_SCORE'),
+      F('progress.test.ts', 'Mi avance: el porcentaje no supera 100'),
+      W('16-my-progress.spec.ts', 'Mi avance muestra lo que falta para el mínimo y luego que ya se alcanza'),
+    ],
+  },
 
   // ───────────────────────────── RES ─────────────────────────────
   {
@@ -1603,6 +1628,16 @@ export const CASES = [
       W('05-challenges-scoring.spec.ts', 'el ranking describe la regla, muestra puntos y marca a quien no califica'),
       G('ranking con puntos, no califica y premio proyectado'),
       G('panel Mi reto muestra período, cuenta regresiva y métricas'),
+    ],
+  },
+  {
+    id: 'TC-SCORE-08', title: 'La regla de calificación de la web coincide con la del servidor', priority: 'Media', type: 'Regresión', guide: '6.1',
+    pre: ['Ninguna.'], data: 'backend/src/challenges/qualification-parity.json',
+    steps: ['Correr las pruebas unitarias del servidor y las de la web.'],
+    expected: ['Ambas reglas dan el valor qualified de cada caso de la tabla.'],
+    auto: [
+      U('scoring.spec.ts', 'la tabla de paridad coincide con isQualified'),
+      F('progress.test.ts', 'Mi avance: la tabla de paridad coincide con la regla del servidor'),
     ],
   },
 
