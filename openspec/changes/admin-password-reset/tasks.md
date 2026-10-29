@@ -1,51 +1,51 @@
 ## 0. Approval, dependency and branches
 
-- [ ] 0.1 The owner approves these artifacts (proposal, design D1 to D7, the texts of the spec and the defaults of P1 to P3). The idea (ADM-2, with decision D3: no forced change, no migration) was approved on 2026-10-28; the artifacts are still pending. No code before that
-- [ ] 0.2 `effective-session-checks` is merged in `develop` (dependency)
-- [ ] 0.3 PR 1 (API) on `feature/admin-password-reset` from `develop`; PR 2 (web) on `feature/admin-users-page` from `develop` after PR 1 is merged
+- [x] 0.1 The owner approves these artifacts (proposal, design D1 to D7, the texts of the spec and the defaults of P1 to P3). The idea (ADM-2, with decision D3: no forced change, no migration) was approved on 2026-10-28; the artifacts are still pending. No code before that
+- [x] 0.2 `effective-session-checks` is merged in `develop` (dependency)
+- [x] 0.3 PR 1 (API) on `feature/admin-password-reset` from `develop`; PR 2 (web) on `feature/admin-users-page` from `develop` after PR 1 is merged
 
 ## PR 1 — API
 
 ### 1. Tests first
 
-- [ ] 1.1 Unit, `backend/src/auth/password-policy.spec.ts`: "la contraseña temporal cumple la regla de cuenta y no tiene caracteres confundibles" (1 000 values, pattern of design D2)
-- [ ] 1.2 Unit, `backend/src/users/users.service.spec.ts`:
+- [x] 1.1 Unit, `backend/src/auth/password-policy.spec.ts`: "la contraseña temporal cumple la regla de cuenta y no tiene caracteres confundibles" (1 000 values, pattern of design D2)
+- [x] 1.2 Unit, `backend/src/users/users.service.spec.ts`:
   - "resetPasswordByAdmin rechaza el propio id con 400 sin buscar ni escribir"
   - "resetPasswordByAdmin responde 404 si el usuario no existe"
   - "resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal"
   - "resetPasswordByAdmin escribe la línea de auditoría sin la contraseña"
-- [ ] 1.3 API e2e, new `backend/test/admin-users.e2e-spec.ts` (design D7), exact titles:
+- [x] 1.3 API e2e, new `backend/test/admin-users.e2e-spec.ts` (design D7), exact titles:
   - "RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir"
   - "RESET: el refresh token emitido antes del reinicio se rechaza"
   - "RESET: un participante recibe 403 y la contraseña no cambia"
   - "RESET: el admin no puede reiniciar su propia contraseña"
   - "RESET: un usuario inexistente responde 404 y un cuerpo con propiedades 400"
   - "RESET: el sexto reinicio en un minuto responde 429"
-- [ ] 1.4 Run them and check they fail for the expected reason
+- [x] 1.4 Run them and check they fail for the expected reason
 
 ### 2. Backend
 
-- [ ] 2.1 `generateTemporaryPassword()` in `backend/src/auth/password-policy.ts` (design D2)
-- [ ] 2.2 `UsersService.resetPasswordByAdmin(id, actorId, requestId)`; remove the unused `resetPassword(id, newPassword)`; audit line of design D5 after the update
-- [ ] 2.3 Route `POST :id/reset-password` with `@Roles(ADMIN)`, `@Throttle` 5/min, `@HttpCode(200)`, `@Header('Cache-Control', 'no-store')`, `@Header('Pragma', 'no-cache')`; Swagger summary "Reiniciar la contraseña de un usuario (admin)" with the response schema `{ temporaryPassword }`
-- [ ] 2.4 1.1 to 1.3 green; `account.e2e-spec.ts` and `session-checks.e2e-spec.ts` still green
+- [x] 2.1 `generateTemporaryPassword()` in `backend/src/auth/password-policy.ts` (design D2)
+- [x] 2.2 `UsersService.resetPasswordByAdmin(id, actorId, requestId)`; remove the unused `resetPassword(id, newPassword)`; audit line of design D5 after the update
+- [x] 2.3 Route `POST :id/reset-password` with `@Roles(ADMIN)`, `@Throttle` 5/min, `@HttpCode(200)`, `@Header('Cache-Control', 'no-store')`, `@Header('Pragma', 'no-cache')`; Swagger summary "Reiniciar la contraseña de un usuario (admin)" with the response schema `{ temporaryPassword }`
+- [x] 2.4 1.1 to 1.3 green; `account.e2e-spec.ts` and `session-checks.e2e-spec.ts` still green
 
 ### 3. QA catalog and docs of PR 1
 
-- [ ] 3.1 New TC-AUTH-21 "El admin reinicia la contraseña de un usuario" (Alta, Seguridad, guide: new step of section 3):
+- [x] 3.1 New TC-AUTH-21 "El admin reinicia la contraseña de un usuario" (Alta, Seguridad, guide: new step of section 3):
   - pre: admin session; participant Ana with an open session (refresh token)
   - data: `POST /api/users/<Ana>/reset-password`
   - steps: reset; log in as Ana with the temporary and with the old password; refresh Ana's previous session
   - expected: 200 with only `temporaryPassword` (`xxxx-xxxx-xxxx`), `Cache-Control: no-store`; temporary login 200, old 401 "Credenciales inválidas"; previous refresh 401; one `admin_password_reset` log line without the password
   - auto: U tests of 1.1 and 1.2, A tests "RESET: el admin recibe…" and "RESET: el refresh token…"
-- [ ] 3.2 New TC-AUTH-22 "Reinicio de contraseña: permisos, propio id y límite" (Alta, Seguridad, guide 1.3):
+- [x] 3.2 New TC-AUTH-22 "Reinicio de contraseña: permisos, propio id y límite" (Alta, Seguridad, guide 1.3):
   - pre: admin and participant sessions
   - data: participant as caller; the admin's own id; an unknown id; a body `{ password }`; six requests in a minute
   - expected: 403; 400 "Para cambiar tu propia contraseña usa Mi cuenta"; 404 "Usuario no encontrado"; 400; the sixth 429; the password never changes in these cases
   - auto: A tests "RESET: un participante…", "RESET: el admin no puede…", "RESET: un usuario inexistente…", "RESET: el sexto reinicio…"
-- [ ] 3.3 `docs/security-owasp.md`: controls (temporary password once, `no-store`, never logged, audit line, 5/min); "Mejoras futuras" keeps the instant end of access tokens and adds the optional forced change (needs a migration)
-- [ ] 3.4 `docs/runbook-despliegue.md` §1.5 step 4 and §6: another admin can issue a temporary password from "Usuarios" (after PR 2; until then by API); the seed path stays for when no admin can log in; §6 tells how to find an `admin_password_reset` line by `requestId`
-- [ ] 3.5 `CHANGELOG.md` "Sin publicar": "El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las sesiones del usuario se cierran en minutos"
+- [x] 3.3 `docs/security-owasp.md`: controls (temporary password once, `no-store`, never logged, audit line, 5/min); "Mejoras futuras" keeps the instant end of access tokens and adds the optional forced change (needs a migration)
+- [x] 3.4 `docs/runbook-despliegue.md` §1.5 step 4 and §6: another admin can issue a temporary password from "Usuarios" (after PR 2; until then by API); the seed path stays for when no admin can log in; §6 tells how to find an `admin_password_reset` line by `requestId`
+- [x] 3.5 `CHANGELOG.md` "Sin publicar": "El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las sesiones del usuario se cierran en minutos"
 - [ ] 3.6 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs`; `openspec validate --all --strict`; PR 1 in Spanish with the 3 CI jobs green; the owner merges
 
 ## PR 2 — Web

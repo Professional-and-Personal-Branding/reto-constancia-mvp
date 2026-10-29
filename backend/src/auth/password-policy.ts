@@ -1,3 +1,5 @@
+import { randomInt } from 'node:crypto';
+
 import { applyDecorators } from '@nestjs/common';
 import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
@@ -17,4 +19,22 @@ export function IsAccountPassword(): PropertyDecorator {
       message: 'La contraseña debe incluir al menos una letra y un número',
     }),
   );
+}
+
+// 56 caracteres sin confundibles: sin I, O, l, o, 0 ni 1.
+const TEMP_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+
+/**
+ * Contraseña temporal que entrega el admin (spec user-administration): 12 caracteres uniformes
+ * de `TEMP_ALPHABET` en grupos `xxxx-xxxx-xxxx`, con al menos una letra y un número para cumplir
+ * `IsAccountPassword`. Usa `crypto.randomInt`.
+ */
+export function generateTemporaryPassword(): string {
+  for (;;) {
+    let raw = '';
+    for (let i = 0; i < 12; i++) raw += TEMP_ALPHABET[randomInt(TEMP_ALPHABET.length)];
+    if (/[A-Za-z]/.test(raw) && /\d/.test(raw)) {
+      return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
+    }
+  }
 }
