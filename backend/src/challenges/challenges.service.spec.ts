@@ -449,7 +449,9 @@ describe('ChallengesService: inscripción (challenge-enrollment)', () => {
   function build(status: ChallengeStatus, lockedStatus: ChallengeStatus = status, challengeExists = true) {
     const writes = {
       participantCreate: jest.fn().mockResolvedValue({ id: 'p' }),
-      participantCreateMany: jest.fn(async (args: { data: unknown[] }) => ({ count: args.data.length })),
+      participantCreateMany: jest.fn(async (args: { data: { userId: string }[] }) =>
+        args.data.map((d) => ({ userId: d.userId })),
+      ),
     };
     const challenge = challengeExists ? { id: 'c', status } : null;
     const prisma = withLocks(
@@ -466,7 +468,7 @@ describe('ChallengesService: inscripción (challenge-enrollment)', () => {
         challengeParticipant: {
           create: writes.participantCreate,
           findMany: jest.fn().mockResolvedValue([]),
-          createMany: writes.participantCreateMany,
+          createManyAndReturn: writes.participantCreateMany,
         },
       } as unknown as PrismaService,
       async (id) => (challengeExists ? { id, status: lockedStatus } : null),
@@ -859,9 +861,9 @@ describe('ChallengesService: renovación mensual (challenge-renewal)', () => {
       }
       return { id: 'new', ...args.data };
     });
-    const participantCreateMany = jest.fn(async (args: { data: unknown[] }) => {
+    const participantCreateMany = jest.fn(async (args: { data: { userId: string }[] }) => {
       if (opts.enrollFails) throw new Error('boom');
-      return { count: args.data.length };
+      return args.data.map((d) => ({ userId: d.userId }));
     });
     const findUnique = jest.fn(async (args: { where: { id?: string; month_year?: unknown } }) => {
       if (args.where.month_year) {
@@ -874,7 +876,7 @@ describe('ChallengesService: renovación mensual (challenge-renewal)', () => {
     const prisma = withLocks({
       challenge: { findUnique, create, update },
       user: { findMany: jest.fn(async () => people) },
-      challengeParticipant: { findMany: jest.fn().mockResolvedValue([]), createMany: participantCreateMany },
+      challengeParticipant: { findMany: jest.fn().mockResolvedValue([]), createManyAndReturn: participantCreateMany },
       challengeAward: { createMany: jest.fn() },
       dailyActivity: { createMany: jest.fn() },
     } as unknown as PrismaService);
@@ -964,7 +966,7 @@ describe('ChallengesService: renovación mensual (challenge-renewal)', () => {
       expect(rows.map((r) => r.userId)).toEqual([U(1), U(2)]);
       for (const r of rows) {
         expect(r.challengeId).toBe('new');
-        expect(Object.keys(r).sort()).toEqual(['challengeId', 'joinedAt', 'userId']);
+        expect(Object.keys(r).sort()).toEqual(['challengeId', 'userId']);
       }
       expect(res.participants.enrolled.map((e) => e.userId)).toEqual([U(1), U(2)]);
       expect(res.participants.skipped).toEqual([

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import { toDayKey } from '@/lib/dates';
@@ -59,6 +59,7 @@ export default function ChallengesPage() {
 
   // Renovar: crea el reto del mes siguiente en borrador (spec challenge-renewal)
   const [renewingId, setRenewingId] = useState<string | null>(null);
+  const renewTriggerRef = useRef<HTMLElement | null>(null);
   const [renewError, setRenewError] = useState<CloseError | null>(null);
   const [renewedNotice, setRenewedNotice] = useState<string | null>(null);
   const renewMut = useMutation({
@@ -105,6 +106,7 @@ export default function ChallengesPage() {
           error={renewError}
           onConfirm={(input) => renewMut.mutate({ id: renewingId, ...input })}
           onCancel={() => setRenewingId(null)}
+          returnFocusTo={renewTriggerRef}
         />
       )}
       <div className="flex items-end justify-between gap-3">
@@ -189,7 +191,8 @@ export default function ChallengesPage() {
                 )}
                 {c.status !== 'DRAFT' && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      renewTriggerRef.current = e.currentTarget;
                       setRenewError(null);
                       setRenewedNotice(null);
                       setRenewingId(c.id);

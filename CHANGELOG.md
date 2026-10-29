@@ -5,6 +5,32 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.12.1] — 2026-10-28
+
+Parche sin migraciones, variables de entorno ni cambios de contrato. Para volver a la 1.12.0 se
+despliegan API y web juntas. Endurece la inscripción en bloque (resultado determinista con
+`createManyAndReturn`), vuelve accesible el diálogo de renovar (trampa de foco, 0 y 1 participantes) y
+anota la deuda del diálogo de cerrar reto.
+
+### Corregido
+
+- La inscripción en bloque informa con exactitud a quién inscribió cuando otra petición inscribe a la
+  misma persona al mismo tiempo: usa un solo `INSERT ... ON CONFLICT DO NOTHING RETURNING` y cuenta
+  solo las filas que ese insert devolvió; las demás quedan como ya inscritas.
+- El diálogo de renovar se comporta como un modal accesible: el teclado no sale de él (Tab y
+  Shift+Tab), el resto de la página queda inerte, Escape no hace nada mientras crea y el foco vuelve
+  al botón "Renovar" al cerrar.
+- Renovar un reto sin participantes activos ya no muestra la casilla ("<reto> no tiene participantes
+  activos para inscribir.") y con una sola persona el texto va en singular.
+- Se documenta en la especificación el límite aceptado de la liberación de fotos tras retirar una
+  actividad (reenviar por API el id de un archivo ya liberado solo afecta a quien lo hace).
+
+### Deuda conocida
+
+- El diálogo de cerrar reto (`close-challenge-dialog.tsx`) conserva el manejador de Escape antiguo
+  (puede cerrarse mientras el cierre está en curso) y no atrapa el foco. Se corregirá en un cambio
+  aparte que adopte `useModalDialog`.
+
 ## [1.12.0] — 2026-10-27
 
 Sin migraciones ni variables de entorno nuevas. Para volver a la 1.11.0 se despliegan API y web juntas;

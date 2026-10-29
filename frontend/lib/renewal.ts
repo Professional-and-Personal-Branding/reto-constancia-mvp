@@ -107,3 +107,13 @@ export function rulesSummary(rules: RenewalRules): string {
     `desempate por ${TIEBREAK_LABEL[rules.tiebreakRule]}`,
   ].join(' · ');
 }
+
+/**
+ * Texto de la casilla de participantes de la renovación (D4.7): 0 no tiene casilla, 1 va en singular.
+ * Con 0 devuelve el aviso de que no hay a quién inscribir.
+ */
+export function rosterLabel(count: number, sourceName: string): string {
+  if (count === 0) return `${sourceName} no tiene participantes activos para inscribir.`;
+  if (count === 1) return `Inscribir al participante activo de ${sourceName}`;
+  return `Inscribir a los ${count} participantes activos de ${sourceName}`;
+}

@@ -1,7 +1,7 @@
 # Pruebas automatizadas — Reto de Constancia
 
 Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
-catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (148 casos, cada uno con las
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (149 casos, cada uno con las
 pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
 [`test-cases.md`](./test-cases.md).
 
@@ -129,8 +129,8 @@ el PR #52: el relanzamiento quedó en verde.
 | Reglas de negocio del backend | Cubiertas por unitarias y e2e |
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
-| Interfaz web | Cubierta por Playwright (`e2e/`): 73 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 148 casos de `docs/qa/` están enlazados a 770 pruebas; ninguna prueba queda sin caso |
+| Interfaz web | Cubierta por Playwright (`e2e/`): 77 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
+| Trazabilidad | Los 149 casos de `docs/qa/` están enlazados a 789 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -143,6 +143,38 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-10-28 · v1.12.1 (rama `release/1.12.1`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada con `npx prisma migrate reset --force` antes de la batería y otra vez antes
+del validador. Se archivó `renewal-hardening`; la versión pasa a 1.12.1 (parche) y no hay migraciones,
+dependencias ni variables nuevas.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**, sin fallos intermitentes.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **149 de 149 casos aprobados** (148
+automatizados, 1 manual) con 789 pruebas y 0 fallidas: unitarias del backend 375, unitarias de la web
+62, e2e de API 179, recorridos de UI 77, capturas de la guía 26 y sesiones paralelas 70;
+"Pruebas sin caso: 0". `openspec validate --all --strict`: 14 de 14 (el cambio ya está archivado).
+
+**Dependencias:** `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e.
+
+### 2026-10-28 · cambio `renewal-hardening` (rama `feature/renewal-hardening`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Playwright 1.63 con
+Chromium. Base reiniciada antes de la batería y otra vez antes del validador. Sin migraciones ni
+dependencias nuevas; `npm audit --omit=dev` en 0 avisos en backend, frontend y e2e.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde** (una primera corrida falló por
+un mock de `createMany` y un orden de Tab mal supuesto en la prueba nueva; corregidos).
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **149 de 149 casos aprobados** (148
+automatizados, 1 manual) con 789 pruebas y 0 fallidas: unitarias del backend 375, unitarias de la web
+62, e2e de API 179, recorridos de UI 77, capturas de la guía 26 y sesiones paralelas 70;
+"Pruebas sin caso: 0". `openspec validate --all --strict`: 15 de 15. En una primera corrida del
+validador falló una vez el recorrido de renovación transparente del token (TC-AUTH-10/14) por un
+tiempo de espera y pasó en la siguiente, sin cambios de código.
 
 ### 2026-10-27 · v1.12.0 (rama `release/1.12.0`)
 

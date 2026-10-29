@@ -6,6 +6,7 @@ import request from 'supertest';
 import { randomUUID } from 'crypto';
 
 import { AppModule } from '../src/app.module';
+import { ChallengesService } from '../src/challenges/challenges.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -243,6 +244,58 @@ describe('BULK: inscripción en bloque (e2e)', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toBe('El usuario está inactivo');
     expect(await roster(active.id)).toEqual(sorted('ana', 'bea', 'carla'));
+  });
+
+  it('BULK: una inscripción hecha por otra transacción abierta queda como ya inscrita', async () => {
+    const target = await createChallenge(4, 'E2E Ren concurrente');
+    const service = app.get(ChallengesService);
+    let releaseA!: () => void;
+    const holdA = new Promise<void>((resolve) => (releaseA = resolve));
+    let aInserted!: () => void;
+    const inserted = new Promise<void>((resolve) => (aInserted = resolve));
+    // Transacción A: inscribe a Z (bea) y queda abierta hasta que el test la libere.
+    const txA = prisma.$transaction(
+      async (tx) => {
+        await tx.challengeParticipant.create({ data: { challengeId: target.id, userId: ids.bea } });
+        aInserted();
+        await holdA;
+      },
+      { timeout: 20_000 },
+    );
+    await inserted;
+    // Transacción B: inscripción en bloque de Y (diana) y Z (bea); se queda esperando a A.
+    const pendingB = service.bulkAddParticipants(target.id, [ids.diana, ids.bea]);
+    const deadline = Date.now() + 10_000;
+    let blocked = false;
+    while (!blocked && Date.now() < deadline) {
+      const waiting = await prisma.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`;
+      blocked = (waiting[0]?.n ?? 0) > 0;
+      if (!blocked) await new Promise((r) => setImmediate(r));
+    }
+    releaseA();
+    await txA;
+    const result = await pendingB;
+    expect(result.enrolled.map((e) => e.userId)).toEqual([ids.diana]);
+    expect(result.alreadyEnrolled.map((e) => e.userId)).toEqual([ids.bea]);
+    expect(result.skipped).toEqual([]);
+    expect(await roster(target.id)).toEqual(sorted('bea', 'diana'));
+  });
+
+  it('BULK: dos inscripciones en bloque simultáneas dejan a cada usuario en una sola lista de cada respuesta y una sola vez en el roster', async () => {
+    const target = await createChallenge(5, 'E2E Ren simultáneo');
+    const wanted = [ids.ana, ids.bea, ids.carla];
+    const [r1, r2] = await Promise.all([bulk(target.id, wanted), bulk(target.id, wanted)]);
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    const listsOf = (body: { enrolled: { userId: string }[]; alreadyEnrolled: { userId: string }[]; skipped: { userId: string }[] }) =>
+      [...body.enrolled, ...body.alreadyEnrolled, ...body.skipped].map((r) => r.userId).sort();
+    expect(listsOf(r1.body)).toEqual([...wanted].sort());
+    expect(listsOf(r2.body)).toEqual([...wanted].sort());
+    const enrolledIn1 = new Set((r1.body.enrolled as { userId: string }[]).map((r) => r.userId));
+    for (const e of r2.body.enrolled as { userId: string }[]) expect(enrolledIn1.has(e.userId)).toBe(false);
+    expect(await roster(target.id)).toEqual([...wanted].sort());
   });
 });
 
