@@ -69,8 +69,15 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Actualizar usuario (admin)' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.users.update(id, dto);
+  @ApiOperation({
+    summary: 'Actualizar usuario (admin)',
+    description:
+      'Rol, estado y nombre. 400 si el admin intenta desactivar su propia cuenta ' +
+      '("No puedes desactivar tu propia cuenta"), desactivar al último administrador activo ' +
+      '("No puedes desactivar al último administrador activo") o quitarle el rol ' +
+      '("No puedes quitar el rol de administrador al último administrador activo").',
+  })
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.users.update(id, dto, user.sub);
   }
 }

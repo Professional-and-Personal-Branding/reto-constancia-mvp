@@ -34,6 +34,9 @@ Resumen de los controles implementados, mapeados a principios de OWASP
     se rechazan con 400 por `forbidNonWhitelisted`.
   - Verificación de firma y expiración del access token en
     `backend/src/auth/strategies/jwt.strategy.ts` (`ignoreExpiration: false`).
+  - Cada petición autenticada comprueba que el usuario exista y esté activo y usa su rol vigente
+    de la base (no el del token): desactivar o degradar surte efecto en la siguiente petición. Nadie
+    puede desactivar su propia cuenta ni dejar la plataforma sin administrador activo.
 - Control de acceso por roles (RBAC):
   - `RolesGuard` + `@Roles(UserRole.ADMIN)` en endpoints sensibles
     (retos, validaciones, importación).
@@ -123,9 +126,9 @@ versionarse, rótalo: borrarlo del historial no lo vuelve a hacer privado.
 
 ## Mejoras futuras (no bloqueantes)
 
-- Cerrar una sesión concreta y cerrar las otras sesiones al instante (lista de revocación o `jti`
-  persistido, o leer la base en `JwtStrategy`): hoy un cambio de contraseña corta las otras sesiones
-  en su próxima renovación, hasta 15 minutos después.
+- Cerrar las otras sesiones al instante tras un cambio de contraseña (por ejemplo, la huella `pwv`
+  también en el access token): hoy un cambio de contraseña corta las otras sesiones en su próxima
+  renovación, hasta 15 minutos después.
 - Verificación de correo y flujo de "olvidé mi contraseña".
 - Bloqueo temporal de cuenta tras N fallos (complementa el rate limiting por IP).
 - Cabecera CSP afinada en Helmet para el frontend.
