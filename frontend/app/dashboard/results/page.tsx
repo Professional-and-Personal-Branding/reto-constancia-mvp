@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +49,7 @@ function Results() {
   // Guardar la premiación cierra el reto: pasa por la revisión previa y muestra los errores
   // de la API (spec challenge-lifecycle, cambio assisted-challenge-close)
   const [pendingAward, setPendingAward] = useState<{ userIds: string[]; notes?: string } | null>(null);
+  const awardTriggerRef = useRef<HTMLElement | null>(null);
   const [awardError, setAwardError] = useState<CloseError | null>(null);
   const awardMut = useMutation({
     mutationFn: ({ userIds, notes }: { userIds: string[]; notes?: string }) =>
@@ -243,7 +244,8 @@ function Results() {
         <AwardPanel
           results={results}
           isPending={awardMut.isPending}
-          onAward={(userIds, notes) => {
+          onAward={(userIds, notes, trigger) => {
+            awardTriggerRef.current = trigger;
             setAwardError(null);
             setPendingAward({ userIds, notes });
           }}
@@ -259,6 +261,7 @@ function Results() {
           error={awardError}
           onConfirm={() => awardMut.mutate(pendingAward)}
           onCancel={() => setPendingAward(null)}
+          returnFocusTo={awardTriggerRef}
         />
       )}
 
@@ -364,7 +367,7 @@ function AwardPanel({
 }: {
   results: ChallengeResults;
   isPending: boolean;
-  onAward: (userIds: string[], notes?: string) => void;
+  onAward: (userIds: string[], notes: string | undefined, trigger: HTMLElement) => void;
 }) {
   // Sugiere la premiación registrada o, si no hay, los ganadores que calcula el servidor con
   // las reglas del reto (número de ganadores y desempate configurados).
@@ -438,7 +441,7 @@ function AwardPanel({
           type="button"
           className="btn-primary"
           disabled={selectedIds.length === 0 || isPending}
-          onClick={() => onAward(selectedIds, notes || undefined)}
+          onClick={(e) => onAward(selectedIds, notes || undefined, e.currentTarget)}
         >
           {isPending ? 'Guardando…' : 'Guardar premiación'}
         </button>

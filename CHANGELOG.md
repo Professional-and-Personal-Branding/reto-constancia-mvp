@@ -18,6 +18,9 @@ Versionado [SemVer](https://semver.org/lang/es/).
   minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
   su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
   administrador activo (con bloqueo de filas, también en peticiones simultáneas). Sin migración.
+- El diálogo de cerrar reto (y de guardar la premiación) es ahora un modal accesible como el de
+  renovar: el teclado no sale de él, el resto de la página queda inerte, Escape no hace nada mientras
+  cierra y el foco vuelve al botón que lo abrió. Salda la deuda anotada en la 1.12.1. Sin migración.
 
 ## [1.12.1] — 2026-10-28
 
