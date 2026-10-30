@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-29** · rama `feature/admin-password-reset` · commit `a8aa601` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-30** · rama `feature/admin-users-page` · commit `a898c94`. Detalle en [validation-report.md](validation-report.md).
 
-**158 casos** · 158 aprobados · 0 fallidos · 0 con limitación conocida · 157 automatizados.
+**159 casos** · 159 aprobados · 0 fallidos · 0 con limitación conocida · 158 automatizados.
 
 ## Cómo leer cada caso
 
@@ -27,7 +27,7 @@
 | [Finanzas](#fin) | 9 | 9 | 0 |
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
-| [Interfaz y navegación](#ui) | 11 | 11 | 0 |
+| [Interfaz y navegación](#ui) | 12 | 12 | 0 |
 | [Salud del servicio](#health) | 5 | 5 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
@@ -723,7 +723,7 @@
 
 | Módulo | Prioridad | Tipo | Paso de la guía | Estado |
 |---|---|---|---|---|
-| Autenticación y sesión | Alta | Seguridad | 1.3 | ✅ Aprobado |
+| Autenticación y sesión | Alta | Seguridad | 3.5 | ✅ Aprobado |
 
 **Precondiciones**
 
@@ -754,6 +754,7 @@
 | ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin escribe la línea de auditoría sin la contraseña |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el refresh token emitido antes del reinicio se rechaza |
+| ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
 
 <a id="tc-auth-22"></a>
 
@@ -5310,6 +5311,7 @@
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
 | [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
 | [TC-UI-11](#tc-ui-11) | Un error inesperado al validar muestra el código para soporte | Media | UI | ✅ Aprobado |
+| [TC-UI-12](#tc-ui-12) | Página Usuarios del admin | Alta | UI | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -5480,7 +5482,7 @@
 **Precondiciones**
 
 - Dos retos activos (aparece el selector de reto).
-- Sesión de administrador (siete secciones más Mi cuenta) y de participante.
+- Sesión de administrador (ocho secciones, con Usuarios, más Mi cuenta) y de participante.
 
 **Datos de prueba:** Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador
 
@@ -5532,6 +5534,45 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `03-admin-validation.spec.ts` | un error inesperado al validar muestra el código para soporte |
+
+<a id="tc-ui-12"></a>
+
+### TC-UI-12 · Página Usuarios del admin
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Alta | UI | 3.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador.
+- Un participante desechable.
+
+**Datos de prueba:** Búsqueda "jose" (sin tildes ni mayúsculas); desactivar, activar, subir y bajar el rol; reiniciar la contraseña
+
+**Pasos**
+
+1. Abrir Usuarios y buscar al participante.
+2. Desactivarlo, activarlo, hacerlo admin y quitarle el rol.
+3. Reiniciar su contraseña y cerrar el diálogo.
+
+**Resultado esperado**
+
+- La lista se filtra por nombre o correo sin distinguir mayúsculas ni tildes.
+- Cada cambio se refleja en la fila tras la confirmación (activar no la pide).
+- La contraseña temporal se muestra una sola vez con la indicación de compartirla en privado y desaparece al cerrar.
+- La propia fila dice "Tú", enlaza a Mi cuenta y no ofrece acciones; los errores de la API salen en español; un participante no ve datos.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: la búsqueda ignora mayúsculas y tildes en nombre y correo |
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: la lista se ordena por nombre |
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: la propia fila no ofrece desactivar, cambiar rol ni reiniciar |
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: las etiquetas de rol, estado y acción siguen al usuario |
+| ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
+| ✅ | Guía | `capture.spec.ts` | Usuarios: búsqueda, estado y acciones por fila |
 
 <a id="tc-ui-06"></a>
 
