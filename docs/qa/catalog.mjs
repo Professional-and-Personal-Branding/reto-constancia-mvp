@@ -1051,6 +1051,34 @@ export const CASES = [
     ],
   },
 
+  {
+    id: 'TC-CHAL-26', title: 'Diálogo de cierre: teclado, Escape mientras cierra y retorno del foco', priority: 'Alta', type: 'UI', guide: '6.3',
+    pre: ['Sesión de admin; un reto activo con una actividad pendiente.'],
+    data: 'Reto activo con una actividad pendiente; un servidor lento que responde 409 al cerrar',
+    steps: [
+      'Abrir "Cerrar reto" y moverse con Tab y Shift+Tab.',
+      'Marcar la casilla, confirmar con un servidor lento y pulsar Escape.',
+      'Con la respuesta 409, pulsar Tab.',
+      'Pulsar Escape.',
+      'Abrir "Cerrar reto" otra vez.',
+    ],
+    expected: [
+      'El foco no sale del diálogo y el resto de la página queda inerte.',
+      'Escape no hace nada mientras dice "Cerrando…".',
+      'Tras el 409, Tab va al primer control del diálogo.',
+      'Escape cierra el diálogo y el foco vuelve al botón "Cerrar reto".',
+      'Al reabrir, la casilla aparece sin marcar y el botón de confirmar deshabilitado.',
+    ],
+    auto: [
+      W('12-assisted-close.spec.ts', 'el diálogo de cierre atrapa el foco, ignora Escape mientras cierra y devuelve el foco'),
+      F('focus-trap.test.ts', 'nextFocusIndex: hacia delante avanza y da la vuelta al llegar al último'),
+      F('focus-trap.test.ts', 'nextFocusIndex: hacia atrás retrocede y da la vuelta al llegar al primero'),
+      F('focus-trap.test.ts', 'nextFocusIndex: sin foco en ningún control (-1) va al primero o al último'),
+      F('focus-trap.test.ts', 'nextFocusIndex: sin controles devuelve -1'),
+      F('focus-trap.test.ts', 'nextFocusIndex: con un solo control se queda en él'),
+    ],
+  },
+
   // ───────────────────────────── PART ─────────────────────────────
   {
     id: 'TC-PART-01', title: 'Inscribir participantes', priority: 'Alta', type: 'Funcional', guide: '3.1',

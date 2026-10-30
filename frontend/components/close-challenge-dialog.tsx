@@ -2,11 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 import { api, ApiError } from '@/lib/api';
 import { formatDay } from '@/lib/dates';
 import type { ClosePreview } from '@/lib/types';
+import { useModalDialog } from '@/lib/use-modal-dialog';
 
 /** Error de cierre o premiación tal como lo devuelve la API. */
 export interface CloseError {
@@ -31,12 +33,16 @@ interface Props {
   error: CloseError | null;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Botón que abrió el diálogo: recibe el foco al cerrar */
+  returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
 /**
  * Revisión antes de cerrar un reto (spec challenge-lifecycle, cambio assisted-challenge-close).
  * Muestra lo que el cierre deja fijo: pendientes que no contarán, comprobantes sin pago
  * registrado, impagos y la proyección de ganadores y reparto. Las pendientes exigen confirmar.
+ * Es un diálogo modal (useModalDialog): se monta solo mientras está abierto, porque el hook
+ * actúa al montar (inerte el resto de la página, foco atrapado, Escape y retorno del foco).
  */
 export function CloseChallengeDialog({
   challengeId,
@@ -47,6 +53,7 @@ export function CloseChallengeDialog({
   error,
   onConfirm,
   onCancel,
+  returnFocusTo,
 }: Props) {
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -59,33 +66,29 @@ export function CloseChallengeDialog({
     staleTime: 0,
   });
 
-  useEffect(() => {
-    if (!open) return;
-    setAcknowledged(false);
-    cancelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending) onCancel();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // isPending y onCancel no deben reiniciar la casilla mientras el diálogo está abierto
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const { container, dialogRef } = useModalDialog({
+    isPending,
+    onCancel,
+    initialFocusRef: cancelRef,
+    returnFocusTo,
+  });
 
-  if (!open) return null;
+  if (!open || !container) return null;
 
   const pending = preview?.pendingActivities.count ?? 0;
   const money = (n: number) => `${n} ${preview?.currency ?? ''}`.trim();
   const canConfirm = !!preview && !isPending && (pending === 0 || acknowledged);
   const previewMessage = previewError ? closeErrorFrom(previewError).message : null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="card w-full max-w-xl max-h-full overflow-y-auto p-6 space-y-5"
+        className="card w-full max-w-xl max-h-full overflow-y-auto p-6 space-y-5 outline-none"
       >
         <div>
           <p className="text-accent text-xs uppercase tracking-[0.2em] font-semibold mb-1">
@@ -228,6 +231,7 @@ export function CloseChallengeDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    container,
   );
 }
