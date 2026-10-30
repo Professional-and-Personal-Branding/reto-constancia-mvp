@@ -389,7 +389,7 @@
         {
           id: '1.3', role: 'admin', title: 'Reconocer las secciones de cada rol', route: '/dashboard',
           why: 'Las secciones de administración solo aparecen para el rol administrador, y la API las protege igual.',
-          actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.', 'Todos ven <span class="ui">Mi cuenta</span> como última sección (paso 1.5).'],
+          actions: ['Como participante verás <span class="ui">Mi reto</span>, <span class="ui">Subir actividad</span> y <span class="ui">Ranking</span>.', 'Como administrador se suman <span class="ui">Validar</span>, <span class="ui">Participantes</span>, <span class="ui">Usuarios</span>, <span class="ui">Importar</span> y <span class="ui">Retos</span>.', 'Todos ven <span class="ui">Mi cuenta</span> como última sección (paso 1.5).'],
           expect: 'Un participante que intenta una acción de administración por la API recibe 403.',
           refs: ['TC-UI-01', 'TC-UI-02', 'TC-UI-10', 'TC-AUTH-07', 'TC-SEC-01']
         },
@@ -506,6 +506,14 @@
           expect: 'Las tarjetas se actualizan al marcar o desmarcar un pago. Presupuesto dice "Cubierto" o cuánto falta, y si es automático (cuota × inscritos, se recalcula solo) o ajustado a mano.',
           note: 'Solo cuenta como recaudado lo que el administrador marcó como pagado; un comprobante subido no suma por sí solo. Lo recaudado es lo que se reparte como premio; el presupuesto es la meta.',
           refs: ['TC-FIN-02', 'TC-FIN-03', 'TC-FIN-05']
+        },
+        {
+          id: '3.5', role: 'admin', title: 'Administrar usuarios', route: '/dashboard/admin/users',
+          why: 'Para activar o desactivar una cuenta, cambiar su rol o dar una contraseña nueva a quien la olvidó, sin tocar la base de datos.',
+          actions: ['Abre <span class="ui">Usuarios</span> y escribe en <span class="ui">Buscar por nombre o correo</span>: la búsqueda no distingue mayúsculas ni tildes.', 'Cada fila muestra el rol (<span class="ui">Admin</span> o <span class="ui">Participante</span>) y si la cuenta está <span class="ui">Activo</span> o <span class="ui">Inactivo</span>. Usa <span class="ui">Desactivar</span> o <span class="ui">Activar</span>, y <span class="ui">Hacer admin</span> o <span class="ui">Quitar admin</span>; todas piden confirmación salvo activar.', 'Para dar una contraseña nueva, pulsa <span class="ui">Reiniciar contraseña</span> y confirma: aparece <span class="ui">Contraseña temporal de</span> la persona, con el botón <span class="ui">Copiar</span>.', 'Compártela por un canal privado (no por el grupo) y pídele que la cambie en <span class="ui">Mi cuenta</span> al entrar. Si la cuenta está inactiva, actívala antes para que pueda entrar.', 'Tu propia fila dice <span class="ui">Tú</span> y no tiene acciones; tu contraseña se cambia en <span class="ui">Mi cuenta</span>.'],
+          expect: 'Cada cambio se refleja en la fila al confirmar. La contraseña temporal se muestra una sola vez: al cerrar el diálogo no se puede volver a ver, y habría que reiniciarla de nuevo. Las sesiones abiertas de esa persona se cierran en pocos minutos; para cortar el acceso de inmediato, desactiva la cuenta primero.',
+          note: 'Si el resultado es un error (por ejemplo, quitar al último administrador activo), el mensaje aparece sobre la lista y nada cambia. Un participante que abre esta dirección solo ve un aviso: la API tampoco le responde.',
+          refs: ['TC-AUTH-21', 'TC-UI-12']
         }
       ]
     },
@@ -757,6 +765,7 @@
     ['Renovar un reto en el mes siguiente, en borrador y con sus participantes', '2.5', 'auto'],
     ['Marcar pago, impago y pago parcial con el monto recibido', '3.3', 'auto'],
     ['Resumen financiero y cobertura del presupuesto', '3.4', 'auto'],
+    ['Administrar usuarios: buscar, activar o desactivar, cambiar el rol y reiniciar la contraseña', '3.5', 'auto'],
     ['Cola de comprobantes por revisar con filtros y contadores', '3.3', 'auto'],
     ['Estado de pago propio del participante (pendiente, en revisión, parcial, pagado)', '4.2', 'auto'],
     ['Presupuesto automático (cuota × inscritos) o ajustado a mano', '2.1', 'auto'],
@@ -801,7 +810,7 @@
   const SHOT_DIR = 'guia-capturas/';
   // La versión publicada embebe las imágenes; en el repositorio se leen de la carpeta.
   // Ancho y alto de cada captura: reservan su espacio y evitan saltos al cargar.
-  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263], '33-renovar-reto.jpg': [576, 578], '34-inscripcion-en-bloque.jpg': [1232, 562], '35-mi-cuenta.jpg': [1280, 978] };
+  const SHOT_SIZE = { '06-reto-formulario.jpg': [1232, 834], '07-selector-reto.jpg': [1280, 102], '23-tema-interruptor.jpg': [1280, 102], '24-editar-reto.jpg': [1232, 898], '25-pago-parcial.jpg': [1230, 73], '28-cola-comprobantes.jpg': [1280, 736], '29-estado-pago.jpg': [1232, 127], '26-retirar-actividad.jpg': [1232, 777], '14-validar-override.jpg': [1232, 366], '15-rechazar.jpg': [1232, 338], '18-premiacion.jpg': [1232, 504], '19-importar-preview.jpg': [1232, 289], '20-importar-resultado.jpg': [1232, 246], '21-importar-sheets.jpg': [1232, 263], '33-renovar-reto.jpg': [576, 578], '34-inscripcion-en-bloque.jpg': [1232, 562], '35-mi-cuenta.jpg': [1280, 978], '36-usuarios.jpg': [1280, 698] };
   const shotSize = (file) => SHOT_SIZE[file] || [1280, 800];
   const shotSrc = (file) => (window.SHOT_DATA && window.SHOT_DATA[file]) || SHOT_DIR + file;
   const SHOTS = {
@@ -810,7 +819,7 @@
     '1.2': [['01-login.jpg', 'Pantalla de inicio de sesión.']],
     '1.4': [['23-tema-interruptor.jpg', 'El interruptor junto al nombre: encendido, la web está en modo claro.']],
     '1.5': [['35-mi-cuenta.jpg', 'Mi cuenta: tus datos, el formulario del nombre y el de la contraseña.']],
-    '1.3': [['04-menu-admin.jpg', 'El administrador ve además Retos, Participantes, Validaciones e Importar.']],
+    '1.3': [['04-menu-admin.jpg', 'El administrador ve además Retos, Participantes, Usuarios, Validaciones e Importar.']],
     '2.1': [['06-reto-formulario.jpg', 'Formulario de nuevo reto con período, días válidos, cuota, premio y reglas de puntaje.']],
     '2.2': [['05-retos-lista.jpg', 'Lista de retos con su estado y las acciones de activar y cerrar.']],
     '2.4': [['07-selector-reto.jpg', 'Con varios retos activos, el selector de la cabecera elige con cuál trabajar.']],
@@ -823,6 +832,7 @@
     ],
     '4.5': [['26-retirar-actividad.jpg', 'Retirar pide confirmación en la misma fila; las validadas no tienen el botón y las rechazadas añaden el aviso para registrar ese día de nuevo.']],
     '3.4': [['08-participantes-finanzas.jpg', 'Inscritos, estado de pago y resumen financiero: recaudado, pendiente y cobertura del presupuesto.']],
+    '3.5': [['36-usuarios.jpg', 'Usuarios: búsqueda, rol y estado de cada cuenta, y las acciones de activar, cambiar el rol y reiniciar la contraseña.']],
     '4.1': [
       ['03-mi-reto.jpg', 'Panel "Mi reto": período, días que faltan, posición, días validados y pendientes.'],
       ['30-tarjeta-hoy.jpg', 'La tarjeta de hoy avisa que es día válido y ofrece Registrar hoy.']

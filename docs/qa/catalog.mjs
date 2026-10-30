@@ -295,7 +295,7 @@ export const CASES = [
     ],
   },
   {
-    id: 'TC-AUTH-21', title: 'El admin reinicia la contraseña de un usuario', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    id: 'TC-AUTH-21', title: 'El admin reinicia la contraseña de un usuario', priority: 'Alta', type: 'Seguridad', guide: '3.5',
     pre: ['Sesión de admin.', 'Participante Ana con una sesión abierta (refresh token).'],
     data: 'POST /api/users/<Ana>/reset-password',
     steps: ['Reiniciar la contraseña de Ana.', 'Iniciar sesión como Ana con la temporal y con la contraseña vieja.', 'Renovar la sesión anterior de Ana.'],
@@ -311,6 +311,7 @@ export const CASES = [
       U('users.service.spec.ts', 'resetPasswordByAdmin escribe la línea de auditoría sin la contraseña'),
       A('admin-users.e2e-spec.ts', 'RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir'),
       A('admin-users.e2e-spec.ts', 'RESET: el refresh token emitido antes del reinicio se rechaza'),
+      W('18-admin-users.spec.ts', 'el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario'),
     ],
   },
   {
@@ -2314,7 +2315,7 @@ export const CASES = [
   },
   {
     id: 'TC-UI-10', title: 'El encabezado entra completo en escritorio y en móvil', priority: 'Media', type: 'Regresión', guide: '1.3', defect: 'DEF-06',
-    pre: ['Dos retos activos (aparece el selector de reto).', 'Sesión de administrador (siete secciones más Mi cuenta) y de participante.'],
+    pre: ['Dos retos activos (aparece el selector de reto).', 'Sesión de administrador (ocho secciones, con Usuarios, más Mi cuenta) y de participante.'],
     data: 'Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador',
     steps: ['Abrir /dashboard en escritorio y medir el texto del selector frente a su ancho disponible (el menú incluye "Mi cuenta" como última sección).', 'Abrir /dashboard en móvil.'],
     expected: ['En escritorio el nombre del reto se ve completo y ni la página ni el encabezado se desbordan.', 'En móvil el interruptor de tema y "Salir" quedan visibles en pantalla y la página no se desborda; las secciones pasan a una fila propia que se desplaza.'],
@@ -2332,6 +2333,26 @@ export const CASES = [
     steps: ['Validar la actividad.'],
     expected: ['El aviso de error muestra el mensaje con el código "pw-req-1" para compartir con el administrador.', 'La actividad sigue pendiente.'],
     auto: [W('03-admin-validation.spec.ts', 'un error inesperado al validar muestra el código para soporte')],
+  },
+  {
+    id: 'TC-UI-12', title: 'Página Usuarios del admin', priority: 'Alta', type: 'UI', guide: '3.5',
+    pre: ['Sesión de administrador.', 'Un participante desechable.'],
+    data: 'Búsqueda "jose" (sin tildes ni mayúsculas); desactivar, activar, subir y bajar el rol; reiniciar la contraseña',
+    steps: ['Abrir Usuarios y buscar al participante.', 'Desactivarlo, activarlo, hacerlo admin y quitarle el rol.', 'Reiniciar su contraseña y cerrar el diálogo.'],
+    expected: [
+      'La lista se filtra por nombre o correo sin distinguir mayúsculas ni tildes.',
+      'Cada cambio se refleja en la fila tras la confirmación (activar no la pide).',
+      'La contraseña temporal se muestra una sola vez con la indicación de compartirla en privado y desaparece al cerrar.',
+      'La propia fila dice "Tú", enlaza a Mi cuenta y no ofrece acciones; los errores de la API salen en español; un participante no ve datos.',
+    ],
+    auto: [
+      F('users.test.ts', 'Usuarios: la búsqueda ignora mayúsculas y tildes en nombre y correo'),
+      F('users.test.ts', 'Usuarios: la lista se ordena por nombre'),
+      F('users.test.ts', 'Usuarios: la propia fila no ofrece desactivar, cambiar rol ni reiniciar'),
+      F('users.test.ts', 'Usuarios: las etiquetas de rol, estado y acción siguen al usuario'),
+      W('18-admin-users.spec.ts', 'el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario'),
+      G('Usuarios: búsqueda, estado y acciones por fila'),
+    ],
   },
   {
     id: 'TC-UI-06', title: 'El tema sigue al sistema por defecto', priority: 'Media', type: 'UI', guide: '1.4',
