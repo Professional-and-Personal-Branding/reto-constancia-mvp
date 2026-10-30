@@ -1,4 +1,4 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 
 import { UsersService } from './users.service';
@@ -185,5 +185,67 @@ describe('UsersService.update (sesión efectiva y último admin)', () => {
     await service.update('t1', { role: 'PARTICIPANT' }, 'a1'); // admin inactivo: no quita un activo
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.user.update).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('UsersService.resetPasswordByAdmin', () => {
+  let prisma: { user: { findUnique: jest.Mock; update: jest.Mock } };
+  let service: UsersService;
+  const hashSpy = argon2.hash as unknown as jest.Mock;
+
+  beforeEach(() => {
+    prisma = { user: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({}) } };
+    service = new UsersService(prisma as unknown as PrismaService, {} as unknown as AuthService);
+    hashSpy.mockClear();
+  });
+
+  it('resetPasswordByAdmin rechaza el propio id con 400 sin buscar ni escribir', async () => {
+    await expect(service.resetPasswordByAdmin('admin1', 'admin1', 'req-1')).rejects.toThrow(
+      new BadRequestException('Para cambiar tu propia contraseña usa Mi cuenta'),
+    );
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('resetPasswordByAdmin responde 404 si el usuario no existe', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    await expect(service.resetPasswordByAdmin('nadie', 'admin1', 'req-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1' });
+    const result = await service.resetPasswordByAdmin('u1', 'admin1', 'req-1');
+    expect(Object.keys(result)).toEqual(['temporaryPassword']);
+    expect(result.temporaryPassword).toMatch(/^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){2}$/);
+    const call = prisma.user.update.mock.calls[0][0] as {
+      where: { id: string };
+      data: { passwordHash: string };
+    };
+    expect(call.where).toEqual({ id: 'u1' });
+    expect(Object.keys(call.data)).toEqual(['passwordHash']);
+    expect(call.data.passwordHash).not.toContain(result.temporaryPassword);
+    expect(await argon2.verify(call.data.passwordHash, result.temporaryPassword)).toBe(true);
+  });
+
+  it('resetPasswordByAdmin escribe la línea de auditoría sin la contraseña', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1' });
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    try {
+      const { temporaryPassword } = await service.resetPasswordByAdmin('u1', 'admin1', 'req-9');
+      expect(log).toHaveBeenCalledTimes(1);
+      const line = log.mock.calls[0][0] as string;
+      expect(JSON.parse(line)).toEqual({
+        event: 'admin_password_reset',
+        requestId: 'req-9',
+        actorId: 'admin1',
+        targetId: 'u1',
+      });
+      expect(line).not.toContain(temporaryPassword);
+    } finally {
+      log.mockRestore();
+    }
   });
 });

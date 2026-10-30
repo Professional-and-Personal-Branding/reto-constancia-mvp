@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { AuthService, AuthTokens } from '../auth/auth.service';
+import { generateTemporaryPassword } from '../auth/password-policy';
 
 export type SafeUser = Omit<User, 'passwordHash'>;
 
@@ -125,9 +127,27 @@ export class UsersService {
     return this.auth.issueTokens(updated);
   }
 
-  async resetPassword(id: string, newPassword: string): Promise<void> {
+  /**
+   * Reinicia la contraseña de otro usuario (admin) y devuelve una temporal que se muestra una sola
+   * vez. Solo se guarda el hash; la contraseña nunca va a logs ni a mensajes de error. Cambiar el
+   * hash termina las sesiones del usuario en su próxima renovación (huella `pwv`). La línea de
+   * auditoría lleva quién, a quién y el `requestId` que une con la línea de acceso.
+   */
+  async resetPasswordByAdmin(
+    id: string,
+    actorId: string,
+    requestId: string | undefined,
+  ): Promise<{ temporaryPassword: string }> {
+    if (id === actorId) {
+      throw new BadRequestException('Para cambiar tu propia contraseña usa Mi cuenta');
+    }
     await this.findById(id);
-    const passwordHash = await argon2.hash(newPassword);
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await argon2.hash(temporaryPassword);
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+    new Logger('Audit').log(
+      JSON.stringify({ event: 'admin_password_reset', requestId, actorId, targetId: id }),
+    );
+    return { temporaryPassword };
   }
 }

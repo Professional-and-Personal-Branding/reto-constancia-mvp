@@ -127,7 +127,10 @@ alcanza con reiniciar.
 4. **Si pierdes la contraseña del administrador** (no hay recuperación por correo): define una
    `SEED_ADMIN_PASSWORD` temporal en el servicio API, ejecuta `npx prisma db seed` desde su shell,
    entra con ella, rótala en **Mi cuenta** y borra la variable otra vez. El seed cambia el hash,
-   así que también cierra las sesiones anteriores del administrador.
+   así que también cierra las sesiones anteriores del administrador. Si otro administrador sigue
+   pudiendo entrar, puede entregarte una contraseña temporal desde **Usuarios** (después del PR de la
+   web; hasta entonces, con `POST /api/users/:id/reset-password` desde Swagger o `curl`); la ruta del
+   seed queda para cuando ningún administrador puede entrar.
 
 ### 1.6 Verificación del primer despliegue
 
@@ -345,6 +348,11 @@ funciona con retos cerrados (400 en cualquier otro estado) y no modifica nada.
 | Login responde 429 | 5 intentos por minuto por IP (protección anti fuerza bruta) | Esperar un minuto |
 | La sesión se cierra sola | Refresh token rechazado (secretos JWT rotados) | Esperado tras rotar secretos: volver a iniciar sesión |
 | Importar desde Google Sheets dice "no configurado" | Faltan `GOOGLE_*` | Opcional: ver `docs/import-template.md` |
+
+Cada reinicio de contraseña hecho por un admin deja una línea `[Audit]` con
+`"event":"admin_password_reset"`, `actorId` (quién) y `targetId` (a quién), nunca la contraseña.
+Para ubicarla, busca `admin_password_reset` en Logs; su `requestId` es el mismo de la línea `[HTTP]`
+de esa petición (hora, ruta `/api/users/:id/reset-password`, estado y duración).
 
 Logs: panel de Seenode → servicio → Logs. Cada petición deja una línea `[HTTP]` en JSON con
 `requestId`, método, ruta, estado, duración y usuario (nunca contraseñas ni tokens). Cada error

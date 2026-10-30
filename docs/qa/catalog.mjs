@@ -294,6 +294,43 @@ export const CASES = [
       A('session-checks.e2e-spec.ts', 'SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión'),
     ],
   },
+  {
+    id: 'TC-AUTH-21', title: 'El admin reinicia la contraseña de un usuario', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Sesión de admin.', 'Participante Ana con una sesión abierta (refresh token).'],
+    data: 'POST /api/users/<Ana>/reset-password',
+    steps: ['Reiniciar la contraseña de Ana.', 'Iniciar sesión como Ana con la temporal y con la contraseña vieja.', 'Renovar la sesión anterior de Ana.'],
+    expected: [
+      '200 con solo temporaryPassword (xxxx-xxxx-xxxx) y Cache-Control: no-store.',
+      'Con la temporal el inicio de sesión da 200; con la vieja 401 "Credenciales inválidas".',
+      'La renovación de la sesión anterior da 401.',
+      'Una línea admin_password_reset en los logs, sin la contraseña.',
+    ],
+    auto: [
+      U('password-policy.spec.ts', 'la contraseña temporal cumple la regla de cuenta y no tiene caracteres confundibles'),
+      U('users.service.spec.ts', 'resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal'),
+      U('users.service.spec.ts', 'resetPasswordByAdmin escribe la línea de auditoría sin la contraseña'),
+      A('admin-users.e2e-spec.ts', 'RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir'),
+      A('admin-users.e2e-spec.ts', 'RESET: el refresh token emitido antes del reinicio se rechaza'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-22', title: 'Reinicio de contraseña: permisos, propio id y límite', priority: 'Alta', type: 'Seguridad', guide: '1.3',
+    pre: ['Sesiones de admin y de participante.'],
+    data: 'el participante como llamante; el id del propio admin; un id desconocido; un cuerpo { password }; seis peticiones en un minuto',
+    steps: ['Llamar al reinicio en cada caso.'],
+    expected: [
+      '403; 400 "Para cambiar tu propia contraseña usa Mi cuenta"; 404 "Usuario no encontrado"; 400; la sexta petición 429.',
+      'La contraseña no cambia en ninguno de estos casos.',
+    ],
+    auto: [
+      U('users.service.spec.ts', 'resetPasswordByAdmin rechaza el propio id con 400 sin buscar ni escribir'),
+      U('users.service.spec.ts', 'resetPasswordByAdmin responde 404 si el usuario no existe'),
+      A('admin-users.e2e-spec.ts', 'RESET: un participante recibe 403 y la contraseña no cambia'),
+      A('admin-users.e2e-spec.ts', 'RESET: el admin no puede reiniciar su propia contraseña'),
+      A('admin-users.e2e-spec.ts', 'RESET: un usuario inexistente responde 404 y un cuerpo con propiedades 400'),
+      A('admin-users.e2e-spec.ts', 'RESET: el sexto reinicio en un minuto responde 429'),
+    ],
+  },
 
   // ───────────────────────────── SEC ─────────────────────────────
   {

@@ -9,6 +9,8 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 - Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
   alcanzan, con textos que dejan la calificación para el cierre.
+- El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las
+  sesiones del usuario se cierran en minutos (`POST /api/users/:id/reset-password`). Sin migración.
 
 ### Corregido
 
