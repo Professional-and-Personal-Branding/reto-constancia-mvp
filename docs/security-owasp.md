@@ -34,6 +34,9 @@ Resumen de los controles implementados, mapeados a principios de OWASP
     se rechazan con 400 por `forbidNonWhitelisted`.
   - Verificación de firma y expiración del access token en
     `backend/src/auth/strategies/jwt.strategy.ts` (`ignoreExpiration: false`).
+  - Cada petición autenticada comprueba que el usuario exista y esté activo y usa su rol vigente
+    de la base (no el del token): desactivar o degradar surte efecto en la siguiente petición. Nadie
+    puede desactivar su propia cuenta ni dejar la plataforma sin administrador activo.
 - Control de acceso por roles (RBAC):
   - `RolesGuard` + `@Roles(UserRole.ADMIN)` en endpoints sensibles
     (retos, validaciones, importación).
@@ -111,6 +114,16 @@ ejemplo. Corre en la CI (job Backend) y en la batería local, y nunca imprime el
 falso positivo se marca con `secret-scan:allow <razón>` en la misma línea. Si un secreto real llega a
 versionarse, rótalo: borrarlo del historial no lo vuelve a hacer privado.
 
+## Reinicio de contraseña por el admin
+
+`POST /api/users/:id/reset-password` (solo admin) entrega una contraseña temporal generada con
+`crypto.randomInt` (12 caracteres sin confundibles, unos 69 bits). Controles: se muestra una sola vez
+y solo se guarda su hash argon2; la respuesta lleva `Cache-Control: no-store` y `Pragma: no-cache`; la
+contraseña nunca se escribe en logs, auditoría ni mensajes de error; el admin no puede reiniciar la
+suya (usa Mi cuenta); el límite es de 5 por minuto por IP; el cambio de hash corta las sesiones del
+usuario en su próxima renovación. Cada reinicio deja una línea `[Audit]` con `admin_password_reset`,
+`actorId`, `targetId` y el `requestId` de la línea de acceso.
+
 ## Protecciones específicas de producción
 
 - **Subida de archivos**: el simulador local solo funciona fuera de producción. Con
@@ -123,9 +136,11 @@ versionarse, rótalo: borrarlo del historial no lo vuelve a hacer privado.
 
 ## Mejoras futuras (no bloqueantes)
 
-- Cerrar una sesión concreta y cerrar las otras sesiones al instante (lista de revocación o `jti`
-  persistido, o leer la base en `JwtStrategy`): hoy un cambio de contraseña corta las otras sesiones
-  en su próxima renovación, hasta 15 minutos después.
+- Cerrar las otras sesiones al instante tras un cambio de contraseña (por ejemplo, la huella `pwv`
+  también en el access token): hoy un cambio de contraseña corta las otras sesiones en su próxima
+  renovación, hasta 15 minutos después.
+- Cambio de contraseña obligatorio al primer ingreso tras un reinicio del admin (necesita una
+  migración con una columna `mustChangePassword`).
 - Verificación de correo y flujo de "olvidé mi contraseña".
 - Bloqueo temporal de cuenta tras N fallos (complementa el rate limiting por IP).
 - Cabecera CSP afinada en Helmet para el frontend.

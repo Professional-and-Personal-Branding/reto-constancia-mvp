@@ -2,13 +2,16 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
+  Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 
@@ -16,11 +19,13 @@ import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthTokens, JwtPayload } from '../auth/auth.service';
+import type { ContextRequest } from '../common/request-context';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -69,8 +74,44 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Actualizar usuario (admin)' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.users.update(id, dto);
+  @ApiOperation({
+    summary: 'Actualizar usuario (admin)',
+    description:
+      'Rol, estado y nombre. 400 si el admin intenta desactivar su propia cuenta ' +
+      '("No puedes desactivar tu propia cuenta"), desactivar al último administrador activo ' +
+      '("No puedes desactivar al último administrador activo") o quitarle el rol ' +
+      '("No puedes quitar el rol de administrador al último administrador activo").',
+  })
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.users.update(id, dto, user.sub);
+  }
+
+  // Cada llamada crea un secreto nuevo (no idempotente); mismo límite que el login.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post(':id/reset-password')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @ApiOperation({
+    summary: 'Reiniciar la contraseña de un usuario (admin)',
+    description:
+      'Devuelve una contraseña temporal que se muestra una sola vez. Las sesiones del usuario ' +
+      'dejan de renovarse. 400 si el id es el del propio admin ("Para cambiar tu propia contraseña ' +
+      'usa Mi cuenta"), 404 si el usuario no existe.',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: { temporaryPassword: { type: 'string', example: 'Kq7m-x3Pd-9Ztw' } },
+    },
+  })
+  resetPassword(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Req() req: ContextRequest,
+    @Body() _dto: ResetPasswordDto,
+  ): Promise<{ temporaryPassword: string }> {
+    return this.users.resetPasswordByAdmin(id, user.sub, req.requestId);
   }
 }

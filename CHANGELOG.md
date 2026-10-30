@@ -5,6 +5,31 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.13.0] — 2026-10-29
+
+Minor sin migraciones, dependencias ni variables de entorno. Para volver a la 1.12.1 se despliegan API y web juntas; las sesiones sobreviven (los refresh tokens ya llevaban `pwv` desde la 1.12.0). Tras el despliegue nadie necesita volver a iniciar sesión; el admin del seed puede rotar su contraseña desde Mi cuenta o desde Usuarios. Destacan el chequeo de sesión efectivo (desactivar o degradar surte efecto en la siguiente petición), Mi avance, los pagos en lote y el reinicio de contraseña por el admin con la página Usuarios.
+
+### Agregado
+
+- Nueva página Usuarios para el admin: buscar, activar o desactivar, cambiar el rol y reiniciar la
+  contraseña.
+- Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
+  alcanzan, con textos que dejan la calificación para el cierre.
+- El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las
+  sesiones del usuario se cierran en minutos (`POST /api/users/:id/reset-password`). Sin migración.
+- Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y
+  copiar la lista de quienes deben. Nuevo `PATCH /challenges/:id/participants/payments` (admin; 1 a
+  200 ids, una sola transacción bajo el lock del reto, informe exacto en `marked`, `alreadyPaid`,
+  `excluded` y `skipped`); en la web, casillas "Seleccionar el pago de <nombre>", "Seleccionar sin
+  pagar", confirmación con el total y "Copiar pendientes". Sin migración.
+
+### Corregido
+
+- Desactivar o degradar a un usuario surte efecto en su siguiente petición (antes valía hasta 15
+  minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
+  su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
+  administrador activo (con bloqueo de filas, también en peticiones simultáneas). Sin migración.
+
 ## [1.12.1] — 2026-10-28
 
 Parche sin migraciones, variables de entorno ni cambios de contrato. Para volver a la 1.12.0 se

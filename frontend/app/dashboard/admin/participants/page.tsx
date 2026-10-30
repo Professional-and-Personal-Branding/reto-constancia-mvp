@@ -1,20 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
+import { BulkPaymentDialog } from '@/components/bulk-payment-dialog';
 import {
   amountOwed,
   applyParticipantFilter,
+  bulkPaymentMessage,
+  bulkPaymentSummary,
   filterCounts,
   formatUploadDate,
+  mergeBulkPayments,
   PARTICIPANT_FILTERS,
+  pendingPaymentsText,
   type ParticipantFilter,
 } from '@/lib/payment';
 import { BULK_BATCH_SIZE, bulkSummary, chunk, mergeBulkResults } from '@/lib/renewal';
 import type {
   BulkEnrollResult,
+  BulkPaymentResult,
   ChallengeFinance,
   ChallengeParticipant,
   PaymentState,
@@ -28,6 +34,27 @@ export default function ParticipantsPage() {
   const [filter, setFilter] = useState<ParticipantFilter>('all');
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  // Pagos en lote (spec challenge-finance): selección propia, distinta de la de inscripción
+  const [paySelected, setPaySelected] = useState<string[]>([]);
+  const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const [payMessage, setPayMessage] = useState<string | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [copyFallback, setCopyFallback] = useState<string | null>(null);
+  const fallbackRef = useRef<HTMLTextAreaElement>(null);
+  const payButtonRef = useRef<HTMLButtonElement>(null);
+
+  // La selección de pagos no sobrevive al cambio de reto ni de filtro
+  const challengeId = challenge?.id;
+  useEffect(() => {
+    setPaySelected([]);
+    setPayMessage(null);
+    setCopyMessage(null);
+    setCopyFallback(null);
+  }, [challengeId, filter]);
+
+  useEffect(() => {
+    if (copyFallback !== null) fallbackRef.current?.select();
+  }, [copyFallback]);
 
   const { data: participants } = useQuery<ChallengeParticipant[]>({
     queryKey: ['participants', challenge?.id],
@@ -89,6 +116,30 @@ export default function ParticipantsPage() {
     },
   });
 
+  const payBulkMut = useMutation({
+    // La API acepta hasta 200 ids por petición: se envía en lotes y se combina el resultado.
+    mutationFn: async (userIds: string[]) => {
+      const results: BulkPaymentResult[] = [];
+      for (const batch of chunk(userIds, BULK_BATCH_SIZE)) {
+        results.push(
+          await api<BulkPaymentResult>(`/challenges/${challenge!.id}/participants/payments`, {
+            method: 'PATCH',
+            body: { userIds: batch, paid: true },
+          }),
+        );
+      }
+      return mergeBulkPayments(results);
+    },
+    onSuccess: (result) => {
+      setPayMessage(bulkPaymentMessage(result));
+      setPaySelected([]);
+      setPayDialogOpen(false);
+      qc.invalidateQueries({ queryKey: ['participants'] });
+      qc.invalidateQueries({ queryKey: ['finance'] });
+      qc.invalidateQueries({ queryKey: ['results'] });
+    },
+  });
+
   const removeMut = useMutation({
     mutationFn: (userId: string) =>
       api(`/challenges/${challenge!.id}/participants/${userId}`, {
@@ -143,6 +194,25 @@ export default function ParticipantsPage() {
   const stateOf = (userId: string): PaymentState | undefined => financeRow(userId)?.state;
   const counts = finance ? filterCounts(finance) : undefined;
   const visible = applyParticipantFilter(participants ?? [], finance, filter);
+
+  // Pagos en lote y lista de pendientes: solo en retos con cuota (spec challenge-finance)
+  const chargesFee = !!finance && finance.feePerParticipant > 0;
+  const paySelectedIds = paySelected.filter((id) => enrolledIds.has(id));
+  const paySummary = finance ? bulkPaymentSummary(finance, paySelectedIds) : undefined;
+  const pending = finance ? pendingPaymentsText(finance) : { count: 0, text: '' };
+  const togglePay = (id: string) =>
+    setPaySelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+
+  async function copyPending() {
+    setCopyFallback(null);
+    try {
+      await navigator.clipboard.writeText(pending.text);
+      setCopyMessage(`Lista copiada (${pending.count} ${pending.count === 1 ? 'persona' : 'personas'}).`);
+    } catch {
+      setCopyMessage(null);
+      setCopyFallback(pending.text);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -215,6 +285,65 @@ export default function ParticipantsPage() {
             ))}
           </div>
         )}
+        {chargesFee && finance && participants && participants.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setPaySelected(visible.filter((p) => stateOf(p.userId) === 'unpaid').map((p) => p.userId))
+                }
+                className="btn-ghost text-xs py-1.5 px-3"
+              >
+                Seleccionar sin pagar
+              </button>
+              <button
+                type="button"
+                ref={payButtonRef}
+                onClick={() => {
+                  setPayMessage(null);
+                  payBulkMut.reset();
+                  setPayDialogOpen(true);
+                }}
+                disabled={paySelectedIds.length === 0 || payBulkMut.isPending}
+                className="btn-primary text-xs py-1.5 px-3"
+              >
+                Marcar seleccionados como pagados ({paySelectedIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={copyPending}
+                disabled={pending.count === 0}
+                className="btn-ghost text-xs py-1.5 px-3"
+              >
+                {pending.count === 0 ? 'Nadie debe' : 'Copiar pendientes'}
+              </button>
+            </div>
+            {payMessage && (
+              <p role="status" className="text-sm text-ok">
+                {payMessage}
+              </p>
+            )}
+            {copyMessage && (
+              <p role="status" className="text-sm text-ok">
+                {copyMessage}
+              </p>
+            )}
+            {copyFallback !== null && (
+              <div>
+                <textarea
+                  ref={fallbackRef}
+                  readOnly
+                  aria-label="Lista de pendientes"
+                  value={copyFallback}
+                  rows={Math.min(10, copyFallback.split('\n').length)}
+                  className="input w-full text-sm"
+                />
+                <p className="text-xs text-ink-mute">Cópiala con Ctrl+C</p>
+              </div>
+            )}
+          </div>
+        )}
         {participants && participants.length > 0 && visible.length === 0 && (
           <p className="text-ink-dim text-sm">Nadie en este filtro.</p>
         )}
@@ -228,6 +357,8 @@ export default function ParticipantsPage() {
                 currency={challenge.currency}
                 state={stateOf(p.userId)}
                 proofToReview={financeRow(p.userId)?.proofToReview ?? false}
+                payChecked={chargesFee ? paySelectedIds.includes(p.userId) : undefined}
+                onTogglePay={() => togglePay(p.userId)}
                 onPay={(amountPaid) => paymentMut.mutate({ userId: p.userId, paid: true, amountPaid })}
                 onUnpay={() => paymentMut.mutate({ userId: p.userId, paid: false })}
                 onRemove={() => {
@@ -243,6 +374,24 @@ export default function ParticipantsPage() {
           <p className="text-ink-dim text-sm">Aún sin participantes inscritos.</p>
         )}
       </div>
+
+      {paySummary && payDialogOpen && (
+        <BulkPaymentDialog
+          open
+          summary={paySummary}
+          isPending={payBulkMut.isPending}
+          error={
+            payBulkMut.isError
+              ? payBulkMut.error instanceof Error
+                ? payBulkMut.error.message
+                : 'No se pudo registrar los pagos'
+              : null
+          }
+          onConfirm={() => payBulkMut.mutate(paySelectedIds)}
+          onCancel={() => setPayDialogOpen(false)}
+          returnFocusTo={payButtonRef}
+        />
+      )}
 
       <div className="card p-5">
         <h2 className="display text-xl tracking-wider mb-4">Agregar participante</h2>
@@ -320,6 +469,8 @@ function ParticipantRow({
   currency,
   state,
   proofToReview,
+  payChecked,
+  onTogglePay,
   onPay,
   onUnpay,
   onRemove,
@@ -330,6 +481,9 @@ function ParticipantRow({
   currency: string;
   state?: PaymentState;
   proofToReview: boolean;
+  /** Casilla de pagos en lote; indefinida en un reto sin cuota (no se muestra) */
+  payChecked?: boolean;
+  onTogglePay: () => void;
   onPay: (amountPaid: number) => void;
   onUnpay: () => void;
   onRemove: () => void;
@@ -356,6 +510,14 @@ function ParticipantRow({
       className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
       aria-label={`Participante ${p.user.name}`}
     >
+      {payChecked !== undefined && (
+        <input
+          type="checkbox"
+          aria-label={`Seleccionar el pago de ${p.user.name}`}
+          checked={payChecked}
+          onChange={onTogglePay}
+        />
+      )}
       <div className="flex-1 min-w-0">
         <p className="font-medium">{p.user.name}</p>
         <p className="text-xs text-ink-mute">{p.user.email}</p>

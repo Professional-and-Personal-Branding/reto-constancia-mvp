@@ -16,7 +16,7 @@ import { UploadService } from '../upload/upload.service';
 import { CLOSER_TX, LockMode, lockChallenge, withChallengeLock } from './challenge-lock';
 import { ResultsService } from './results.service';
 import type { ParticipantRanking } from './results.service';
-import { computeFinance, computePayout, PaymentState, ChallengePayout, proofToReview, toMoney } from './finance.service';
+import { computeFinance, computePayout, PaymentState, ChallengePayout, proofToReview, round2, toMoney } from './finance.service';
 import { AUTO_DRAW_NOTE } from './scoring';
 import { enrollMany, EnrollManyResult, EnrollmentRow, EnrollmentSkip, USER_INACTIVE_MESSAGE } from './enrollment';
 import {
@@ -43,6 +43,22 @@ export type ChallengeWithParticipants = Prisma.ChallengeGetPayload<{
 }>;
 
 const CLOSED_MESSAGE = 'No se puede modificar un reto cerrado';
+
+/** Respuesta de los pagos en lote: cada id pedido aparece en exactamente una lista. */
+export interface BulkPaymentEntry {
+  userId: string;
+  name: string;
+  email: string;
+  amountPaid: number;
+}
+export interface BulkPaymentsResult {
+  feePerParticipant: number;
+  currency: string;
+  marked: BulkPaymentEntry[];
+  alreadyPaid: BulkPaymentEntry[];
+  excluded: (BulkPaymentEntry & { reason: 'PARTIAL' | 'DIFFERENT_AMOUNT' })[];
+  skipped: { userId: string; reason: 'NOT_ENROLLED'; message: string }[];
+}
 
 /** Lo que implica cerrar un reto activo (spec challenge-lifecycle: close preview). */
 export interface ClosePreview {
@@ -442,6 +458,80 @@ export class ChallengesService {
         where: { challengeId_userId: { challengeId, userId } },
       }),
     );
+  }
+
+  /**
+   * Registra la cuota del reto a varios participantes a la vez (spec challenge-finance, pagos en
+   * lote). Solo se escribe a quien no tiene pago; un pago parcial o de otro monto nunca se
+   * sobrescribe. Todo corre bajo el lock del reto y con las inscripciones bloqueadas, así el
+   * informe coincide exactamente con lo escrito.
+   */
+  markPaymentsBulk(challengeId: string, userIds: string[]): Promise<BulkPaymentsResult> {
+    const ids = [...new Set(userIds)];
+    return withChallengeLock(this.prisma, async (tx) => {
+      const locked = await lockChallenge(tx, challengeId, 'share');
+      if (locked.status === ChallengeStatus.COMPLETED) throw new BadRequestException(CLOSED_MESSAGE);
+      const challenge = await tx.challenge.findUnique({
+        where: { id: challengeId },
+        select: { feePerParticipant: true, currency: true },
+      });
+      if (!challenge) throw new NotFoundException('Reto no encontrado');
+      const fee = round2(toMoney(challenge.feePerParticipant));
+      if (fee <= 0) throw new BadRequestException('Este reto no cobra cuota');
+
+      // Bloquea las inscripciones que se van a clasificar: un pago individual concurrente espera
+      await tx.$queryRaw`SELECT id FROM "ChallengeParticipant" WHERE "challengeId" = ${challengeId} AND "userId" = ANY(${ids}::text[]) FOR UPDATE`;
+      const rows = await tx.challengeParticipant.findMany({
+        where: { challengeId, userId: { in: ids } },
+        select: {
+          id: true,
+          userId: true,
+          paid: true,
+          amountPaid: true,
+          user: { select: { name: true, email: true } },
+        },
+      });
+      const byUser = new Map(rows.map((r) => [r.userId, r]));
+
+      const result: BulkPaymentsResult = {
+        feePerParticipant: fee,
+        currency: challenge.currency,
+        marked: [],
+        alreadyPaid: [],
+        excluded: [],
+        skipped: [],
+      };
+      const eligible: string[] = [];
+      for (const userId of ids) {
+        const row = byUser.get(userId);
+        if (!row) {
+          result.skipped.push({ userId, reason: 'NOT_ENROLLED', message: 'No está inscrito en este reto' });
+          continue;
+        }
+        const entry = { userId, name: row.user.name, email: row.user.email };
+        const amount = round2(toMoney(row.amountPaid));
+        if (!row.paid) {
+          eligible.push(row.id);
+          result.marked.push({ ...entry, amountPaid: fee });
+        } else if (Math.round(amount * 100) === Math.round(fee * 100)) {
+          result.alreadyPaid.push({ ...entry, amountPaid: amount });
+        } else {
+          result.excluded.push({
+            ...entry,
+            reason: amount < fee ? 'PARTIAL' : 'DIFFERENT_AMOUNT',
+            amountPaid: amount,
+          });
+        }
+      }
+      if (eligible.length) {
+        await tx.challengeParticipant.updateMany({
+          where: { id: { in: eligible } },
+          // El comprobante no se toca (spec challenge-finance)
+          data: { paid: true, paidAt: new Date(), amountPaid: fee },
+        });
+      }
+      return result;
+    });
   }
 
   async markPayment(

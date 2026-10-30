@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.12.1` (tag sobre `main`) |
+| **Versión de referencia** | `v1.13.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -127,7 +127,10 @@ alcanza con reiniciar.
 4. **Si pierdes la contraseña del administrador** (no hay recuperación por correo): define una
    `SEED_ADMIN_PASSWORD` temporal en el servicio API, ejecuta `npx prisma db seed` desde su shell,
    entra con ella, rótala en **Mi cuenta** y borra la variable otra vez. El seed cambia el hash,
-   así que también cierra las sesiones anteriores del administrador.
+   así que también cierra las sesiones anteriores del administrador. Si otro administrador sigue
+   pudiendo entrar, puede entregarte una contraseña temporal desde **Usuarios** (después del PR de la
+   web; hasta entonces, con `POST /api/users/:id/reset-password` desde Swagger o `curl`); la ruta del
+   seed queda para cuando ningún administrador puede entrar.
 
 ### 1.6 Verificación del primer despliegue
 
@@ -257,6 +260,7 @@ volver a la 1.10.0 se despliegan API y web juntas, porque la web usa `renewal-pr
 `participants/bulk`, y la API cambia el retiro de actividades rechazadas.
 La 1.12.0 (con «Mi cuenta») tampoco trae migraciones: para volver a la 1.11.0 se despliegan API y web juntas. Los refresh tokens que emite llevan un dato extra que la anterior ignora, así que las sesiones sobreviven a la reversión; las contraseñas cambiadas mientras tanto quedan cambiadas (son hashes normales).
 La 1.12.1 (endurece la renovación y la inscripción en bloque) tampoco trae migraciones ni variables: para volver a la 1.12.0 se despliegan API y web juntas; no cambia ningún contrato.
+La 1.13.0 (chequeo de sesión efectivo, «Mi avance», pagos en lote y reinicio de contraseña por el admin) tampoco trae migraciones ni variables: para volver a la 1.12.1 se despliegan API y web juntas. Las sesiones sobreviven a la reversión (los refresh tokens ya llevaban `pwv` desde la 1.12.0); una contraseña temporal emitida mientras tanto sigue siendo un hash normal, y la web de la 1.12.1 no tiene la página Usuarios ni las casillas de pago.
 
 ---
 
@@ -345,6 +349,11 @@ funciona con retos cerrados (400 en cualquier otro estado) y no modifica nada.
 | Login responde 429 | 5 intentos por minuto por IP (protección anti fuerza bruta) | Esperar un minuto |
 | La sesión se cierra sola | Refresh token rechazado (secretos JWT rotados) | Esperado tras rotar secretos: volver a iniciar sesión |
 | Importar desde Google Sheets dice "no configurado" | Faltan `GOOGLE_*` | Opcional: ver `docs/import-template.md` |
+
+Cada reinicio de contraseña hecho por un admin deja una línea `[Audit]` con
+`"event":"admin_password_reset"`, `actorId` (quién) y `targetId` (a quién), nunca la contraseña.
+Para ubicarla, busca `admin_password_reset` en Logs; su `requestId` es el mismo de la línea `[HTTP]`
+de esa petición (hora, ruta `/api/users/:id/reset-password`, estado y duración).
 
 Logs: panel de Seenode → servicio → Logs. Cada petición deja una línea `[HTTP]` en JSON con
 `requestId`, método, ruta, estado, duración y usuario (nunca contraseñas ni tokens). Cada error
