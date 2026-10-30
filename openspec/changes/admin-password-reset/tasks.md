@@ -80,4 +80,4 @@
 - [x] 7.2 TC-UI-10: note the "Usuarios" item; TC-AUTH-21: add the W test of 6.1; before adding the cases re-check that TC-AUTH-21, TC-AUTH-22 and TC-UI-12 are still free
 - [x] 7.3 Guide `docs/guia-plataforma.html`: new step "Administrar usuarios" in section 3 (search, activate/deactivate, role, temporary password and what to tell the participant) and a line in "Reconocer las secciones de cada rol"
 - [x] 7.4 `CHANGELOG.md` "Sin publicar": "Nueva página Usuarios para el admin: buscar, activar o desactivar, cambiar el rol y reiniciar la contraseña"
-- [ ] 7.5 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`; PR 2 in Spanish with the 3 CI jobs green; the owner merges; archive at the release
+- [x] 7.5 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`; PR 2 in Spanish with the 3 CI jobs green; the owner merges; archive at the release
