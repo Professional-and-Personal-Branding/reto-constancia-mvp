@@ -5,6 +5,10 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.13.0] — 2026-10-29
+
+Minor sin migraciones, dependencias ni variables de entorno. Para volver a la 1.12.1 se despliegan API y web juntas; las sesiones sobreviven (los refresh tokens ya llevaban `pwv` desde la 1.12.0). Tras el despliegue nadie necesita volver a iniciar sesión; el admin del seed puede rotar su contraseña desde Mi cuenta o desde Usuarios. Destacan el chequeo de sesión efectivo (desactivar o degradar surte efecto en la siguiente petición), Mi avance, los pagos en lote y el reinicio de contraseña por el admin con la página Usuarios.
+
 ### Agregado
 
 - Nueva página Usuarios para el admin: buscar, activar o desactivar, cambiar el rol y reiniciar la
@@ -13,6 +17,11 @@ Versionado [SemVer](https://semver.org/lang/es/).
   alcanzan, con textos que dejan la calificación para el cierre.
 - El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las
   sesiones del usuario se cierran en minutos (`POST /api/users/:id/reset-password`). Sin migración.
+- Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y
+  copiar la lista de quienes deben. Nuevo `PATCH /challenges/:id/participants/payments` (admin; 1 a
+  200 ids, una sola transacción bajo el lock del reto, informe exacto en `marked`, `alreadyPaid`,
+  `excluded` y `skipped`); en la web, casillas "Seleccionar el pago de <nombre>", "Seleccionar sin
+  pagar", confirmación con el total y "Copiar pendientes". Sin migración.
 
 ### Corregido
 
@@ -40,14 +49,6 @@ anota la deuda del diálogo de cerrar reto.
   activos para inscribir.") y con una sola persona el texto va en singular.
 - Se documenta en la especificación el límite aceptado de la liberación de fotos tras retirar una
   actividad (reenviar por API el id de un archivo ya liberado solo afecta a quien lo hace).
-
-### Añadido
-
-- Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y
-  copiar la lista de quienes deben. Nuevo `PATCH /challenges/:id/participants/payments` (admin; 1 a
-  200 ids, una sola transacción bajo el lock del reto, informe exacto en `marked`, `alreadyPaid`,
-  `excluded` y `skipped`); en la web, casillas "Seleccionar el pago de <nombre>", "Seleccionar sin
-  pagar", confirmación con el total y "Copiar pendientes". Sin migración.
 
 ### Deuda conocida
 

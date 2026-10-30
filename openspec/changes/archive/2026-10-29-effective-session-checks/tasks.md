@@ -53,4 +53,4 @@
 - [x] 4.1 `docs/security-owasp.md`: "Controles implementados" gains "cada petición autenticada comprueba que el usuario exista y esté activo y usa su rol vigente"; "Mejoras futuras" keeps only the instant end of sessions after a password change (P1)
 - [x] 4.2 `CHANGELOG.md`: under "Sin publicar" (or `## [1.12.2]` per 0.2): "Desactivar o degradar a un usuario surte efecto en su siguiente petición; no se puede desactivar la propia cuenta ni dejar la plataforma sin administrador activo"
 - [x] 4.3 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
-- [ ] 4.4 PR in Spanish (to `develop`, or to `main` for the hotfix plus the back-merge PR to `develop`) with the 3 CI jobs green; the owner merges; archive at the release
+- [x] 4.4 PR in Spanish (to `develop`, or to `main` for the hotfix plus the back-merge PR to `develop`) with the 3 CI jobs green; the owner merges; archive at the release

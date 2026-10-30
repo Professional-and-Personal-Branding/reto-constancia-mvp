@@ -46,7 +46,7 @@
 - [x] 3.3 `docs/security-owasp.md`: controls (temporary password once, `no-store`, never logged, audit line, 5/min); "Mejoras futuras" keeps the instant end of access tokens and adds the optional forced change (needs a migration)
 - [x] 3.4 `docs/runbook-despliegue.md` §1.5 step 4 and §6: another admin can issue a temporary password from "Usuarios" (after PR 2; until then by API); the seed path stays for when no admin can log in; §6 tells how to find an `admin_password_reset` line by `requestId`
 - [x] 3.5 `CHANGELOG.md` "Sin publicar": "El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las sesiones del usuario se cierran en minutos"
-- [ ] 3.6 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs`; `openspec validate --all --strict`; PR 1 in Spanish with the 3 CI jobs green; the owner merges
+- [x] 3.6 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs`; `openspec validate --all --strict`; PR 1 in Spanish with the 3 CI jobs green; the owner merges
 
 ## PR 2 — Web
 
