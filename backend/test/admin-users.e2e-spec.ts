@@ -28,6 +28,7 @@ describe('Administración de usuarios: reinicio de contraseña (e2e)', () => {
   let adminToken = '';
   let bruno = '';
   let anaRefreshBefore = '';
+  let anaAccessBefore = '';
   let temporaryPassword = '';
 
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -80,6 +81,7 @@ describe('Administración de usuarios: reinicio de contraseña (e2e)', () => {
     const ana = await login(email.ana, password);
     expect(ana.status).toBe(200);
     anaRefreshBefore = ana.body.tokens.refreshToken;
+    anaAccessBefore = ana.body.tokens.accessToken;
   });
 
   afterAll(async () => {
@@ -127,6 +129,15 @@ describe('Administración de usuarios: reinicio de contraseña (e2e)', () => {
     const withOld = await login(email.ana, password);
     expect(withOld.status).toBe(401);
     expect(withOld.body.message).toBe('Credenciales inválidas');
+  });
+
+  it('RESET: el access token emitido antes del reinicio responde 401 al instante', async () => {
+    const res = await request(http).get('/api/auth/me').set('Authorization', `Bearer ${anaAccessBefore}`);
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe('Sesión no válida');
+    // El admin que hizo el reinicio sigue con su sesión.
+    const admin = await request(http).get('/api/users').set('Authorization', `Bearer ${adminToken}`);
+    expect(admin.status).toBe(200);
   });
 
   it('RESET: el refresh token emitido antes del reinicio se rechaza', async () => {

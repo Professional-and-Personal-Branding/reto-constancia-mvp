@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-30** · rama `feature/admin-users-page` · commit `a898c94`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-30** · rama `feature/instant-token-revocation` · commit `519f933` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**159 casos** · 159 aprobados · 0 fallidos · 0 con limitación conocida · 158 automatizados.
+**160 casos** · 160 aprobados · 0 fallidos · 0 con limitación conocida · 159 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,7 +17,7 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 22 | 22 | 0 |
+| [Autenticación y sesión](#auth) | 23 | 23 | 0 |
 | [Seguridad y configuración](#sec) | 14 | 14 | 0 |
 | [Gestión de retos](#chal) | 25 | 25 | 0 |
 | [Participantes y pagos](#part) | 11 | 11 | 0 |
@@ -59,6 +59,7 @@
 | [TC-AUTH-20](#tc-auth-20) | El rol vigente de la base manda sobre el del token | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-21](#tc-auth-21) | El admin reinicia la contraseña de un usuario | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-22](#tc-auth-22) | Reinicio de contraseña: permisos, propio id y límite | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-23](#tc-auth-23) | Un cambio de contraseña corta al instante los access tokens anteriores | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -553,14 +554,14 @@
 **Pasos**
 
 1. Cambiar la contraseña.
-2. Renovar la segunda sesión.
+2. Usar el access token y renovar el refresh token de la segunda sesión.
 3. Iniciar sesión con la contraseña vieja y con la nueva.
 4. Probar una confirmación distinta en la web.
 
 **Resultado esperado**
 
-- 200 con un par de tokens nuevo y el mensaje de éxito; los campos quedan vacíos y la sesión sigue tras recargar.
-- La renovación de la segunda sesión responde 401 y la de la sesión nueva 200.
+- 200 con un par de tokens nuevo y el mensaje "Contraseña actualizada. Se cerraron las sesiones abiertas en otros dispositivos."; los campos quedan vacíos y la sesión sigue tras recargar.
+- La segunda sesión recibe 401 en su siguiente petición y al renovar; la sesión nueva sigue con 200.
 - La contraseña vieja responde 401 "Credenciales inválidas" y la nueva 200.
 - Una confirmación distinta muestra "Las contraseñas no coinciden" sin llamar a la API.
 
@@ -568,7 +569,7 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Unitaria | `auth.service.spec.ts` | el refresh token lleva pwv y el access token no |
+| ✅ | Unitaria | `auth.service.spec.ts` | el access token y el refresh token llevan la misma pwv |
 | ✅ | Unitaria | `auth.service.spec.ts` | la huella no es ni contiene el hash de la contraseña |
 | ✅ | Unitaria | `auth.service.spec.ts` | refresh acepta un token cuya huella coincide con el hash actual |
 | ✅ | Unitaria | `users.service.spec.ts` | changePassword: guarda el hash nuevo y devuelve un par de tokens nuevo |
@@ -713,7 +714,7 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Unitaria | `jwt.strategy.spec.ts` | validate devuelve sub, email y rol leídos de la base y no los del token |
-| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate busca por id y selecciona solo id, email, role y active |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate busca por id y selecciona solo id, email, role, active y passwordHash |
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un admin degradado con access token vivo recibe 403 en rutas de admin y el ranking sin emails |
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión |
 
@@ -728,7 +729,7 @@
 **Precondiciones**
 
 - Sesión de admin.
-- Participante Ana con una sesión abierta (refresh token).
+- Participante Ana con una sesión abierta (access token y refresh token).
 
 **Datos de prueba:** POST /api/users/<Ana>/reset-password
 
@@ -736,13 +737,13 @@
 
 1. Reiniciar la contraseña de Ana.
 2. Iniciar sesión como Ana con la temporal y con la contraseña vieja.
-3. Renovar la sesión anterior de Ana.
+3. Usar el access token anterior de Ana y renovar su sesión anterior.
 
 **Resultado esperado**
 
 - 200 con solo temporaryPassword (xxxx-xxxx-xxxx) y Cache-Control: no-store.
 - Con la temporal el inicio de sesión da 200; con la vieja 401 "Credenciales inválidas".
-- La renovación de la sesión anterior da 401.
+- Las sesiones abiertas se cortan en su próxima petición: el access token anterior da 401 "Sesión no válida" y la renovación de la sesión anterior da 401.
 - Una línea admin_password_reset en los logs, sin la contraseña.
 
 **Validación automatizada**
@@ -753,6 +754,7 @@
 | ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal |
 | ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin escribe la línea de auditoría sin la contraseña |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el access token emitido antes del reinicio responde 401 al instante |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el refresh token emitido antes del reinicio se rechaza |
 | ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
 
@@ -789,6 +791,51 @@
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin no puede reiniciar su propia contraseña |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: un usuario inexistente responde 404 y un cuerpo con propiedades 400 |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el sexto reinicio en un minuto responde 429 |
+
+<a id="tc-auth-23"></a>
+
+### TC-AUTH-23 · Un cambio de contraseña corta al instante los access tokens anteriores
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Usuario con dos sesiones abiertas (A y B) con access token vivo.
+- Un access token firmado sin pwv, como los emitidos antes del despliegue.
+
+**Datos de prueba:** GET /api/auth/me con cada access token; cambio desde Mi cuenta; reinicio del admin
+
+**Pasos**
+
+1. Cambiar la contraseña desde la sesión A.
+2. Llamar a GET /api/auth/me con el access token anterior de A, con el nuevo y con el de la sesión B.
+3. Probar el access token sin pwv y renovarlo con el refresh token vigente.
+4. Reiniciar la contraseña desde el admin y llamar con el access token que Ana tenía.
+
+**Resultado esperado**
+
+- El access token anterior al cambio responde 401 "Sesión no válida"; el nuevo de la sesión A responde 200.
+- El access token sin pwv responde 401 y la renovación con el refresh token vigente responde 200 con un par que sirve.
+- Tras el reinicio del admin, el access token anterior de Ana responde 401 al instante y el admin sigue con 200.
+- La respuesta no incluye el hash ni la huella.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | la huella tiene 22 caracteres base64url y no es ni contiene el hash |
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | la huella cambia cuando cambia el hash y es estable para el mismo hash |
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | matchesFingerprint acepta la huella propia |
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | matchesFingerprint rechaza undefined, un número, una cadena más corta y la huella de otro hash |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: pwv que no coincide con el hash actual responde 401 'Sesión no válida' |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: access token sin pwv responde 401 |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate no devuelve passwordHash |
+| ✅ | Unitaria | `auth.service.spec.ts` | el access token y el refresh token llevan la misma pwv |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: tras el cambio el access token anterior responde 401 y el nuevo sigue sirviendo |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un access token sin pwv (anterior al despliegue) responde 401 y el refresh lo repone |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el access token emitido antes del reinicio responde 401 al instante |
 
 <a id="sec"></a>
 
