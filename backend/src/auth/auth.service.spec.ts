@@ -109,13 +109,13 @@ describe('AuthService', () => {
       return (jwt.sign.mock.calls[1] as [{ pwv: string }])[0].pwv;
     };
 
-    it('el refresh token lleva pwv y el access token no', () => {
+    it('el access token y el refresh token llevan la misma pwv', () => {
       service.issueTokens(user('hash-1') as never);
       const [accessPayload] = jwt.sign.mock.calls[0] as [Record<string, unknown>];
       const [refreshPayload] = jwt.sign.mock.calls[1] as [Record<string, unknown>];
-      expect(accessPayload.pwv).toBeUndefined();
       expect(typeof refreshPayload.pwv).toBe('string');
       expect((refreshPayload.pwv as string).length).toBe(22);
+      expect(accessPayload.pwv).toBe(refreshPayload.pwv);
     });
 
     it('la huella no es ni contiene el hash de la contraseña', () => {

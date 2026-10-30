@@ -133,7 +133,7 @@ function PasswordForm() {
       setCurrent('');
       setNext('');
       setConfirmation('');
-      setOk('Contraseña actualizada. Las sesiones abiertas en otros dispositivos se cerrarán en unos minutos.');
+      setOk('Contraseña actualizada. Se cerraron las sesiones abiertas en otros dispositivos.');
     } catch (err) {
       const apiErr = err as ApiError;
       setError(accountErrorMessage(apiErr.status ?? 0, apiErr.body));

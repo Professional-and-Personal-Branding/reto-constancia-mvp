@@ -42,7 +42,7 @@ export const roleConfirmation = (user: Pick<SafeUser, 'name' | 'role'>) =>
     ? `¿Quitar los permisos de administrador a ${user.name}?`
     : `¿Dar permisos de administrador a ${user.name}?`;
 export const resetConfirmation = (name: string) =>
-  `Se generará una contraseña temporal para ${name} y sus sesiones abiertas se cerrarán en unos minutos. ¿Continuar?`;
+  `Se generará una contraseña temporal para ${name} y sus sesiones abiertas se cerrarán. ¿Continuar?`;
 
 export const TEMP_PASSWORD_NOTICE =
   'Se muestra una sola vez. Compártela por un canal privado y pídele que la cambie en Mi cuenta al entrar.';
