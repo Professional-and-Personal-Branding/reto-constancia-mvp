@@ -6,7 +6,11 @@ Resumen de los controles implementados, mapeados a principios de OWASP
 ## Controles implementados
 
 - Hashing de contraseñas con Argon2 (no se guardan en claro):
-  - `backend/src/auth/auth.service.ts` (`argon2.hash` / `argon2.verify`).
+  - `backend/src/auth/auth.service.ts` (`argon2.verify`) y `backend/src/auth/password-hash.ts`
+    (`hashPassword`, el único camino para hashear contraseñas).
+- Verificación argon2 constante en el login: con un email inexistente o un usuario inactivo se verifica
+  contra un hash señuelo (mismos parámetros, calculado al arrancar), de modo que la latencia no revela
+  qué correos tienen cuenta activa (TC-AUTH-24).
   - El hash nunca se devuelve al cliente (`sanitize()` quita `passwordHash`;
     además `SAFE_USER_SELECT` en `backend/src/users/users.service.ts`).
 - Política de contraseñas (mínimo 8, letra + número, máximo 72):
@@ -144,3 +148,7 @@ usuario en su próxima renovación. Cada reinicio deja una línea `[Audit]` con 
 - Verificación de correo y flujo de "olvidé mi contraseña".
 - Bloqueo temporal de cuenta tras N fallos (complementa el rate limiting por IP).
 - Cabecera CSP afinada en Helmet para el frontend.
+- Enumeración de cuentas por `POST /auth/register`: responde 409 "Email ya registrado" para un correo
+  existente, un oráculo más barato que el tiempo de respuesta del login. Cerrarlo sin canal de correo
+  rompe el alta (el 409 ayuda a los usuarios reales), y desactivar el registro público es una decisión
+  de producto del owner (`login-timing-parity`, P1).

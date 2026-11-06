@@ -6,7 +6,7 @@ import {
   PrismaClient,
   UserRole,
 } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { hashPassword } from '../src/auth/password-hash';
 
 const prisma = new PrismaClient();
 
@@ -118,8 +118,8 @@ async function main() {
   const adminName = process.env.SEED_ADMIN_NAME ?? 'Administrador';
 
   const [adminPasswordHash, testPasswordHash] = await Promise.all([
-    argon2.hash(adminPassword),
-    argon2.hash(TEST_PASSWORD),
+    hashPassword(adminPassword),
+    hashPassword(TEST_PASSWORD),
   ]);
 
   const admin = await prisma.user.upsert({

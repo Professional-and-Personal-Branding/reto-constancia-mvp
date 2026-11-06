@@ -11,7 +11,7 @@ import {
   PhotoType,
   UserRole,
 } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { hashPassword } from '../auth/password-hash';
 import * as XLSX from 'xlsx';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -353,7 +353,7 @@ export class ImportService {
     const ctx: CommitContext = {
       defaultStatus: options.defaultStatus ?? ActivityStatus.VALIDATED,
       strategy: options.duplicateStrategy ?? 'skip',
-      passwordHash: await argon2.hash(tempPassword),
+      passwordHash: await hashPassword(tempPassword),
       adminId,
     };
 
