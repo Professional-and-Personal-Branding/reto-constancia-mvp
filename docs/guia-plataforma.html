@@ -589,10 +589,10 @@
         {
           id: '5.2', role: 'admin', title: 'Validar una actividad', route: '/dashboard/admin/validations',
           why: 'Solo las validadas suman al ranking.',
-          actions: ['Pulsa <span class="ui">✓ Validar</span>.', 'Si la actividad no cumple la regla de FC, se abre un campo de nota: explica por qué la aceptas (5 a 300 caracteres) y pulsa <span class="ui">Validar con nota</span>.'],
+          actions: ['Si hay varios retos activos, elige uno en <span class="ui">Reto</span> para trabajarlo por separado (o deja <span class="ui">Todos los retos</span>); <span class="ui">Orden</span> empieza por las más antiguas y puedes pasar a las más nuevas. Tu elección queda en la dirección de la página.', 'Pulsa <span class="ui">✓ Validar</span>.', 'Si la actividad no cumple la regla de FC, se abre un campo de nota: explica por qué la aceptas (5 a 300 caracteres) y pulsa <span class="ui">Validar con nota</span>.'],
           expect: 'La tarjeta sale de la lista y el participante suma un día. La nota de excepción queda guardada.',
-          note: 'Esto es útil para registros históricos que no tienen captura. Si la API falla de forma inesperada, el aviso muestra un código: compártelo con el técnico para que lo busque en los logs.',
-          refs: ['TC-ACT-08', 'TC-ACT-15', 'TC-UI-11']
+          note: 'Esto es útil para registros históricos que no tienen captura. Si la API falla de forma inesperada, el aviso muestra un código: compártelo con el técnico para que lo busque en los logs. El número junto a <span class="ui">Validar</span> en el menú cuenta las pendientes de los retos activos (desaparece en 0 y muestra 99+ desde 100). Las actividades de un reto cerrado salen con la marca <span class="ui">Reto cerrado</span> y sin botones: ya son definitivas.',
+          refs: ['TC-ACT-08', 'TC-ACT-15', 'TC-UI-11', 'TC-ACT-26', 'TC-UI-13']
         },
         {
           id: '5.3', role: 'admin', title: 'Rechazar una actividad', route: '/dashboard/admin/validations',

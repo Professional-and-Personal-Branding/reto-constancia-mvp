@@ -19,6 +19,7 @@ import { lockChallenge, withChallengeLock } from '../challenges/challenge-lock';
 import { UploadService } from '../upload/upload.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
+import { PendingOrder, QueryPendingDto } from './dto/query-pending.dto';
 import { ValidateActivityDto } from './dto/validate-activity.dto';
 import { buildCalendar, MyCalendar } from './calendar';
 import {
@@ -157,7 +158,7 @@ export class ActivitiesService {
     }
   }
 
-  async findAll(filter: QueryActivitiesDto) {
+  async findAll(filter: QueryActivitiesDto, order: PendingOrder = 'desc') {
     const where: Prisma.DailyActivityWhereInput = {};
     if (filter.challengeId) where.challengeId = filter.challengeId;
     if (filter.userId) where.userId = filter.userId;
@@ -168,9 +169,9 @@ export class ActivitiesService {
       include: {
         user: { select: { id: true, name: true, email: true } },
         photos: true,
-        challenge: { select: { minHeartRateMinutes: true } },
+        challenge: { select: { minHeartRateMinutes: true, name: true, status: true } },
       },
-      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ date: order }, { createdAt: order }],
     });
     return activities.map((a) => this.withCompliance(a));
   }
@@ -206,8 +207,17 @@ export class ActivitiesService {
     return { challengeId, ...buildCalendar(challenge, activities, this.challenges) };
   }
 
-  findPending(challengeId?: string) {
-    return this.findAll({ challengeId, status: ActivityStatus.PENDING });
+  /** Cola de validación: la más antigua primero salvo `order: 'desc'` (spec challenge-lifecycle). */
+  findPending(query: QueryPendingDto = {}) {
+    return this.findAll({ challengeId: query.challengeId, status: ActivityStatus.PENDING }, query.order ?? 'asc');
+  }
+
+  /** Pendientes de retos activos, para el contador del menú del admin. */
+  async countPending() {
+    const count = await this.prisma.dailyActivity.count({
+      where: { status: ActivityStatus.PENDING, challenge: { status: ChallengeStatus.ACTIVE } },
+    });
+    return { count };
   }
 
   async findOne(id: string) {

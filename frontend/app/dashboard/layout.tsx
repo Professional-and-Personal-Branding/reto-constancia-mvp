@@ -3,7 +3,10 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { pendingBadgeLabel } from '@/lib/pending';
 import { cn } from '@/lib/cn';
 import { ChallengeSelector } from '@/components/challenge-selector';
 import { ThemeSwitch } from '@/components/theme-switch';
@@ -16,6 +19,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
   }, [user, loading, router]);
+
+  // Contador de pendientes de retos activos, solo para el admin (spec challenge-lifecycle).
+  // Si la consulta falla la insignia se oculta; el resto del menú no depende de ella.
+  const { data: pendingCount } = useQuery<{ count: number }>({
+    queryKey: ['activities', 'pending', 'count'],
+    queryFn: () => api<{ count: number }>('/activities/pending/count'),
+    enabled: user?.role === 'ADMIN',
+    refetchInterval: 60_000,
+  });
 
   if (loading || !user) {
     return (
@@ -68,6 +80,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           >
             {navItems.map((item) => {
               const active = pathname === item.href;
+              const badge =
+                item.href === '/dashboard/admin/validations' && pendingCount
+                  ? pendingBadgeLabel(pendingCount.count)
+                  : null;
               return (
                 <Link
                   key={item.href}
@@ -81,6 +97,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   )}
                 >
                   {item.label}
+                  {badge && (
+                    <span
+                      role="img"
+                      data-testid="pending-badge"
+                      aria-label={`${pendingCount?.count} actividades pendientes`}
+                      className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold leading-5 text-black"
+                    >
+                      {badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

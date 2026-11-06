@@ -121,6 +121,8 @@ export interface DailyActivity {
   createdAt: string;
   photos: ActivityPhoto[];
   user?: { id: string; name: string; email: string };
+  /** Reto de la actividad (la cola de validación muestra el nombre y marca los cerrados) */
+  challenge?: { name: string; status: ChallengeStatus; minHeartRateMinutes: number };
 }
 
 export interface ParticipantRanking {

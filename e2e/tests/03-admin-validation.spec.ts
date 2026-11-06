@@ -13,12 +13,15 @@ import {
 
 /**
  * Recorrido 4 de docs/test-cases.md: validar y rechazar como admin.
- * Casos cubiertos: TC-ACT-08, TC-ACT-09, TC-ACT-15, TC-UI-11.
+ * Casos cubiertos: TC-ACT-08, TC-ACT-09, TC-ACT-15, TC-UI-11, TC-UI-13.
  */
 const MONTH = 4;
 const COMPLIANT_DATE = e2eDate(MONTH, 10);
 const NON_COMPLIANT_DATE = e2eDate(MONTH, 11);
 const ERROR_DATE = e2eDate(MONTH, 12);
+// Segundo reto activo para la cola filtrada (TC-UI-13)
+const QUEUE_MONTH = 7;
+const QUEUE_NAME = 'E2E Playwright · cola';
 
 test.use({ storageState: STATE.admin });
 
@@ -41,10 +44,16 @@ test.beforeAll(async () => {
     token: tokens().admin,
     body: { minHeartRateMinutes: 20 },
   });
+
+  const queue = await setupChallenge({ month: QUEUE_MONTH, name: QUEUE_NAME, minHeartRateMinutes: 0 });
+  await enroll(queue.id, tokens().participantId);
+  await createActivity(queue.id, e2eDate(QUEUE_MONTH, 20), {});
+  await createActivity(queue.id, e2eDate(QUEUE_MONTH, 5), {});
 });
 
 test.afterAll(async () => {
   await closeChallenge(MONTH);
+  await closeChallenge(QUEUE_MONTH);
 });
 
 test('valida una actividad conforme con un clic', async ({ page }) => {
@@ -111,4 +120,41 @@ test('un error inesperado al validar muestra el código para soporte', async ({ 
   await expect(alert).toContainText('comparte este código');
   await expect(card).toHaveCount(1);
   await page.unroute('**/api/activities/*/validate');
+});
+
+test('la cola filtra por reto, ordena de la más antigua y el menú muestra el contador', async ({ page }) => {
+  const countNow = async () =>
+    (await api<{ count: number }>('GET', '/activities/pending/count', { token: tokens().admin })).body.count;
+  const badge = page.getByTestId('pending-badge');
+  const cards = page.locator('.card');
+
+  await page.goto('/dashboard/admin/validations');
+  // Sin reto elegido: todos, la más antigua primero (abril antes que julio)
+  await expect(cards.first()).toContainText('abr 2025');
+  await expect(cards.filter({ hasText: QUEUE_NAME })).toHaveCount(2);
+
+  const before = await countNow();
+  expect(before).toBeGreaterThanOrEqual(3);
+  await expect(badge).toHaveText(before > 99 ? '99+' : String(before));
+
+  // Un reto: solo sus dos actividades, 5 antes que 20
+  await page.getByLabel('Filtrar por reto').selectOption({ label: QUEUE_NAME });
+  await expect(cards).toHaveCount(2);
+  await expect(cards.first()).toContainText('5 jul 2025');
+  await expect(cards.first()).toContainText(QUEUE_NAME);
+  await expect(page.getByText('2 actividades pendientes de revisión.')).toBeVisible();
+
+  // Orden invertido, guardado en la URL: sobrevive a una recarga
+  await page.getByLabel('Orden de la cola').selectOption({ label: 'Más nuevas primero' });
+  await expect(cards.first()).toContainText('20 jul 2025');
+  await expect(page).toHaveURL(/orden=desc/);
+  await expect(page).toHaveURL(/reto=/);
+  await page.reload();
+  await expect(page.getByLabel('Filtrar por reto')).toHaveValue(/.+/);
+  await expect(cards.first()).toContainText('20 jul 2025');
+
+  // Validar una baja el contador del menú sin recargar
+  await cards.first().getByRole('button', { name: /Validar/ }).click();
+  await expect(cards).toHaveCount(1);
+  await expect(badge).toHaveText(String(before - 1));
 });

@@ -1663,6 +1663,29 @@ export const CASES = [
       W('16-my-progress.spec.ts', 'Mi avance muestra lo que falta para el mínimo y luego que ya se alcanza'),
     ],
   },
+  {
+    id: 'TC-ACT-26', title: 'Cola de validación por reto, orden y contador (API)', priority: 'Alta', type: 'Funcional', guide: '5.2',
+    pre: ['Dos retos activos (A con actividades pendientes de los días 3, 1 y dos del 2, B con una) y un reto cerrado con una pendiente.'],
+    data: 'GET /api/activities/pending con challengeId y order; GET /api/activities/pending/count',
+    steps: [
+      'Pedir la cola de A sin order, con order=desc y la cola sin parámetros.',
+      'Enviar challengeId=abc y order=sideways.',
+      'Pedir el contador, validar una pendiente de B y pedirlo otra vez; repetir las rutas como participante.',
+    ],
+    expected: [
+      'La cola de A sale de la más antigua a la más nueva (el empate del mismo día lo rompe la creación), con el nombre del reto en cada item; order=desc la invierte.',
+      'Sin parámetros lista las pendientes de todos los retos, incluida la del reto cerrado con challenge.status COMPLETED.',
+      'Los parámetros inválidos responden 400.',
+      'El contador cuenta solo las pendientes de retos activos (la del cerrado no), baja tras validar, y el participante recibe 403 en ambas rutas.',
+    ],
+    auto: [
+      U('activities.service.spec.ts', 'findPending ordena de la más antigua a la más nueva por defecto y filtra por reto y PENDING'),
+      U('activities.service.spec.ts', 'findPending con order=desc invierte el orden y sin reto lista todos'),
+      U('activities.service.spec.ts', 'findAll sin order conserva el orden descendente y trae nombre y estado del reto'),
+      U('activities.service.spec.ts', 'countPending cuenta las PENDING de retos ACTIVE'),
+      A('platform-rules.e2e-spec.ts', 'QUEUE: la cola filtra por reto, ordena de la más antigua y el contador cuenta solo retos activos'),
+    ],
+  },
 
   // ───────────────────────────── RES ─────────────────────────────
   {
@@ -2406,6 +2429,25 @@ export const CASES = [
       F('users.test.ts', 'Usuarios: las etiquetas de rol, estado y acción siguen al usuario'),
       W('18-admin-users.spec.ts', 'el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario'),
       G('Usuarios: búsqueda, estado y acciones por fila'),
+    ],
+  },
+  {
+    id: 'TC-UI-13', title: 'Selector de reto, orden y contador en Validar', priority: 'Alta', type: 'UI', guide: '5.2',
+    pre: ['Sesión de administrador.', 'Dos retos activos: A con una pendiente y B con dos (los días 5 y 20).'],
+    data: 'Reto B elegido en el selector; "Más nuevas primero"; validar una pendiente',
+    steps: [
+      'Abrir Validar sin elegir reto.',
+      'Elegir el reto B, cambiar a "Más nuevas primero" y recargar la página.',
+      'Validar una actividad de B.',
+    ],
+    expected: [
+      'Sin reto elegido se ven las pendientes de todos los retos, la más antigua primero, cada tarjeta con el nombre de su reto, y el menú muestra el contador de pendientes de retos activos.',
+      'Con B solo salen sus dos tarjetas, el resumen cuenta 2, el reto y el orden quedan en la URL y sobreviven a la recarga.',
+      'Al validar una, el contador del menú baja en 1 sin recargar.',
+    ],
+    auto: [
+      F('pending.test.ts', 'insignia de pendientes: sin número en 0, el valor hasta 99 y "99+" por encima'),
+      W('03-admin-validation.spec.ts', 'la cola filtra por reto, ordena de la más antigua y el menú muestra el contador'),
     ],
   },
   {

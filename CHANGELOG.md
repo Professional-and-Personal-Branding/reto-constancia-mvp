@@ -5,6 +5,15 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- Validar: selector de reto ("Todos los retos" por defecto) y orden (más antiguas primero por defecto,
+  o más nuevas), guardados en la dirección de la página; cada tarjeta nombra su reto y las de un reto
+  cerrado salen marcadas "Reto cerrado" y sin botones. El menú muestra en "Validar" un contador con las
+  pendientes de los retos activos (oculto en 0, "99+" desde 100). API: `GET /activities/pending` acepta
+  `order=asc|desc` (ascendente por defecto) y responde 400 si `challengeId` no es un UUID; nueva
+  `GET /activities/pending/count`. Sin migración; para volver atrás se redespliegan API y web juntas.
+
 ### Corregido
 
 - Un cambio de contraseña (desde Mi cuenta, reinicio del admin o del seed) corta al instante los access

@@ -241,8 +241,47 @@ describe('ActivitiesService.findPending (heartRateCompliant derivado)', () => {
         { id: 'b', heartRateMinutes: 10, hasHeartRateProof: true, challenge: { minHeartRateMinutes: 20 } },
       ],
     });
-    const list = await service(prisma).findPending('c1');
+    const list = await service(prisma).findPending({ challengeId: 'c1' });
     expect(list.map((a) => a.heartRateCompliant)).toEqual([true, false]);
+  });
+});
+
+describe('ActivitiesService: cola de validación (validation-queue-filters)', () => {
+  const findManyOf = (prisma: PrismaService) =>
+    (prisma as unknown as { dailyActivity: { findMany: jest.Mock } }).dailyActivity.findMany;
+
+  it('findPending ordena de la más antigua a la más nueva por defecto y filtra por reto y PENDING', async () => {
+    const { prisma } = buildPrisma();
+    await service(prisma).findPending({ challengeId: 'c1' });
+    const call = findManyOf(prisma).mock.calls[0][0];
+    expect(call.where).toEqual({ challengeId: 'c1', status: ActivityStatus.PENDING });
+    expect(call.orderBy).toEqual([{ date: 'asc' }, { createdAt: 'asc' }]);
+  });
+
+  it('findPending con order=desc invierte el orden y sin reto lista todos', async () => {
+    const { prisma } = buildPrisma();
+    await service(prisma).findPending({ order: 'desc' });
+    const call = findManyOf(prisma).mock.calls[0][0];
+    expect(call.where).toEqual({ status: ActivityStatus.PENDING });
+    expect(call.orderBy).toEqual([{ date: 'desc' }, { createdAt: 'desc' }]);
+  });
+
+  it('findAll sin order conserva el orden descendente y trae nombre y estado del reto', async () => {
+    const { prisma } = buildPrisma();
+    await service(prisma).findAll({});
+    const call = findManyOf(prisma).mock.calls[0][0];
+    expect(call.orderBy).toEqual([{ date: 'desc' }, { createdAt: 'desc' }]);
+    expect(call.include.challenge.select).toMatchObject({ name: true, status: true });
+  });
+
+  it('countPending cuenta las PENDING de retos ACTIVE', async () => {
+    const { prisma } = buildPrisma();
+    const count = jest.fn().mockResolvedValue(3);
+    (prisma as unknown as { dailyActivity: { count: jest.Mock } }).dailyActivity.count = count;
+    expect(await service(prisma).countPending()).toEqual({ count: 3 });
+    expect(count).toHaveBeenCalledWith({
+      where: { status: ActivityStatus.PENDING, challenge: { status: ChallengeStatus.ACTIVE } },
+    });
   });
 });
 

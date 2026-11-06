@@ -16,6 +16,7 @@ import { UserRole } from '@prisma/client';
 import { ActivitiesService } from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { QueryActivitiesDto } from './dto/query-activities.dto';
+import { QueryPendingDto } from './dto/query-pending.dto';
 import { MyCalendarQueryDto } from './dto/my-calendar-query.dto';
 import { RejectActivityDto } from './dto/reject-activity.dto';
 import { ValidateActivityDto } from './dto/validate-activity.dto';
@@ -68,8 +69,16 @@ export class ActivitiesController {
   @Get('pending')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Actividades pendientes de validación' })
-  findPending(@Query('challengeId') challengeId?: string) {
-    return this.activities.findPending(challengeId);
+  @ApiResponse({ status: 400, description: 'challengeId no es un UUID u order no es asc/desc' })
+  findPending(@Query() query: QueryPendingDto) {
+    return this.activities.findPending(query);
+  }
+
+  @Get('pending/count')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Cuántas actividades pendientes hay en retos activos (admin)' })
+  countPending() {
+    return this.activities.countPending();
   }
 
   @Get(':id')
