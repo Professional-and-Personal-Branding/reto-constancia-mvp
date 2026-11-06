@@ -14,7 +14,8 @@ import { selectChallenge } from '../fixtures/ui';
 
 /**
  * Cierre asistido (cambio assisted-challenge-close): antes de cerrar o premiar, la web muestra
- * la revisión previa y las pendientes exigen confirmar. Casos: TC-CHAL-20.
+ * la revisión previa y las pendientes exigen confirmar. Casos: TC-CHAL-20 y TC-CHAL-26
+ * (teclado, Escape mientras cierra y retorno del foco del diálogo).
  *
  * Usa los meses 4 y 5 del año de pruebas: setupChallenge rehace los retos cerrados por otras specs.
  */
@@ -65,6 +66,81 @@ test('si el cierre está en curso (409) el diálogo muestra el mensaje y ofrece 
   await expect(dialog.getByRole('button', { name: 'Reintentar' })).toBeVisible();
   await page.unroute('**/api/challenges/*/close');
   await dialog.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test('el diálogo de cierre atrapa el foco, ignora Escape mientras cierra y devuelve el foco', async ({ page }) => {
+  const conflict = 'El reto se está cerrando; vuelve a intentarlo en unos segundos';
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/challenges/*/close', async (route) => {
+    await gate;
+    await route.fulfill({
+      status: 409,
+      contentType: 'application/json',
+      body: JSON.stringify({ statusCode: 409, message: conflict }),
+    });
+  });
+
+  await page.goto('/dashboard/admin/challenges');
+  const row = page.getByLabel(`Reto ${CLOSE_NAME}`);
+  const trigger = row.getByRole('button', { name: 'Cerrar reto' });
+  await trigger.click();
+
+  const dialog = page.getByRole('dialog');
+  const cancel = dialog.getByRole('button', { name: 'Cancelar' });
+  const confirm = dialog.getByRole('button', { name: 'Cerrar reto' });
+  const validateLink = dialog.getByRole('link', { name: 'Ir a validar' });
+  const checkbox = dialog.getByLabel('Cerrar de todas formas: las actividades pendientes no contarán');
+  await expect(validateLink).toBeVisible();
+  await expect(cancel).toBeFocused();
+  await expect(confirm).toBeDisabled();
+
+  // La lista de retos queda inerte y oculta a tecnologías de asistencia
+  const listHidden = await page.evaluate((label) => {
+    let el: Element | null = document.querySelector(`[aria-label="${label}"]`);
+    while (el && el.parentElement !== document.body) el = el.parentElement;
+    return !!el && el.hasAttribute('inert') && el.getAttribute('aria-hidden') === 'true';
+  }, `Reto ${CLOSE_NAME}`);
+  expect(listHidden).toBe(true);
+
+  // Con confirmar deshabilitado, "Cancelar" es el último control: Tab da la vuelta al primero
+  // y Shift+Tab desde el primero vuelve al último, sin salir del diálogo
+  await page.keyboard.press('Tab');
+  await expect(validateLink).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(cancel).toBeFocused();
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+
+  // Confirmar con el servidor retenido: "Cerrando…", foco en el diálogo y Escape no cierra
+  await checkbox.check();
+  await confirm.click();
+  await expect(dialog.getByRole('button', { name: 'Cerrando…' })).toBeDisabled();
+  await expect(dialog).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog.getByRole('button', { name: 'Cerrando…' })).toBeVisible();
+
+  // Respuesta 409: el error se muestra dentro del diálogo con "Reintentar"
+  release();
+  await expect(dialog.getByRole('alert').filter({ hasText: conflict })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+
+  // El foco estaba en el diálogo: Tab cae en el primer control habilitado
+  await page.keyboard.press('Tab');
+  await expect(validateLink).toBeFocused();
+
+  // Escape cierra, el foco vuelve a "Cerrar reto" y la lista deja de ser inerte
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('body > [inert]')).toHaveCount(0);
+  await page.unroute('**/api/challenges/*/close');
+
+  // Reabrir empieza limpio: casilla sin marcar y confirmar deshabilitado
+  await trigger.click();
+  await expect(checkbox).not.toBeChecked();
+  await expect(confirm).toBeDisabled();
+  await cancel.click();
   await expect(dialog).toHaveCount(0);
 });
 
