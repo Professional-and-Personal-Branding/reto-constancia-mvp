@@ -60,6 +60,7 @@ export default function ChallengesPage() {
   // Renovar: crea el reto del mes siguiente en borrador (spec challenge-renewal)
   const [renewingId, setRenewingId] = useState<string | null>(null);
   const renewTriggerRef = useRef<HTMLElement | null>(null);
+  const closeTriggerRef = useRef<HTMLElement | null>(null);
   const [renewError, setRenewError] = useState<CloseError | null>(null);
   const [renewedNotice, setRenewedNotice] = useState<string | null>(null);
   const renewMut = useMutation({
@@ -96,6 +97,7 @@ export default function ChallengesPage() {
           error={closeError}
           onConfirm={() => closeMut.mutate(closingId)}
           onCancel={() => setClosingId(null)}
+          returnFocusTo={closeTriggerRef}
         />
       )}
       {renewingId && (
@@ -204,7 +206,8 @@ export default function ChallengesPage() {
                 )}
                 {c.status === 'ACTIVE' && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      closeTriggerRef.current = e.currentTarget;
                       setCloseError(null);
                       setClosingId(c.id);
                     }}
