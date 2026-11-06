@@ -14,6 +14,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Corregido
 
+- El login hace siempre una verificación argon2: con un email inexistente o un usuario inactivo se
+  verifica contra un hash señuelo con los mismos parámetros, así que la latencia ya no revela qué correos
+  tienen cuenta activa; los tres fallos (email inexistente, inactivo, contraseña errónea) responden el
+  mismo 401 "Credenciales inválidas". `POST /auth/register` sigue respondiendo 409 para un correo
+  existente (anotado en Mejoras futuras de `docs/security-owasp.md`). Sin migración; para volver atrás
+  basta redesplegar la API anterior.
 - Un cambio de contraseña (desde Mi cuenta, reinicio del admin o del seed) corta al instante los access
   tokens anteriores: el access token lleva la misma huella `pwv` que el refresh token y la API la compara
   en cada petición (antes valían hasta 15 minutos más). La sesión que cambió la contraseña sigue. Al
