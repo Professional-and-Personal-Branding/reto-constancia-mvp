@@ -12,10 +12,17 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
   alcanzan, con textos que dejan la calificación para el cierre.
 - El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las
-  sesiones del usuario se cierran en minutos (`POST /api/users/:id/reset-password`). Sin migración.
+  sesiones del usuario se cierran en su próxima petición (`POST /api/users/:id/reset-password`). Sin migración.
 
 ### Corregido
 
+- Un cambio de contraseña (desde Mi cuenta, reinicio del admin o del seed) corta al instante los access
+  tokens anteriores: el access token lleva la misma huella `pwv` que el refresh token y la API la compara
+  en cada petición (antes valían hasta 15 minutos más). La sesión que cambió la contraseña sigue. Al
+  desplegar, los access tokens vigentes reciben un 401 y la web los renueva sola con su refresh token:
+  nadie vuelve a iniciar sesión; los clientes hechos a mano (curl, scripts) deben renovar una vez. El
+  texto de éxito de Mi cuenta y el del reinicio en Usuarios dejan de decir "en unos minutos". Sin
+  migración; para volver atrás basta redesplegar la API y la web anteriores.
 - Desactivar o degradar a un usuario surte efecto en su siguiente petición (antes valía hasta 15
   minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
   su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
