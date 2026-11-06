@@ -2535,6 +2535,25 @@ export const CASES = [
     auto: [A('ops-observability.e2e-spec.ts', 'OPS: al cerrar la app se cierra la conexión a la base y queda registrado')],
   },
 
+  {
+    id: 'TC-HEALTH-06', title: 'El respaldo de la base se verifica restaurándolo', priority: 'Alta', type: 'Funcional', guide: '8.1',
+    pre: ['Docker con el contenedor reto-constancia-db en marcha.'],
+    data: 'node scripts/db-backup.mjs; --target con un host no local; --file con un volcado completo y otro truncado',
+    steps: [
+      'Con DATABASE_URL apuntando a una base local con datos, ejecutar node scripts/db-backup.mjs.',
+      'Ejecutarlo con --target postgresql://postgres:postgres@example.com:5432/postgres.',
+      'Ejecutar --file con el volcado generado y con una copia truncada a la mitad de los bytes.',
+      'Listar las bases del servidor local.',
+    ],
+    expected: [
+      'El respaldo termina con OK (código 0), con las cuentas iguales por tabla.',
+      'El destino no local termina con código 2, sin archivo ni base creados.',
+      'El volcado completo da OK (sin comparación con el origen); el truncado da FALLO (código 1).',
+      'No queda ninguna base reto_restore_check_*.',
+    ],
+    manual: { date: '2026-11-06', result: 'Aprobado', evidence: 'base de origen temporal (3 tablas, 52 filas): OK exit 0 x2; destino example.com exit 2 sin archivos; mismo origen y destino exit 2; --file OK exit 0; volcado truncado FALLO exit 1; sin bases reto_restore_check_* al final' },
+  },
+
   // ───────────────────────────── PAR ─────────────────────────────
   {
     id: 'TC-PAR-01', title: 'Dos roles trabajando a la vez', priority: 'Alta', type: 'Integración', guide: '0.2',

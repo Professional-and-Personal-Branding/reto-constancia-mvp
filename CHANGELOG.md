@@ -5,6 +5,13 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- `scripts/db-backup.mjs`: respaldo de la base verificado. Vuelca la base, la restaura en una base temporal
+  local y compara las filas de cada tabla con el origen (`OK`/`FALLO`); usa los clientes del PATH o el
+  contenedor `reto-constancia-db`. El runbook §5.1 lo exige antes de desplegar una migración. Sin
+  migraciones ni dependencias nuevas.
+
 ### Corregido
 
 - El login hace siempre una verificación argon2: con un email inexistente o un usuario inactivo se
