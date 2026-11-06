@@ -5,15 +5,6 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
-### Agregado
-
-- Nueva página Usuarios para el admin: buscar, activar o desactivar, cambiar el rol y reiniciar la
-  contraseña.
-- Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
-  alcanzan, con textos que dejan la calificación para el cierre.
-- El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las
-  sesiones del usuario se cierran en su próxima petición (`POST /api/users/:id/reset-password`). Sin migración.
-
 ### Corregido
 
 - Un cambio de contraseña (desde Mi cuenta, reinicio del admin o del seed) corta al instante los access
@@ -23,6 +14,30 @@ Versionado [SemVer](https://semver.org/lang/es/).
   nadie vuelve a iniciar sesión; los clientes hechos a mano (curl, scripts) deben renovar una vez. El
   texto de éxito de Mi cuenta y el del reinicio en Usuarios dejan de decir "en unos minutos". Sin
   migración; para volver atrás basta redesplegar la API y la web anteriores.
+- El diálogo de cerrar reto (y de guardar la premiación) es ahora un modal accesible como el de
+  renovar: el teclado no sale de él, el resto de la página queda inerte, Escape no hace nada mientras
+  cierra y el foco vuelve al botón que lo abrió. Salda la deuda anotada en la 1.12.1. Sin migración.
+
+## [1.13.0] — 2026-10-29
+
+Minor sin migraciones, dependencias ni variables de entorno. Para volver a la 1.12.1 se despliegan API y web juntas; las sesiones sobreviven (los refresh tokens ya llevaban `pwv` desde la 1.12.0). Tras el despliegue nadie necesita volver a iniciar sesión; el admin del seed puede rotar su contraseña desde Mi cuenta o desde Usuarios. Destacan el chequeo de sesión efectivo (desactivar o degradar surte efecto en la siguiente petición), Mi avance, los pagos en lote y el reinicio de contraseña por el admin con la página Usuarios.
+
+### Agregado
+
+- Nueva página Usuarios para el admin: buscar, activar o desactivar, cambiar el rol y reiniciar la
+  contraseña.
+- Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
+  alcanzan, con textos que dejan la calificación para el cierre.
+- El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las
+  sesiones del usuario se cierran en minutos (`POST /api/users/:id/reset-password`). Sin migración.
+- Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y
+  copiar la lista de quienes deben. Nuevo `PATCH /challenges/:id/participants/payments` (admin; 1 a
+  200 ids, una sola transacción bajo el lock del reto, informe exacto en `marked`, `alreadyPaid`,
+  `excluded` y `skipped`); en la web, casillas "Seleccionar el pago de <nombre>", "Seleccionar sin
+  pagar", confirmación con el total y "Copiar pendientes". Sin migración.
+
+### Corregido
+
 - Desactivar o degradar a un usuario surte efecto en su siguiente petición (antes valía hasta 15
   minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
   su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
@@ -50,14 +65,6 @@ anota la deuda del diálogo de cerrar reto.
   activos para inscribir.") y con una sola persona el texto va en singular.
 - Se documenta en la especificación el límite aceptado de la liberación de fotos tras retirar una
   actividad (reenviar por API el id de un archivo ya liberado solo afecta a quien lo hace).
-
-### Añadido
-
-- Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y
-  copiar la lista de quienes deben. Nuevo `PATCH /challenges/:id/participants/payments` (admin; 1 a
-  200 ids, una sola transacción bajo el lock del reto, informe exacto en `marked`, `alreadyPaid`,
-  `excluded` y `skipped`); en la web, casillas "Seleccionar el pago de <nombre>", "Seleccionar sin
-  pagar", confirmación con el total y "Copiar pendientes". Sin migración.
 
 ### Deuda conocida
 

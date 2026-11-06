@@ -64,4 +64,4 @@
 - [x] 6.1 Guide `docs/guia-plataforma.html`, step "Registrar los pagos": bulk action, what it never overwrites, and "Copiar pendientes"
 - [x] 6.2 `CHANGELOG.md` "Sin publicar": "Participantes: marcar la cuota de varios a la vez (sin tocar pagos parciales ni montos distintos) y copiar la lista de quienes deben"
 - [x] 6.3 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
-- [ ] 6.4 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the release
+- [x] 6.4 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the release

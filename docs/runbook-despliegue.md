@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.12.1` (tag sobre `main`) |
+| **Versión de referencia** | `v1.13.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -260,6 +260,7 @@ volver a la 1.10.0 se despliegan API y web juntas, porque la web usa `renewal-pr
 `participants/bulk`, y la API cambia el retiro de actividades rechazadas.
 La 1.12.0 (con «Mi cuenta») tampoco trae migraciones: para volver a la 1.11.0 se despliegan API y web juntas. Los refresh tokens que emite llevan un dato extra que la anterior ignora, así que las sesiones sobreviven a la reversión; las contraseñas cambiadas mientras tanto quedan cambiadas (son hashes normales).
 La 1.12.1 (endurece la renovación y la inscripción en bloque) tampoco trae migraciones ni variables: para volver a la 1.12.0 se despliegan API y web juntas; no cambia ningún contrato.
+La 1.13.0 (chequeo de sesión efectivo, «Mi avance», pagos en lote y reinicio de contraseña por el admin) tampoco trae migraciones ni variables: para volver a la 1.12.1 se despliegan API y web juntas. Las sesiones sobreviven a la reversión (los refresh tokens ya llevaban `pwv` desde la 1.12.0); una contraseña temporal emitida mientras tanto sigue siendo un hash normal, y la web de la 1.12.1 no tiene la página Usuarios ni las casillas de pago.
 
 ---
 
