@@ -22,11 +22,14 @@ Resumen de los controles implementados, mapeados a principios de OWASP
     `backend/src/auth/auth.module.ts`.
   - Refresh token: secreto distinto (`JWT_REFRESH_SECRET`) y
     `JWT_REFRESH_EXPIRES_IN` (default 7d) en `auth.service.ts`.
-  - El refresh token termina al cambiar la contraseña: lleva una huella (`pwv`, HMAC-SHA256 del
-    hash con `JWT_REFRESH_SECRET`, 22 caracteres) y `refresh` rechaza con 401 un token sin huella o
-    con una huella que ya no coincide con el hash actual (cambio desde "Mi cuenta" o reinicio por
-    el seed). La sesión que cambia la contraseña recibe tokens nuevos; las demás dejan de renovarse
-    y sus access tokens ya emitidos valen hasta 15 minutos más. Sin migración.
+  - Los tokens terminan al cambiar la contraseña: el access token y el refresh token llevan una huella
+    (`pwv`, HMAC-SHA256 del hash con `JWT_REFRESH_SECRET`, 22 caracteres). `JwtStrategy` la compara en
+    cada petición (con la misma lectura por id que ya hace) y responde 401 "Sesión no válida" si falta
+    o no coincide; `refresh` rechaza igual un token sin huella o con una huella vieja. Vale para el
+    cambio desde "Mi cuenta", el reinicio del admin y el reinicio por el seed: la sesión que cambia la
+    contraseña recibe tokens nuevos y las demás dejan de servir en su próxima petición. El hash nunca
+    llega a `req.user`. Sin migración. Rotar `JWT_REFRESH_SECRET` cierra además todos los access
+    tokens al instante (antes, solo al renovar): hay que iniciar sesión de nuevo.
   - `PATCH /users/me/password`: 5 intentos/min por IP (como el login), 400 si la contraseña actual
     es incorrecta (no 401, para que la web no confunda el error con una sesión vencida), misma regla
     de contraseña que el registro (8 a 72 caracteres, con letra y número) y nueva distinta de la actual.
@@ -136,9 +139,6 @@ usuario en su próxima renovación. Cada reinicio deja una línea `[Audit]` con 
 
 ## Mejoras futuras (no bloqueantes)
 
-- Cerrar las otras sesiones al instante tras un cambio de contraseña (por ejemplo, la huella `pwv`
-  también en el access token): hoy un cambio de contraseña corta las otras sesiones en su próxima
-  renovación, hasta 15 minutos después.
 - Cambio de contraseña obligatorio al primer ingreso tras un reinicio del admin (necesita una
   migración con una columna `mustChangePassword`).
 - Verificación de correo y flujo de "olvidé mi contraseña".

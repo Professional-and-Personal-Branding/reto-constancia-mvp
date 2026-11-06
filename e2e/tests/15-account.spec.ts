@@ -70,7 +70,7 @@ test('cambia su nombre y su contraseña desde Mi cuenta', async ({ page, request
   );
   await fill(oldPassword, newPassword, newPassword);
   await expect(
-    page.getByText('Contraseña actualizada. Las sesiones abiertas en otros dispositivos se cerrarán en unos minutos.'),
+    page.getByText('Contraseña actualizada. Se cerraron las sesiones abiertas en otros dispositivos.'),
   ).toBeVisible();
   await expect(passwordForm.getByLabel('Contraseña actual')).toHaveValue('');
   await expect(passwordForm.getByLabel('Nueva contraseña', { exact: true })).toHaveValue('');
