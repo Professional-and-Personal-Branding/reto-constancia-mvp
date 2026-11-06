@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import { hashPassword } from '../auth/password-hash';
 import { Prisma, User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -119,7 +120,7 @@ export class UsersService {
     const ok = await argon2.verify(user.passwordHash, dto.currentPassword);
     if (!ok) throw new BadRequestException('Contraseña actual incorrecta');
 
-    const passwordHash = await argon2.hash(dto.newPassword);
+    const passwordHash = await hashPassword(dto.newPassword);
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
@@ -143,7 +144,7 @@ export class UsersService {
     }
     await this.findById(id);
     const temporaryPassword = generateTemporaryPassword();
-    const passwordHash = await argon2.hash(temporaryPassword);
+    const passwordHash = await hashPassword(temporaryPassword);
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
     new Logger('Audit').log(
       JSON.stringify({ event: 'admin_password_reset', requestId, actorId, targetId: id }),

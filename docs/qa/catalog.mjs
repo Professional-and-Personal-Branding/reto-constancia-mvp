@@ -107,6 +107,7 @@ export const CASES = [
     steps: ['POST /api/auth/login con contraseña errónea.'],
     expected: ['401 "Credenciales inválidas".', 'El mensaje es el mismo exista o no el email (no revela cuentas).'],
     auto: [
+      U('auth.service.spec.ts', 'login con email inexistente verifica contra el hash señuelo y lanza Unauthorized'),
       U('auth.service.spec.ts', 'login con password incorrecto lanza Unauthorized'),
       A('app.e2e-spec.ts', 'POST /api/auth/login con password incorrecto -> 401'),
     ],
@@ -356,6 +357,24 @@ export const CASES = [
       A('account.e2e-spec.ts', 'ACCOUNT: tras el cambio el access token anterior responde 401 y el nuevo sigue sirviendo'),
       A('account.e2e-spec.ts', 'ACCOUNT: un access token sin pwv (anterior al despliegue) responde 401 y el refresh lo repone'),
       A('admin-users.e2e-spec.ts', 'RESET: el access token emitido antes del reinicio responde 401 al instante'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-24', title: 'El login falla igual con email inexistente, usuario inactivo o contraseña incorrecta', priority: 'Alta', type: 'Seguridad', guide: '1.2',
+    pre: ['Una cuenta activa, otra desactivada y un email sin cuenta.'],
+    data: 'POST /api/auth/login con las tres combinaciones',
+    steps: ['Iniciar sesión con un email que no existe.', 'Iniciar sesión con la contraseña correcta de un usuario desactivado.', 'Iniciar sesión con una contraseña errónea de un usuario activo.'],
+    expected: [
+      'Los tres casos responden 401 "Credenciales inválidas" con el mismo cuerpo.',
+      'En los tres se ejecuta una sola verificación argon2: contra el hash señuelo (email inexistente o usuario inactivo) o contra el hash del usuario (contraseña errónea), de modo que la latencia no revela qué correos tienen cuenta activa.',
+      'El hash señuelo usa el mismo algoritmo y parámetros que las contraseñas reales.',
+    ],
+    auto: [
+      U('password-hash.spec.ts', 'produce un hash argon2id que argon2.verify acepta'),
+      U('auth.service.spec.ts', 'login con email inexistente verifica contra el hash señuelo y lanza Unauthorized'),
+      U('auth.service.spec.ts', 'el hash señuelo comparte algoritmo y parámetros con las contraseñas reales'),
+      U('auth.service.spec.ts', 'login válido devuelve tokens'),
+      A('app.e2e-spec.ts', 'el login responde igual con email inexistente, usuario inactivo o contraseña incorrecta'),
     ],
   },
 
