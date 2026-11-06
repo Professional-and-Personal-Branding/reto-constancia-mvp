@@ -7,6 +7,8 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Agregado
 
+- Nueva página Usuarios para el admin: buscar, activar o desactivar, cambiar el rol y reiniciar la
+  contraseña.
 - Mi reto muestra "Mi avance": cuántos días validados faltan para el mínimo y si los días que quedan
   alcanzan, con textos que dejan la calificación para el cierre.
 - El admin puede reiniciar la contraseña de un usuario: recibe una temporal una sola vez y las

@@ -333,6 +333,7 @@ test.describe('Participante', () => {
     await expect(page.getByText('Mínimo 8 caracteres, con al menos una letra y un número.')).toBeVisible();
     await shot(page, '35-mi-cuenta.jpg', page.locator('main'));
   });
+
 });
 
 const CLOSED_NAME = 'Reto Agosto 2026';
@@ -547,6 +548,17 @@ test.describe('Administrador', () => {
     // Se cancela para no crear el borrador de noviembre en la demostración
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
+  });
+
+  test('Usuarios: búsqueda, estado y acciones por fila', async ({ page }) => {
+    await page.goto('/dashboard/admin/users');
+    await expect(page.getByRole('heading', { name: 'Usuarios', exact: true })).toBeVisible();
+    await page.getByLabel('Buscar por nombre o correo').fill('const');
+    const ana = page.getByTestId('user-row').filter({ hasText: NAMES.ana });
+    await expect(ana.getByRole('button', { name: 'Reiniciar contraseña' })).toBeVisible();
+    await expect(ana.getByRole('button', { name: 'Hacer admin' })).toBeVisible();
+    await expect(ana.getByRole('button', { name: 'Desactivar' })).toBeVisible();
+    await shot(page, '36-usuarios.jpg', page.locator('main'));
   });
 
   test('inscripción en bloque desde Participantes', async ({ page }) => {

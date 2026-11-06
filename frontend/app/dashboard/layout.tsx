@@ -35,6 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       ? [
           { href: '/dashboard/admin/validations', label: 'Validar', admin: true },
           { href: '/dashboard/admin/participants', label: 'Participantes', admin: true },
+          { href: '/dashboard/admin/users', label: 'Usuarios', admin: true },
           { href: '/dashboard/admin/import', label: 'Importar', admin: true },
           { href: '/dashboard/admin/challenges', label: 'Retos', admin: true },
         ]
