@@ -47,5 +47,5 @@
 
 - [x] 5.1 Guide `docs/guia-plataforma.html`, step "Leer el panel Mi reto": describe "Mi avance" and that the result is confirmed at the close; capture only if the guide suite already captures that step
 - [x] 5.2 `CHANGELOG.md` "Sin publicar": "Mi reto muestra Mi avance: cuántos días validados faltan para el mínimo y si los días que quedan alcanzan"
-- [ ] 5.3 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
-- [ ] 5.4 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the 1.13.0 release
+- [x] 5.3 Reset the DB; `node scripts/run-tests.mjs` (13/13); reset the DB; `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"); `openspec validate --all --strict`
+- [x] 5.4 PR to `develop` in Spanish with the 3 CI jobs green; the owner merges; archive at the 1.13.0 release

@@ -6,24 +6,24 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { User, UserRole } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { jwtExpiresIn } from './jwt-expiry';
+import { matchesFingerprint, passwordFingerprint } from './password-fingerprint';
 import { LoginDto } from './dto/login.dto';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: UserRole;
-}
-
-/** El refresh token lleva además la huella de la contraseña (`pwv`); el access token no. */
-export interface RefreshPayload extends JwtPayload {
+  /** Huella del hash de la contraseña; la llevan el access token y el refresh token. */
   pwv?: string;
 }
+
+/** Alias de compatibilidad: ambos tokens llevan la misma huella (`pwv`). */
+export type RefreshPayload = JwtPayload;
 
 export interface AuthTokens {
   accessToken: string;
@@ -73,7 +73,8 @@ export class AuthService {
       const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
       if (!user || !user.active) throw new UnauthorizedException();
       // Un token sin huella (anterior a este cambio) o de antes del último cambio de contraseña no sirve.
-      if (!this.matchesFingerprint(payload.pwv, user)) throw new UnauthorizedException();
+      const secret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
+      if (!matchesFingerprint(payload.pwv, user.passwordHash, secret)) throw new UnauthorizedException();
       return this.issueTokens(user);
     } catch {
       throw new UnauthorizedException('Refresh token inválido');
@@ -86,29 +87,15 @@ export class AuthService {
   }
 
   issueTokens(user: User): AuthTokens {
-    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+    const refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
+    const pwv = passwordFingerprint(user.passwordHash, refreshSecret);
+    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role, pwv };
     const accessToken = this.jwt.sign(payload);
-    const refreshPayload: RefreshPayload = { ...payload, pwv: this.passwordFingerprint(user) };
-    const refreshToken = this.jwt.sign(refreshPayload, {
-      secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+    const refreshToken = this.jwt.sign(payload, {
+      secret: refreshSecret,
       expiresIn: jwtExpiresIn(this.config.get<string>('JWT_REFRESH_EXPIRES_IN'), '7d', 'JWT_REFRESH_EXPIRES_IN'),
     });
     return { accessToken, refreshToken };
-  }
-
-  /** Huella del hash de la contraseña: HMAC con el secreto del refresh, 22 caracteres base64url. */
-  private passwordFingerprint(user: User): string {
-    return createHmac('sha256', this.config.getOrThrow<string>('JWT_REFRESH_SECRET'))
-      .update(user.passwordHash)
-      .digest('base64url')
-      .slice(0, 22);
-  }
-
-  private matchesFingerprint(claim: unknown, user: User): boolean {
-    if (typeof claim !== 'string') return false;
-    const expected = Buffer.from(this.passwordFingerprint(user));
-    const received = Buffer.from(claim);
-    return received.length === expected.length && timingSafeEqual(received, expected);
   }
 
   private sanitize(user: User): SafeUser {

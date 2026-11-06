@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
 import request from 'supertest';
@@ -10,7 +11,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
  * Mi cuenta (spec account-self-service): nombre, contraseña, límite de intentos y fin de las
  * otras sesiones. App propia: sus cubetas del limitador empiezan vacías y no se mezclan con las
  * de platform-rules (que agota las de login a propósito). Presupuesto: 2 registros, 2 logins,
- * 2 renovaciones y 6 cambios de contraseña. Usuarios `e2e-account-*`, limpiados al inicio y al final.
+ * 3 renovaciones y 6 cambios de contraseña. Usuarios `e2e-account-*`, limpiados al inicio y al final.
  */
 describe('Mi cuenta (e2e)', () => {
   let app: INestApplication;
@@ -136,6 +137,32 @@ describe('Mi cuenta (e2e)', () => {
     expect(withOld.body.message).toBe('Credenciales inválidas');
     const withNew = await request(http).post('/api/auth/login').send({ email: emailU, password: newPassword });
     expect(withNew.status).toBe(200);
+  });
+
+  it('ACCOUNT: tras el cambio el access token anterior responde 401 y el nuevo sigue sirviendo', async () => {
+    const old = await request(http).get('/api/auth/me').set(auth(tokensA.accessToken));
+    expect(old.status).toBe(401);
+    expect(old.body.message).toBe('Sesión no válida');
+
+    const fresh = await request(http).get('/api/auth/me').set(auth(tokensC.accessToken));
+    expect(fresh.status).toBe(200);
+    expect(fresh.body.id).toBe(userId);
+    expect(fresh.body.passwordHash).toBeUndefined();
+  });
+
+  it('ACCOUNT: un access token sin pwv (anterior al despliegue) responde 401 y el refresh lo repone', async () => {
+    const stored = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const forged = app
+      .get(JwtService)
+      .sign({ sub: stored.id, email: stored.email, role: stored.role });
+    const rejected = await request(http).get('/api/auth/me').set(auth(forged));
+    expect(rejected.status).toBe(401);
+    expect(rejected.body.message).toBe('Sesión no válida');
+
+    const refreshed = await request(http).post('/api/auth/refresh').send({ refreshToken: tokensC.refreshToken });
+    expect(refreshed.status).toBe(200);
+    const again = await request(http).get('/api/auth/me').set(auth(refreshed.body.accessToken));
+    expect(again.status).toBe(200);
   });
 
   it('ACCOUNT: el registro usa la misma regla de contraseña, con el mensaje en español', async () => {
