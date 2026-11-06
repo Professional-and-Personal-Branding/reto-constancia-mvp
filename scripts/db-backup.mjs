@@ -58,7 +58,7 @@ function connFromUrl(url, database) {
     PGHOST: u.hostname.replace(/^\[|\]$/g, ''),
     PGPORT: u.port || '5432',
     PGUSER: decodeURIComponent(u.username),
-    PGPASSWORD: decodeURIComponent(u.password),
+    PGPASSWORD: decodeURIComponent(u.password), // secret-scan:allow lee la clave de la URL en tiempo de ejecucion, no es un valor guardado
     PGDATABASE: database ?? decodeURIComponent(u.pathname.replace(/^\//, '')),
   };
   const ssl = u.searchParams.get('sslmode');
