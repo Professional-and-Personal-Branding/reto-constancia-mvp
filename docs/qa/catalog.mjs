@@ -2446,7 +2446,7 @@ export const CASES = [
       'Al validar una, el contador del menú baja en 1 sin recargar.',
     ],
     auto: [
-      F('pending.test.ts', 'insignia de pendientes: sin número en 0, el valor hasta 99 y "99+" por encima'),
+      F('pending.test.ts', 'insignia de pendientes: sin número en 0, el valor hasta 99 y 99+ por encima'),
       W('03-admin-validation.spec.ts', 'la cola filtra por reto, ordena de la más antigua y el menú muestra el contador'),
     ],
   },

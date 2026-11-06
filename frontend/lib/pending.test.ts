@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { pendingBadgeLabel } from './pending.ts';
 
-test('insignia de pendientes: sin número en 0, el valor hasta 99 y "99+" por encima', () => {
+test('insignia de pendientes: sin número en 0, el valor hasta 99 y 99+ por encima', () => {
   assert.equal(pendingBadgeLabel(0), null);
   assert.equal(pendingBadgeLabel(-1), null);
   assert.equal(pendingBadgeLabel(1), '1');
