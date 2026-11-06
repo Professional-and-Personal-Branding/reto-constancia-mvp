@@ -1,6 +1,6 @@
 import { validate } from 'class-validator';
 
-import { IsAccountPassword } from './password-policy';
+import { generateTemporaryPassword, IsAccountPassword } from './password-policy';
 
 class Sample {
   @IsAccountPassword()
@@ -34,5 +34,19 @@ describe('IsAccountPassword (regla única de contraseña)', () => {
   it('"Passw0rd1" y una de 72 caracteres pasan', async () => {
     expect(await messages('Passw0rd1')).toEqual([]);
     expect(await messages('a1'.repeat(36))).toEqual([]);
+  });
+});
+
+describe('generateTemporaryPassword', () => {
+  it('la contraseña temporal cumple la regla de cuenta y no tiene caracteres confundibles', async () => {
+    const pattern = /^[A-HJ-NP-Za-km-np-z2-9]{4}(-[A-HJ-NP-Za-km-np-z2-9]{4}){2}$/;
+    const seen = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      const value = generateTemporaryPassword();
+      expect(value).toMatch(pattern);
+      expect(await messages(value)).toEqual([]);
+      seen.add(value);
+    }
+    expect(seen.size).toBe(1000);
   });
 });

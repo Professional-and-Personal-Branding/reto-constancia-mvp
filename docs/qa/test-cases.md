@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-28** · rama `release/1.12.1` · commit `feb5dbd` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-10-30** · rama `release/1.13.0` · commit `3da134a` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**149 casos** · 149 aprobados · 0 fallidos · 0 con limitación conocida · 148 automatizados.
+**159 casos** · 159 aprobados · 0 fallidos · 0 con limitación conocida · 158 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,17 +17,17 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 18 | 18 | 0 |
-| [Seguridad y configuración](#sec) | 13 | 13 | 0 |
+| [Autenticación y sesión](#auth) | 22 | 22 | 0 |
+| [Seguridad y configuración](#sec) | 14 | 14 | 0 |
 | [Gestión de retos](#chal) | 25 | 25 | 0 |
-| [Participantes y pagos](#part) | 9 | 9 | 0 |
-| [Actividades y validación](#act) | 24 | 24 | 0 |
+| [Participantes y pagos](#part) | 11 | 11 | 0 |
+| [Actividades y validación](#act) | 25 | 25 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
-| [Reglas de puntaje](#score) | 7 | 7 | 0 |
+| [Reglas de puntaje](#score) | 8 | 8 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
-| [Interfaz y navegación](#ui) | 11 | 11 | 0 |
+| [Interfaz y navegación](#ui) | 12 | 12 | 0 |
 | [Salud del servicio](#health) | 5 | 5 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
@@ -55,6 +55,10 @@
 | [TC-AUTH-16](#tc-auth-16) | Cambiar la contraseña desde Mi cuenta | Alta | Funcional | ✅ Aprobado |
 | [TC-AUTH-17](#tc-auth-17) | Contraseña actual incorrecta y política de la nueva | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-18](#tc-auth-18) | Límite de intentos de cambio de contraseña | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-19](#tc-auth-19) | Un usuario desactivado pierde el acceso en su siguiente petición | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-20](#tc-auth-20) | El rol vigente de la base manda sobre el del token | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-21](#tc-auth-21) | El admin reinicia la contraseña de un usuario | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-22](#tc-auth-22) | Reinicio de contraseña: permisos, propio id y límite | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -597,7 +601,7 @@
 - 400 con cada mensaje en español de la política.
 - 400 "La nueva contraseña debe ser distinta de la actual".
 - La contraseña nunca cambia en estos casos.
-- 401 si el usuario ya no existe o está inactivo.
+- 401 si el usuario ya no existe o está inactivo, en cualquier ruta (ver TC-AUTH-19).
 
 **Validación automatizada**
 
@@ -647,6 +651,145 @@
 | ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: el sexto cambio de contraseña en un minuto responde 429 y la contraseña no cambia |
 | ✅ | Web (unitaria) | `account.test.ts` | Mi cuenta: un 429 muestra el texto de demasiados intentos y un cuerpo ilegible el texto genérico |
 
+<a id="tc-auth-19"></a>
+
+### TC-AUTH-19 · Un usuario desactivado pierde el acceso en su siguiente petición
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante con un access token vivo y su refresh token.
+
+**Datos de prueba:** el admin pone active: false; después active: true
+
+**Pasos**
+
+1. Llamar a GET /api/challenges/active/list y a POST /api/auth/refresh.
+2. Reactivar al usuario y llamar de nuevo con el mismo access token.
+
+**Resultado esperado**
+
+- 401 "Sesión no válida" en cualquier ruta y 401 al renovar.
+- Tras la reactivación el mismo access token funciona.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: usuario inexistente responde 401 "Sesión no válida" |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: usuario inactivo responde 401 "Sesión no válida" |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un usuario desactivado con access token vivo recibe 401 en cualquier ruta y no puede renovar |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un usuario reactivado vuelve a usar su access token |
+
+<a id="tc-auth-20"></a>
+
+### TC-AUTH-20 · El rol vigente de la base manda sobre el del token
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Dos admin activos y un participante.
+
+**Datos de prueba:** degradar al admin A; promover al participante
+
+**Pasos**
+
+1. A llama a GET /api/users y a los resultados de un reto donde está inscrito.
+2. El promovido llama a GET /api/users.
+
+**Resultado esperado**
+
+- 403 "No tienes permiso para esta acción" y ranking sin email ni paid para A.
+- 200 para el promovido sin iniciar sesión de nuevo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate devuelve sub, email y rol leídos de la base y no los del token |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate busca por id y selecciona solo id, email, role y active |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un admin degradado con access token vivo recibe 403 en rutas de admin y el ranking sin emails |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión |
+
+<a id="tc-auth-21"></a>
+
+### TC-AUTH-21 · El admin reinicia la contraseña de un usuario
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 3.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin.
+- Participante Ana con una sesión abierta (refresh token).
+
+**Datos de prueba:** POST /api/users/<Ana>/reset-password
+
+**Pasos**
+
+1. Reiniciar la contraseña de Ana.
+2. Iniciar sesión como Ana con la temporal y con la contraseña vieja.
+3. Renovar la sesión anterior de Ana.
+
+**Resultado esperado**
+
+- 200 con solo temporaryPassword (xxxx-xxxx-xxxx) y Cache-Control: no-store.
+- Con la temporal el inicio de sesión da 200; con la vieja 401 "Credenciales inválidas".
+- La renovación de la sesión anterior da 401.
+- Una línea admin_password_reset en los logs, sin la contraseña.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `password-policy.spec.ts` | la contraseña temporal cumple la regla de cuenta y no tiene caracteres confundibles |
+| ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal |
+| ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin escribe la línea de auditoría sin la contraseña |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el refresh token emitido antes del reinicio se rechaza |
+| ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
+
+<a id="tc-auth-22"></a>
+
+### TC-AUTH-22 · Reinicio de contraseña: permisos, propio id y límite
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesiones de admin y de participante.
+
+**Datos de prueba:** el participante como llamante; el id del propio admin; un id desconocido; un cuerpo { password }; seis peticiones en un minuto
+
+**Pasos**
+
+1. Llamar al reinicio en cada caso.
+
+**Resultado esperado**
+
+- 403; 400 "Para cambiar tu propia contraseña usa Mi cuenta"; 404 "Usuario no encontrado"; 400; la sexta petición 429.
+- La contraseña no cambia en ninguno de estos casos.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin rechaza el propio id con 400 sin buscar ni escribir |
+| ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin responde 404 si el usuario no existe |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: un participante recibe 403 y la contraseña no cambia |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin no puede reiniciar su propia contraseña |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: un usuario inexistente responde 404 y un cuerpo con propiedades 400 |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el sexto reinicio en un minuto responde 429 |
+
 <a id="sec"></a>
 
 ## Seguridad y configuración
@@ -666,6 +809,7 @@
 | [TC-SEC-11](#tc-sec-11) | El admin conserva emails y pagos en el ranking y en la lista de activos | Media | Seguridad | ✅ Aprobado |
 | [TC-SEC-12](#tc-sec-12) | Un error inesperado responde un 500 genérico con el código y sin detalles internos | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-13](#tc-sec-13) | Swagger apagado en producción salvo que se active | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-14](#tc-sec-14) | Siempre queda un administrador activo y nadie se desactiva a sí mismo | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-sec-01"></a>
 
@@ -1113,6 +1257,45 @@
 |---|---|---|---|
 | ✅ | Unitaria | `http.spec.ts` | sin configurar: apagado en producción, encendido en desarrollo y pruebas |
 | ✅ | Unitaria | `http.spec.ts` | SWAGGER_ENABLED manda en cualquier entorno |
+
+<a id="tc-sec-14"></a>
+
+### TC-SEC-14 · Siempre queda un administrador activo y nadie se desactiva a sí mismo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 1.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Base limpia con uno o dos admin activos.
+
+**Datos de prueba:** { active: false } sobre uno mismo; { role: "PARTICIPANT" } sobre el último admin; degradaciones y desactivaciones cruzadas en paralelo
+
+**Pasos**
+
+1. Enviar cada PATCH /api/users/:id.
+
+**Resultado esperado**
+
+- Los tres mensajes 400 en español.
+- Con dos admin la degradación funciona.
+- En una carrera exactamente una petición tiene éxito y queda un admin activo.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `users.service.spec.ts` | update: desactivar la propia cuenta responde 400 y no escribe |
+| ✅ | Unitaria | `users.service.spec.ts` | update: desactivar al único admin activo (distinto del actor) responde 400 y no escribe |
+| ✅ | Unitaria | `users.service.spec.ts` | update: quitar el rol al único admin activo responde 400 y no escribe |
+| ✅ | Unitaria | `users.service.spec.ts` | update: con dos admins activos la degradación corre dentro de la transacción tras el FOR UPDATE |
+| ✅ | Unitaria | `users.service.spec.ts` | update: nombre, promoción y reactivación no abren la transacción con bloqueo |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: nadie puede desactivar su propia cuenta |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: el último admin activo no puede quitarse el rol |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: con dos admins activos se puede degradar a uno |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: dos admins que se degradan a la vez dejan exactamente un admin activo |
+| ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: dos admins que se desactivan a la vez dejan exactamente un admin activo |
 
 <a id="chal"></a>
 
@@ -2138,6 +2321,8 @@
 | [TC-PART-07](#tc-part-07) | Estado de pago propio en el inicio del participante | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-08](#tc-part-08) | Inscribir a varios usuarios de una vez (API) | Alta | Funcional | ✅ Aprobado |
 | [TC-PART-09](#tc-part-09) | Inscripción en bloque desde Participantes | Alta | UI | ✅ Aprobado |
+| [TC-PART-10](#tc-part-10) | Registrar la cuota de varios participantes (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-PART-11](#tc-part-11) | Pagos en lote y lista de pendientes desde Participantes | Alta | UI | ✅ Aprobado |
 | [TC-PART-06](#tc-part-06) | Reto cerrado: sin altas ni bajas | Media | Negativo | ✅ Aprobado |
 
 <a id="tc-part-01"></a>
@@ -2255,6 +2440,7 @@
 - Sin monto registra la cuota y paidAt.
 - Con monto respeta el monto.
 - Impago limpia monto y fecha.
+- Para registrar la cuota de varios a la vez ver TC-PART-10 (API) y TC-PART-11 (UI).
 
 **Validación automatizada**
 
@@ -2453,6 +2639,92 @@
 | ✅ | Web (unitaria) | `renewal.test.ts` | mergeBulkResults: combina los lotes en un solo resultado |
 | ✅ | Guía | `capture.spec.ts` | inscripción en bloque desde Participantes |
 
+<a id="tc-part-10"></a>
+
+### TC-PART-10 · Registrar la cuota de varios participantes (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | Funcional | 3.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con cuota 120 BOB; Ana sin pago, Bea con 120, Carla con 60, Diego con 150; Luis no inscrito.
+- Un reto cerrado y uno sin cuota.
+
+**Datos de prueba:** PATCH /api/challenges/:id/participants/payments con { userIds, paid: true } para los cinco ids; el mismo lote otra vez; el lote contra el reto cerrado y contra el reto sin cuota
+
+**Pasos**
+
+1. Enviar el lote mixto.
+2. Repetirlo.
+3. Enviar el lote contra el reto cerrado y contra el reto sin cuota.
+4. Enviar dos lotes iguales a la vez.
+5. Enviar listas inválidas y llamar como participante.
+
+**Resultado esperado**
+
+- 200 con Ana en marked (monto 120), Bea en alreadyPaid, Carla en excluded PARTIAL con 60, Diego en excluded DIFFERENT_AMOUNT con 150 y Luis en skipped NOT_ENROLLED; solo Ana queda escrita, con 120 y paidAt.
+- Repetir no marca a nadie: marked vacío y ningún cambio.
+- Reto cerrado: 400 "No se puede modificar un reto cerrado", sin cambios y con el pozo intacto; reto sin cuota: 400 "Este reto no cobra cuota".
+- Con dos lotes simultáneos cada persona queda con un solo pago y figura en marked de exactamente una respuesta.
+- 400 para lista vacía, 201 ids, un id que no es UUID o paid false; 403 al participante.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk marca solo a quien no tiene pago y reporta cada id en una sola lista |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk compara en centavos y trata un monto nulo como parcial |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk rechaza un reto cerrado sin escribir |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk rechaza un reto sin cuota |
+| ✅ | Unitaria | `challenges.service.spec.ts` | markPaymentsBulk responde 404 si el reto no existe |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un lote mixto marca solo a quien no tenía pago y reporta el resto aparte |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: repetir el lote no marca a nadie |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: dos lotes iguales a la vez registran un solo pago por persona |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un reto cerrado rechaza el lote y el pozo no cambia |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un reto sin cuota rechaza el lote |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: lote vacío, de 201 ids, con un id inválido o con paid false responde 400 |
+| ✅ | API e2e | `challenge-finance.e2e-spec.ts` | BULK-PAY: un participante recibe 403 |
+
+<a id="tc-part-11"></a>
+
+### TC-PART-11 · Pagos en lote y lista de pendientes desde Participantes
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Participantes y pagos | Alta | UI | 3.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; reto con cuota 120 BOB, dos participantes sin pago y uno con 60.
+
+**Datos de prueba:** "Seleccionar sin pagar", luego también la persona con el pago parcial
+
+**Pasos**
+
+1. Pulsar "Seleccionar sin pagar" y "Marcar seleccionados como pagados (2)".
+2. Marcar también a la persona con pago parcial y volver a abrir la confirmación.
+3. Confirmar.
+4. Pulsar "Copiar pendientes".
+
+**Resultado esperado**
+
+- El diálogo dice "Se registrará la cuota de 120 BOB a 2 personas: 240 BOB." y no se envía nada hasta confirmar.
+- La persona con pago parcial aparece bajo "No se tocan:" ("pago parcial de 60 BOB") y el total sigue contando a dos.
+- Un mensaje de estado informa 2 pagos registrados y 1 sin tocar; "Pagados" sube en 2 y la persona parcial sigue en Parciales.
+- El portapapeles tiene una línea por quien debe ("<nombre>: 60 BOB") y "Total adeudado: 60 BOB", sin emails.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `payment.test.ts` | Pagos en lote: el resumen de confirmación cuenta solo a quien no tiene pago y lista aparte al resto |
+| ✅ | Web (unitaria) | `payment.test.ts` | Pagos en lote: el mensaje del resultado usa singular y plural |
+| ✅ | Web (unitaria) | `payment.test.ts` | Pendientes: una línea por persona sin pago o con pago parcial, ordenada por nombre y sin emails |
+| ✅ | Web (unitaria) | `payment.test.ts` | Pendientes: marca el comprobante por revisar y suma el total adeudado |
+| ✅ | UI | `17-bulk-payments.spec.ts` | marca pagos en lote con confirmación y copia la lista de pendientes |
+
 <a id="tc-part-06"></a>
 
 ### TC-PART-06 · Reto cerrado: sin altas ni bajas
@@ -2512,6 +2784,7 @@
 | [TC-ACT-22](#tc-act-22) | Avisos y límites de fecha en la subida | Alta | UI | ✅ Aprobado |
 | [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
 | [TC-ACT-24](#tc-act-24) | Corregir un día rechazado | Alta | Funcional | ✅ Aprobado |
+| [TC-ACT-25](#tc-act-25) | Mi avance: cuánto falta para el mínimo | Alta | UI | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -3348,6 +3621,45 @@
 | ✅ | Web (unitaria) | `calendar.test.ts` | canRegisterAgain: ofrece registrar solo un día válido y libre de un reto activo |
 | ✅ | UI | `10-api-only-actions.spec.ts` | corrige un día rechazado: lo retira y lo registra de nuevo |
 
+<a id="tc-act-25"></a>
+
+### TC-ACT-25 · Mi avance: cuánto falta para el mínimo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | UI | 4.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Reto activo con minValidatedDaysToQualify = 3; participante inscrito con 1 actividad validada y 1 pendiente.
+
+**Datos de prueba:** Luego 2 actividades más validadas
+
+**Pasos**
+
+1. Abrir Mi reto con el reto seleccionado.
+2. Validar el resto de actividades.
+3. Recargar el panel.
+
+**Resultado esperado**
+
+- La tarjeta Mi avance muestra "Validados: 1 de 3", "Te faltan 2 días validados para el mínimo; aún puedes llegar." y la línea con los pendientes y los días sin registrar.
+- Tras las validaciones muestra "Ya alcanzas el mínimo; se confirma al cierre.".
+- Un administrador que no está inscrito no ve la tarjeta.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: con la fila calificada el estado es QUALIFIED y el texto se confirma al cierre |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: alcanzable con pendientes y días abiertos, en singular y plural |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: un día rechazado cuenta como abierto y uno pendiente no |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: fuera de alcance cuando faltan más días que pendientes y abiertos |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: con mínimo 0 la meta es 1 día validado |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: días alcanzados con puntaje 0 dan NO_SCORE |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: el porcentaje no supera 100 |
+| ✅ | UI | `16-my-progress.spec.ts` | Mi avance muestra lo que falta para el mínimo y luego que ya se alcanza |
+
 <a id="res"></a>
 
 ## Resultados y premiación
@@ -3555,6 +3867,7 @@
 | [TC-SCORE-05](#tc-score-05) | Ranking web con reglas propias | Media | UI | ✅ Aprobado |
 | [TC-SCORE-06](#tc-score-06) | Notas de la regla y compatibilidad | Media | Funcional | ✅ Aprobado |
 | [TC-SCORE-07](#tc-score-07) | El tope se muestra en la unidad del reto | Media | Regresión | ✅ Aprobado |
+| [TC-SCORE-08](#tc-score-08) | La regla de calificación de la web coincide con la del servidor | Media | Regresión | ✅ Aprobado |
 
 <a id="tc-score-01"></a>
 
@@ -3795,6 +4108,35 @@
 | ✅ | UI | `05-challenges-scoring.spec.ts` | el ranking describe la regla, muestra puntos y marca a quien no califica |
 | ✅ | Guía | `capture.spec.ts` | ranking con puntos, no califica y premio proyectado |
 | ✅ | Guía | `capture.spec.ts` | panel Mi reto muestra período, cuenta regresiva y métricas |
+
+<a id="tc-score-08"></a>
+
+### TC-SCORE-08 · La regla de calificación de la web coincide con la del servidor
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Reglas de puntaje | Media | Regresión | 6.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Ninguna.
+
+**Datos de prueba:** backend/src/challenges/qualification-parity.json
+
+**Pasos**
+
+1. Correr las pruebas unitarias del servidor y las de la web.
+
+**Resultado esperado**
+
+- Ambas reglas dan el valor qualified de cada caso de la tabla.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `scoring.spec.ts` | la tabla de paridad coincide con isQualified |
+| ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: la tabla de paridad coincide con la regla del servidor |
 
 <a id="fin"></a>
 
@@ -4969,6 +5311,7 @@
 | [TC-UI-05](#tc-ui-05) | Documentación interactiva de la API | Baja | Funcional | ✅ Aprobado |
 | [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
 | [TC-UI-11](#tc-ui-11) | Un error inesperado al validar muestra el código para soporte | Media | UI | ✅ Aprobado |
+| [TC-UI-12](#tc-ui-12) | Página Usuarios del admin | Alta | UI | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -5139,7 +5482,7 @@
 **Precondiciones**
 
 - Dos retos activos (aparece el selector de reto).
-- Sesión de administrador (siete secciones más Mi cuenta) y de participante.
+- Sesión de administrador (ocho secciones, con Usuarios, más Mi cuenta) y de participante.
 
 **Datos de prueba:** Pantallas de 1280 × 800 y 390 × 844; reto "Reto Octubre 2026 (no inscrito)" en el selector del administrador
 
@@ -5191,6 +5534,45 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | UI | `03-admin-validation.spec.ts` | un error inesperado al validar muestra el código para soporte |
+
+<a id="tc-ui-12"></a>
+
+### TC-UI-12 · Página Usuarios del admin
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Alta | UI | 3.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador.
+- Un participante desechable.
+
+**Datos de prueba:** Búsqueda "jose" (sin tildes ni mayúsculas); desactivar, activar, subir y bajar el rol; reiniciar la contraseña
+
+**Pasos**
+
+1. Abrir Usuarios y buscar al participante.
+2. Desactivarlo, activarlo, hacerlo admin y quitarle el rol.
+3. Reiniciar su contraseña y cerrar el diálogo.
+
+**Resultado esperado**
+
+- La lista se filtra por nombre o correo sin distinguir mayúsculas ni tildes.
+- Cada cambio se refleja en la fila tras la confirmación (activar no la pide).
+- La contraseña temporal se muestra una sola vez con la indicación de compartirla en privado y desaparece al cerrar.
+- La propia fila dice "Tú", enlaza a Mi cuenta y no ofrece acciones; los errores de la API salen en español; un participante no ve datos.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: la búsqueda ignora mayúsculas y tildes en nombre y correo |
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: la lista se ordena por nombre |
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: la propia fila no ofrece desactivar, cambiar rol ni reiniciar |
+| ✅ | Web (unitaria) | `users.test.ts` | Usuarios: las etiquetas de rol, estado y acción siguen al usuario |
+| ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
+| ✅ | Guía | `capture.spec.ts` | Usuarios: búsqueda, estado y acciones por fila |
 
 <a id="tc-ui-06"></a>
 

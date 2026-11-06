@@ -1045,3 +1045,107 @@ describe('ChallengesService: renovación mensual (challenge-renewal)', () => {
     });
   });
 });
+
+describe('ChallengesService.markPaymentsBulk (challenge-finance, pagos en lote)', () => {
+  const ANA = '00000000-0000-4000-8000-0000000000a1';
+  const BEA = '00000000-0000-4000-8000-0000000000b2';
+  const CARLA = '00000000-0000-4000-8000-0000000000c3';
+  const DIEGO = '00000000-0000-4000-8000-0000000000d4';
+  const LUIS = '00000000-0000-4000-8000-0000000000e5';
+  const NAMES: Record<string, string> = { [ANA]: 'Ana', [BEA]: 'Bea', [CARLA]: 'Carla', [DIEGO]: 'Diego' };
+
+  type Enrolment = { id: string; userId: string; paid: boolean; amountPaid: number | null };
+
+  function build(opts: { status?: ChallengeStatus; fee?: number; exists?: boolean; enrolments?: Enrolment[] }) {
+    const { status = ChallengeStatus.ACTIVE, fee = 120, exists = true, enrolments = [] } = opts;
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const findMany = jest.fn(async () =>
+      enrolments.map((e) => ({
+        ...e,
+        amountPaid: e.amountPaid === null ? null : { toString: () => String(e.amountPaid) },
+        user: { id: e.userId, name: NAMES[e.userId], email: `${NAMES[e.userId].toLowerCase()}@x` },
+      })),
+    );
+    const challenge = exists ? { id: 'c', status, feePerParticipant: fee, currency: 'BOB' } : null;
+    const prisma = withLocks(
+      {
+        challenge: { findUnique: jest.fn().mockResolvedValue(challenge) },
+        challengeParticipant: { findMany, updateMany },
+      } as unknown as PrismaService,
+      async (id) => (exists ? { id, status } : null),
+    );
+    const lockRaw = (prisma as unknown as { $queryRaw: jest.Mock }).$queryRaw;
+    const challengeLock = lockRaw.getMockImplementation()!;
+    lockRaw.mockImplementation(async (strings: TemplateStringsArray, ...values: unknown[]) =>
+      strings.join('?').includes('"ChallengeParticipant"')
+        ? enrolments.map((e) => ({ id: e.id }))
+        : challengeLock(strings, ...values),
+    );
+    return { svc: challengesService(prisma), updateMany };
+  }
+
+  const MIXED: Enrolment[] = [
+    { id: 'pa', userId: ANA, paid: false, amountPaid: null },
+    { id: 'pb', userId: BEA, paid: true, amountPaid: 120 },
+    { id: 'pc', userId: CARLA, paid: true, amountPaid: 60 },
+    { id: 'pd', userId: DIEGO, paid: true, amountPaid: 150 },
+  ];
+
+  it('markPaymentsBulk marca solo a quien no tiene pago y reporta cada id en una sola lista', async () => {
+    const { svc, updateMany } = build({ enrolments: MIXED });
+    const res = await svc.markPaymentsBulk('c', [ANA, BEA, CARLA, DIEGO, LUIS, ANA]);
+    expect(res.feePerParticipant).toBe(120);
+    expect(res.currency).toBe('BOB');
+    expect(res.marked).toEqual([{ userId: ANA, name: 'Ana', email: 'ana@x', amountPaid: 120 }]);
+    expect(res.alreadyPaid.map((r) => r.userId)).toEqual([BEA]);
+    expect(res.excluded).toEqual([
+      { userId: CARLA, name: 'Carla', email: 'carla@x', reason: 'PARTIAL', amountPaid: 60 },
+      { userId: DIEGO, name: 'Diego', email: 'diego@x', reason: 'DIFFERENT_AMOUNT', amountPaid: 150 },
+    ]);
+    expect(res.skipped).toEqual([{ userId: LUIS, reason: 'NOT_ENROLLED', message: 'No está inscrito en este reto' }]);
+    const listed = [...res.marked, ...res.alreadyPaid, ...res.excluded, ...res.skipped].map((r) => r.userId);
+    expect([...listed].sort()).toEqual([ANA, BEA, CARLA, DIEGO, LUIS].sort());
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    const arg = updateMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: { in: ['pa'] } });
+    expect(arg.data).toMatchObject({ paid: true, amountPaid: 120 });
+    expect(arg.data.paidAt).toBeInstanceOf(Date);
+  });
+
+  it('markPaymentsBulk compara en centavos y trata un monto nulo como parcial', async () => {
+    const { svc, updateMany } = build({
+      fee: 120.1,
+      enrolments: [
+        { id: 'pa', userId: ANA, paid: true, amountPaid: 120.1 },
+        { id: 'pc', userId: CARLA, paid: true, amountPaid: null },
+        { id: 'pd', userId: DIEGO, paid: true, amountPaid: 120.11 },
+      ],
+    });
+    const res = await svc.markPaymentsBulk('c', [ANA, CARLA, DIEGO]);
+    expect(res.alreadyPaid.map((r) => r.userId)).toEqual([ANA]);
+    expect(res.excluded).toEqual([
+      expect.objectContaining({ userId: CARLA, reason: 'PARTIAL', amountPaid: 0 }),
+      expect.objectContaining({ userId: DIEGO, reason: 'DIFFERENT_AMOUNT' }),
+    ]);
+    expect(res.marked).toEqual([]);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('markPaymentsBulk rechaza un reto cerrado sin escribir', async () => {
+    const { svc, updateMany } = build({ status: ChallengeStatus.COMPLETED, enrolments: MIXED });
+    await expect(svc.markPaymentsBulk('c', [ANA])).rejects.toThrow(new BadRequestException('No se puede modificar un reto cerrado'));
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('markPaymentsBulk rechaza un reto sin cuota', async () => {
+    const { svc, updateMany } = build({ fee: 0, enrolments: MIXED });
+    await expect(svc.markPaymentsBulk('c', [ANA])).rejects.toThrow(new BadRequestException('Este reto no cobra cuota'));
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('markPaymentsBulk responde 404 si el reto no existe', async () => {
+    const { svc, updateMany } = build({ exists: false });
+    await expect(svc.markPaymentsBulk('c', [ANA])).rejects.toThrow(NotFoundException);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+});

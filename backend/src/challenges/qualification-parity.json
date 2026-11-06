@@ -1,0 +1,9 @@
+[
+  { "name": "mínimo 0 sin días validados", "min": 0, "validatedDays": 0, "score": 0, "qualified": false },
+  { "name": "mínimo 0 con un día validado", "min": 0, "validatedDays": 1, "score": 1, "qualified": true },
+  { "name": "mínimo 10 con 9 días", "min": 10, "validatedDays": 9, "score": 9, "qualified": false },
+  { "name": "mínimo 10 con 10 días", "min": 10, "validatedDays": 10, "score": 10, "qualified": true },
+  { "name": "mínimo 10 con 11 días", "min": 10, "validatedDays": 11, "score": 11, "qualified": true },
+  { "name": "mínimo 3 alcanzado con puntaje 0", "min": 3, "validatedDays": 3, "score": 0, "qualified": false },
+  { "name": "mínimo 2 alcanzado con puntaje fraccionario", "min": 2, "validatedDays": 2, "score": 0.5, "qualified": true }
+]

@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { TiebreakRule } from '@prisma/client';
 
 import {
@@ -52,6 +55,23 @@ describe('isQualified', () => {
     const rules = { ...defaults, minValidatedDaysToQualify: 10 };
     expect(isQualified(rules, { validatedDays: 8, score: 8 })).toBe(false);
     expect(isQualified(rules, { validatedDays: 10, score: 10 })).toBe(true);
+  });
+});
+
+describe('paridad de la regla de calificación', () => {
+  it('la tabla de paridad coincide con isQualified', () => {
+    const cases: {
+      name: string;
+      min: number;
+      validatedDays: number;
+      score: number;
+      qualified: boolean;
+    }[] = JSON.parse(readFileSync(join(__dirname, 'qualification-parity.json'), 'utf8'));
+    expect(cases.length).toBeGreaterThanOrEqual(7);
+    for (const c of cases) {
+      const rules = { ...defaults, minValidatedDaysToQualify: c.min };
+      expect({ name: c.name, got: isQualified(rules, c) }).toEqual({ name: c.name, got: c.qualified });
+    }
   });
 });
 
