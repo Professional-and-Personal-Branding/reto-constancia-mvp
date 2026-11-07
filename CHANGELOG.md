@@ -5,6 +5,29 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Agregado
+
+- **Migración** `add_activity_rejection_history` (primera desde la 1.4.0; solo agrega): tabla
+  `ActivityRejection` (motivo, admin que rechazó y hora; borra en cascada con la actividad y pone en
+  nulo al admin si se elimina), índice `(activityId, rejectedAt)`, columna `DailyActivity.resubmissionCount`
+  y un relleno idempotente que crea una entrada por cada actividad rechazada con motivo
+  (`backend/prisma/sql/backfill-activity-rejections.sql`). **Antes de desplegar, respaldo verificado con
+  `OK` (runbook §5.1).** Para volver a la 1.14.0 se redespliegan API y web sin tocar el esquema; al volver a
+  la nueva se corre el relleno de recuperación con `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql`
+  (runbook §4).
+- API: `PUT /api/activities/:id/resubmission` (solo el dueño de una actividad rechazada de un reto activo):
+  corrige y reenvía la misma actividad (mismo id y fecha, vuelve a pendiente, conserva las fotos que siguen,
+  las fotos nuevas deben ser subidas propias y las quitadas se liberan al terminar) con las reglas vigentes
+  del reto. Las actividades traen `resubmissionCount` y `rejections` (motivo y hora, sin el admin).
+
+### Cambiado
+
+- `POST /activities/:id/reject` solo acepta actividades pendientes: una rechazada o validada responde 409
+  "Solo se pueden rechazar actividades pendientes" (una validación equivocada se corrige eliminando la
+  actividad). Validar, rechazar, retirar y reenviar bloquean la fila de la actividad: una carrera entre
+  ellos queda decidida en orden, validar una actividad retirada a la vez responde 404 y no 500, y una fila
+  retenida más de 5 s responde 409 "La actividad se está modificando; vuelve a intentarlo en unos segundos".
+
 ## [1.14.0] — 2026-11-07
 
 Sin migraciones ni variables nuevas. Para volver a la 1.13.0 se redespliegan API y web juntas; los access tokens emitidos con la 1.14.0 llevan `pwv` y la 1.13.0 los ignora, así que las sesiones sobreviven.

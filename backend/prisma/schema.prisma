@@ -32,6 +32,7 @@ model User {
   activities     DailyActivity[]
   validatedActs  DailyActivity[]        @relation("ValidatedBy")
   awards         ChallengeAward[]
+  rejectionsMade ActivityRejection[]    @relation("RejectedBy")
 
   @@index([email])
 }
@@ -155,16 +156,31 @@ model DailyActivity {
   validatedAt       DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+  resubmissionCount Int            @default(0) // veces que el dueño corrigió y reenvió la actividad rechazada
 
   challenge   Challenge       @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   validatedBy User?           @relation("ValidatedBy", fields: [validatedById], references: [id])
   photos      ActivityPhoto[]
+  rejections  ActivityRejection[]
 
   // Un participante solo puede tener UNA actividad por día por reto.
   @@unique([challengeId, userId, date])
   @@index([challengeId, date])
   @@index([userId, status])
+}
+
+/// Historial de rechazos de una actividad (spec activity-resubmission). `rejectedById` es interno: la API no lo expone.
+model ActivityRejection {
+  id           String        @id @default(uuid())
+  activityId   String
+  reason       String
+  rejectedById String?
+  rejectedAt   DateTime      @default(now())
+  activity     DailyActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  rejectedBy   User?         @relation("RejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+
+  @@index([activityId, rejectedAt])
 }
 
 enum PhotoType {
