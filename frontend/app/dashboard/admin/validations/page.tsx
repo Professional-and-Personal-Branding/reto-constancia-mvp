@@ -1,21 +1,60 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api';
 import type { DailyActivity } from '@/lib/types';
 import { formatDay } from '@/lib/dates';
+import { useActiveChallenge } from '@/lib/use-active-challenge';
 
 function formatDate(iso: string): string {
   return formatDay(iso, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// useSearchParams necesita un límite de Suspense para que la página siga siendo estática
 export default function ValidationsPage() {
+  return (
+    <Suspense fallback={<p className="text-ink-dim">Cargando…</p>}>
+      <Validations />
+    </Suspense>
+  );
+}
+
+function Validations() {
   const qc = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const { challenges, isLoading: challengesLoading } = useActiveChallenge();
+
+  // El reto y el orden viven en la URL (?reto=<id>&orden=desc) para sobrevivir a una recarga.
+  // Un reto que no está entre los activos se ignora y se muestran todos.
+  const requestedId = params.get('reto');
+  const challengeId = requestedId && challenges.some((c) => c.id === requestedId) ? requestedId : undefined;
+  const order: 'asc' | 'desc' = params.get('orden') === 'desc' ? 'desc' : 'asc';
+
+  function setFilter(next: { reto?: string; orden?: 'asc' | 'desc' }) {
+    const q = new URLSearchParams(params.toString());
+    const reto = 'reto' in next ? next.reto : (challengeId ?? requestedId ?? undefined);
+    const orden = next.orden ?? order;
+    if (reto) q.set('reto', reto);
+    else q.delete('reto');
+    if (orden === 'desc') q.set('orden', 'desc');
+    else q.delete('orden');
+    const qs = q.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }
 
   const { data: pending, isLoading } = useQuery<DailyActivity[]>({
-    queryKey: ['activities', 'pending'],
-    queryFn: () => api<DailyActivity[]>('/activities/pending'),
+    queryKey: ['activities', 'pending', challengeId ?? 'all', order],
+    queryFn: () => {
+      const q = new URLSearchParams({ order });
+      if (challengeId) q.set('challengeId', challengeId);
+      return api<DailyActivity[]>(`/activities/pending?${q.toString()}`);
+    },
+    // Espera a conocer los retos activos para no pedir la lista de "todos" y luego la filtrada
+    enabled: !challengesLoading,
   });
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -65,6 +104,36 @@ export default function ValidationsPage() {
           {pending?.length ?? 0} actividad{pending?.length === 1 ? '' : 'es'} pendiente
           {pending?.length === 1 ? '' : 's'} de revisión.
         </p>
+        <div className="flex flex-wrap items-center gap-3 mt-4">
+          <label className="flex items-center gap-2 text-sm text-ink-dim">
+            Reto
+            <select
+              className="input py-1.5"
+              aria-label="Filtrar por reto"
+              value={challengeId ?? ''}
+              onChange={(e) => setFilter({ reto: e.target.value || undefined })}
+            >
+              <option value="">Todos los retos</option>
+              {challenges.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink-dim">
+            Orden
+            <select
+              className="input py-1.5"
+              aria-label="Orden de la cola"
+              value={order}
+              onChange={(e) => setFilter({ orden: e.target.value === 'desc' ? 'desc' : 'asc' })}
+            >
+              <option value="asc">Más antiguas primero</option>
+              <option value="desc">Más nuevas primero</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {actionError && (
@@ -119,6 +188,8 @@ function ActivityCard({
   const [reason, setReason] = useState('');
   const [overriding, setOverriding] = useState(false);
   const [note, setNote] = useState('');
+  // En un reto cerrado las actividades son definitivas: la API respondería 400 (design D4)
+  const closedChallenge = activity.challenge?.status === 'COMPLETED';
 
   return (
     <div className="card p-5">
@@ -152,6 +223,9 @@ function ActivityCard({
             <div>
               <p className="display text-2xl">{activity.user?.name}</p>
               <p className="text-xs text-ink-mute">{activity.user?.email}</p>
+              {activity.challenge?.name && (
+                <p className="text-xs text-ink-dim mt-1">Reto: {activity.challenge.name}</p>
+              )}
             </div>
             <div className="flex gap-2">
               {activity.heartRateCompliant ? (
@@ -159,6 +233,7 @@ function ActivityCard({
               ) : (
                 <span className="badge bg-warn/15 text-warn">No cumple FC</span>
               )}
+              {closedChallenge && <span className="badge bg-ink-mute/15 text-ink-dim">Reto cerrado</span>}
               <span className="badge-pending">Pendiente</span>
             </div>
           </div>
@@ -193,7 +268,11 @@ function ActivityCard({
             </p>
           )}
 
-          {overriding ? (
+          {closedChallenge ? (
+            <p className="text-sm text-ink-dim pt-2">
+              El reto está cerrado; sus actividades son definitivas y ya no se validan ni se rechazan.
+            </p>
+          ) : overriding ? (
             <div className="space-y-2 pt-2">
               <p className="text-sm text-warn">
                 Esta actividad no cumple la regla de FC del reto. Para validarla de todas formas,

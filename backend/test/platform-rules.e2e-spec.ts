@@ -762,6 +762,64 @@ describe('Reglas de la plataforma (e2e)', () => {
 
   // ---------------- Sesión ----------------
 
+  it('QUEUE: la cola filtra por reto, ordena de la más antigua y el contador cuenta solo retos activos', async () => {
+    const mk = (month: number, status: 'ACTIVE' | 'COMPLETED', name: string) =>
+      prisma.challenge.create({
+        data: {
+          name, month, year: YEAR, status, minHeartRateMinutes: 0,
+          startDate: new Date(`${YEAR}-${String(month).padStart(2, '0')}-01T00:00:00.000Z`),
+          endDate: new Date(`${YEAR}-${String(month).padStart(2, '0')}-28T23:59:59.000Z`),
+        },
+      });
+    const a = await mk(8, 'ACTIVE', 'Cola A');
+    const b = await mk(9, 'ACTIVE', 'Cola B');
+    const c = await mk(10, 'COMPLETED', 'Cola C');
+    const day = (m: number, d: number) =>
+      new Date(`${YEAR}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00.000Z`);
+    const act = (challenge: string, user: string, date: Date) =>
+      prisma.dailyActivity.create({
+        data: { challengeId: challenge, userId: user, date, exerciseType: 'RUNNING', durationMinutes: 30 },
+      });
+    const baseline = (await request(http).get('/api/activities/pending/count').set(auth(token.admin))).body.count as number;
+    const a3 = await act(a.id, id.ana, day(8, 3));
+    const a1 = await act(a.id, id.ana, day(8, 1));
+    const aTieFirst = await act(a.id, id.bruno, day(8, 2));
+    const aTieSecond = await act(a.id, id.ana, day(8, 2));
+    const b2 = await act(b.id, id.ana, day(9, 2));
+    const c1 = await act(c.id, id.ana, day(10, 1));
+    const idsOf = (res: request.Response) => res.body.map((x: { id: string }) => x.id);
+
+    const asc = await request(http).get(`/api/activities/pending?challengeId=${a.id}`).set(auth(token.admin));
+    expect(asc.status).toBe(200);
+    expect(idsOf(asc)).toEqual([a1.id, aTieFirst.id, aTieSecond.id, a3.id]);
+    expect(asc.body.every((x: { challenge: { name: string } }) => x.challenge.name === 'Cola A')).toBe(true);
+    const desc = await request(http).get(`/api/activities/pending?challengeId=${a.id}&order=desc`).set(auth(token.admin));
+    expect(idsOf(desc)).toEqual([a3.id, aTieSecond.id, aTieFirst.id, a1.id]);
+
+    const all = await request(http).get('/api/activities/pending').set(auth(token.admin));
+    expect(all.status).toBe(200);
+    const ours = [a1.id, a3.id, aTieFirst.id, aTieSecond.id, b2.id, c1.id];
+    const mine = all.body.filter((x: { id: string }) => ours.includes(x.id));
+    expect(mine).toHaveLength(6);
+    expect(mine.find((x: { id: string }) => x.id === c1.id).challenge.status).toBe('COMPLETED');
+    expect(mine.find((x: { id: string }) => x.id === b2.id).challenge.status).toBe('ACTIVE');
+
+    expect((await request(http).get('/api/activities/pending?challengeId=abc').set(auth(token.admin))).status).toBe(400);
+    expect((await request(http).get('/api/activities/pending?order=sideways').set(auth(token.admin))).status).toBe(400);
+
+    const count = await request(http).get('/api/activities/pending/count').set(auth(token.admin));
+    expect(count.status).toBe(200);
+    expect(count.body).toEqual({ count: baseline + 5 });
+    const validated = await request(http).post(`/api/activities/${b2.id}/validate`).set(auth(token.admin));
+    expect(validated.status).toBe(201);
+    const after = await request(http).get('/api/activities/pending/count').set(auth(token.admin));
+    expect(after.body).toEqual({ count: baseline + 4 });
+
+    for (const url of ['/api/activities/pending', '/api/activities/pending/count']) {
+      expect((await request(http).get(url).set(auth(token.ana))).status).toBe(403);
+    }
+  });
+
   it('AUTH: el registro rechaza contraseñas sin número (400)', async () => {
     // Sin número, demasiado corta y sin letra: ninguna crea la cuenta
     const cases: Array<[string, RegExp]> = [
