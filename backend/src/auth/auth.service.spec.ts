@@ -5,17 +5,34 @@ import * as argon2 from 'argon2';
 
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { hashPassword } from './password-hash';
+
+// argon2 es un módulo nativo no configurable: se envuelve para poder contar las llamadas.
+jest.mock('argon2', () => {
+  const actual = jest.requireActual<typeof import('argon2')>('argon2');
+  return { ...actual, verify: jest.fn(actual.verify), hash: jest.fn(actual.hash) };
+});
 
 describe('AuthService', () => {
+  const verifySpy = argon2.verify as unknown as jest.Mock;
   let prisma: {
     user: { findUnique: jest.Mock; create: jest.Mock };
   };
   let jwt: { sign: jest.Mock; verifyAsync: jest.Mock };
   let config: { get: jest.Mock; getOrThrow: jest.Mock };
   let service: AuthService;
+  let dummy: string;
+  const parametersOf = (hash: string): string => hash.split('$').slice(0, 4).join('$');
+
+  beforeAll(async () => {
+    // El hash señuelo se calcula una vez (como al arrancar la app) y se reutiliza en las pruebas.
+    const warm = new AuthService({} as PrismaService, {} as JwtService, {} as ConfigService);
+    dummy = await warm.onModuleInit();
+  });
 
   beforeEach(() => {
-    prisma = { user: { findUnique: jest.fn(), create: jest.fn() } };
+    verifySpy.mockClear();
+    prisma ={ user: { findUnique: jest.fn(), create: jest.fn() } };
     jwt = { sign: jest.fn().mockReturnValue('token'), verifyAsync: jest.fn() };
     config = {
       get: jest.fn().mockReturnValue('7d'),
@@ -26,6 +43,7 @@ describe('AuthService', () => {
       jwt as unknown as JwtService,
       config as unknown as ConfigService,
     );
+    (service as unknown as { dummyHash: Promise<string> }).dummyHash = Promise.resolve(dummy);
   });
 
   it('register crea usuario y no expone passwordHash', async () => {
@@ -66,8 +84,11 @@ describe('AuthService', () => {
       active: true,
       passwordHash,
     });
+    verifySpy.mockClear();
     const res = await service.login({ email: 'a@x.com', password: 'secret123' });
     expect(res.tokens.accessToken).toBe('token');
+    expect(verifySpy).toHaveBeenCalledTimes(1);
+    expect(verifySpy).toHaveBeenCalledWith(passwordHash, 'secret123');
   });
 
   it('login con password incorrecto lanza Unauthorized', async () => {
@@ -77,20 +98,47 @@ describe('AuthService', () => {
       active: true,
       passwordHash,
     });
+    verifySpy.mockClear();
     await expect(
       service.login({ email: 'a@x.com', password: 'incorrecto' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toEqual(new UnauthorizedException('Credenciales inválidas'));
+    expect(verifySpy).toHaveBeenCalledTimes(1);
+    expect(verifySpy).toHaveBeenCalledWith(passwordHash, 'incorrecto');
   });
 
   it('login de usuario inactivo lanza Unauthorized', async () => {
+    const passwordHash = await argon2.hash('secret123');
     prisma.user.findUnique.mockResolvedValue({
       id: 'u1',
       active: false,
-      passwordHash: 'x',
+      passwordHash,
     });
+    verifySpy.mockClear();
+    // Aun con la contraseña correcta: se verifica contra el señuelo, no contra el hash del usuario.
     await expect(
       service.login({ email: 'a@x.com', password: 'secret123' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toEqual(new UnauthorizedException('Credenciales inválidas'));
+    expect(verifySpy).toHaveBeenCalledTimes(1);
+    expect(verifySpy).toHaveBeenCalledWith(dummy, 'secret123');
+  });
+
+  it('login con email inexistente verifica contra el hash señuelo y lanza Unauthorized', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    verifySpy.mockClear();
+    await expect(
+      service.login({ email: 'nadie@x.com', password: 'secret123' }),
+    ).rejects.toEqual(new UnauthorizedException('Credenciales inválidas'));
+    expect(verifySpy).toHaveBeenCalledTimes(1);
+    expect(verifySpy).toHaveBeenCalledWith(dummy, 'secret123');
+  });
+
+  it('el hash señuelo comparte algoritmo y parámetros con las contraseñas reales', async () => {
+    const real = await hashPassword('secret123');
+    expect(parametersOf(dummy)).toMatch(/^\$argon2id\$v=\d+\$m=\d+,t=\d+,p=\d+$/);
+    expect(parametersOf(dummy)).toBe(parametersOf(real));
+    // Un valor distinto en cada arranque: onModuleInit no reutiliza un literal.
+    const other = await new AuthService({} as PrismaService, {} as JwtService, {} as ConfigService).onModuleInit();
+    expect(other).not.toBe(dummy);
   });
 
   describe('huella de la contraseña en el refresh token (pwv)', () => {

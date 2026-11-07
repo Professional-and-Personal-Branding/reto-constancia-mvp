@@ -2,7 +2,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
+import { UserRole } from '@prisma/client';
+
 import { AppModule } from '../src/app.module';
+import { hashPassword } from '../src/auth/password-hash';
+import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
  * E2E del flujo principal. Requiere una base Postgres accesible vía DATABASE_URL
@@ -12,6 +16,7 @@ import { AppModule } from '../src/app.module';
 describe('Flujo principal (e2e)', () => {
   let app: INestApplication;
   let http: import('http').Server;
+  let prisma: PrismaService;
 
   const email = `e2e+${Date.now()}@reto.local`;
   const password = 'Secret123';
@@ -34,6 +39,7 @@ describe('Flujo principal (e2e)', () => {
     );
     await app.init();
     http = app.getHttpServer();
+    prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
@@ -84,6 +90,33 @@ describe('Flujo principal (e2e)', () => {
       .post('/api/auth/login')
       .send({ email, password: 'incorrecto1' });
     expect(res.status).toBe(401);
+  });
+
+  it('el login responde igual con email inexistente, usuario inactivo o contraseña incorrecta', async () => {
+    // Este archivo usa 5 de los 5 logins por minuto de la IP: no agregar más logins aquí.
+    const inactiveEmail = `e2e-timing-${Date.now()}@reto.local`;
+    const inactive = await prisma.user.create({
+      data: { email: inactiveEmail, name: 'E2E Timing', passwordHash: await hashPassword(password), role: UserRole.PARTICIPANT },
+    });
+    await prisma.user.update({ where: { id: inactive.id }, data: { active: false } });
+    try {
+      const unknown = await request(http)
+        .post('/api/auth/login')
+        .send({ email: `e2e-timing-nadie-${Date.now()}@reto.local`, password });
+      const deactivated = await request(http)
+        .post('/api/auth/login')
+        .send({ email: inactiveEmail, password });
+      const wrong = await request(http)
+        .post('/api/auth/login')
+        .send({ email, password: 'incorrecto1' });
+      for (const res of [unknown, deactivated, wrong]) {
+        expect(res.status).toBe(401);
+        expect(res.body).toEqual(wrong.body);
+      }
+      expect(wrong.body.message).toBe('Credenciales inválidas');
+    } finally {
+      await prisma.user.delete({ where: { id: inactive.id } });
+    }
   });
 
   it('participante no puede crear retos (RBAC 403)', async () => {

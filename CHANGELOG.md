@@ -13,9 +13,19 @@ Versionado [SemVer](https://semver.org/lang/es/).
   pendientes de los retos activos (oculto en 0, "99+" desde 100). API: `GET /activities/pending` acepta
   `order=asc|desc` (ascendente por defecto) y responde 400 si `challengeId` no es un UUID; nueva
   `GET /activities/pending/count`. Sin migración; para volver atrás se redespliegan API y web juntas.
+- `scripts/db-backup.mjs`: respaldo de la base verificado. Vuelca la base, la restaura en una base temporal
+  local y compara las filas de cada tabla con el origen (`OK`/`FALLO`); usa los clientes del PATH o el
+  contenedor `reto-constancia-db`. El runbook §5.1 lo exige antes de desplegar una migración. Sin
+  migraciones ni dependencias nuevas.
 
 ### Corregido
 
+- El login hace siempre una verificación argon2: con un email inexistente o un usuario inactivo se
+  verifica contra un hash señuelo con los mismos parámetros, así que la latencia ya no revela qué correos
+  tienen cuenta activa; los tres fallos (email inexistente, inactivo, contraseña errónea) responden el
+  mismo 401 "Credenciales inválidas". `POST /auth/register` sigue respondiendo 409 para un correo
+  existente (anotado en Mejoras futuras de `docs/security-owasp.md`). Sin migración; para volver atrás
+  basta redesplegar la API anterior.
 - Un cambio de contraseña (desde Mi cuenta, reinicio del admin o del seed) corta al instante los access
   tokens anteriores: el access token lleva la misma huella `pwv` que el refresh token y la API la compara
   en cada petición (antes valían hasta 15 minutos más). La sesión que cambió la contraseña sigue. Al

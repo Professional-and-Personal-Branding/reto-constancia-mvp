@@ -38,7 +38,7 @@ Sin estos puntos en verde **no se despliega**.
       comportamiento.
 - [ ] Hay ventana acordada con el administrador del reto (idealmente fuera del horario en que
       los participantes suben su actividad del día).
-- [ ] Respaldo de la base reciente (ver §5.1) si la versión trae migraciones.
+- [ ] Respaldo verificado con `node scripts/db-backup.mjs` (`OK`) si la versión trae migraciones (ver §5.1).
 
 ---
 
@@ -186,7 +186,7 @@ espera que `PATCH /api/users/me/password` responda 200 con tokens. Avisa a los p
 es el primer despliegue, sigue el paso 3 de §1.5.
 
 **Migraciones:** se aplican solas en el arranque de la API (`prisma migrate deploy`). Son
-solo hacia adelante. Si la versión trae alguna, toma el respaldo de §5.1 antes del paso 3.
+solo hacia adelante. Si la versión trae alguna, corre el respaldo verificado de §5.1 y despliega solo con `OK`, antes del paso 3.
 
 ---
 
@@ -266,14 +266,41 @@ La 1.13.0 (chequeo de sesión efectivo, «Mi avance», pagos en lote y reinicio 
 
 ## 5. Datos
 
-### 5.1 Respaldo antes de migraciones
+### 5.1 Respaldo verificado antes de migraciones
 
-```bash
-# Desde una máquina con acceso a la base (o la shell del servicio)
-pg_dump "$DATABASE_URL" --format=custom --file=reto-$(date +%Y%m%d-%H%M).dump
+`scripts/db-backup.mjs` vuelca la base, restaura el volcado en una base temporal local
+(`reto_restore_check_*`, que borra al terminar) y compara las filas de cada tabla con el origen.
+Solo lee el origen. Usa `pg_dump`, `pg_restore` y `psql` del PATH y, si no están, el contenedor
+`reto-constancia-db`.
+
+**Cuándo:** antes de cada despliegue cuyas notas de versión listen una migración, y una vez al mes.
+**Un despliegue con migración no se hace sin un `OK`.**
+
+**Cómo (Windows, este proyecto):**
+
+```powershell
+docker compose up -d postgres
+$env:DATABASE_URL = '<url de producción>'; node scripts/db-backup.mjs; Remove-Item Env:DATABASE_URL
 ```
 
-Guarda el archivo fuera de Seenode. Restaurar:
+En Git Bash: `DATABASE_URL='<url>' node scripts/db-backup.mjs`. Escribe `backups/reto-AAAAMMDD-HHMM.dump`
+(carpeta ignorada por git). Si la base solo es alcanzable desde la shell del servicio, haz el volcado
+allí (`pg_dump "$DATABASE_URL" --format=custom --file=reto.dump`), descárgalo y verifícalo con
+`node scripts/db-backup.mjs --file reto.dump`: termina con `OK (sin comparación con el origen)`,
+una prueba más débil (compara a ojo un par de cuentas con las pantallas del admin).
+
+**Resultado:** `OK` (código 0) permite desplegar. `FALLO` (código 1; el volcado queda como
+`*.unverified.dump`) no: repite el respaldo; "la base cambió durante el respaldo" se arregla
+repitiéndolo en un momento sin actividad. Código 2: el script se negó (destino no local, falta
+Docker o el cliente es más viejo que el servidor); el mensaje dice qué hacer.
+
+**Dónde guardarlo:** el `.dump` contiene datos personales (nombres, correos, pagos): fuera del
+repositorio y de Seenode, en una carpeta cifrada del dueño; nunca en incidencias ni chats.
+
+**Cuántos:** los últimos 3 verificados, más el previo a cada release con migración hasta confirmar
+la siguiente; el resto se borra a mano (el script nunca borra).
+
+**Restaurar** (comando manual, ahora con un archivo verificado):
 
 ```bash
 pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD-HHMM.dump
