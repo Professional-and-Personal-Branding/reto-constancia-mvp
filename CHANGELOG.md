@@ -5,6 +5,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.14.0] — 2026-11-07
+
+Sin migraciones ni variables nuevas. Para volver a la 1.13.0 se redespliegan API y web juntas; los access tokens emitidos con la 1.14.0 llevan `pwv` y la 1.13.0 los ignora, así que las sesiones sobreviven.
+
+**Nota de despliegue:** tras desplegar, los access tokens vigentes reciben un 401 y la web los renueva sola con su refresh token (nadie vuelve a iniciar sesión); los clientes hechos a mano (curl, scripts) deben renovar una vez.
+
 ### Agregado
 
 - Validar: selector de reto ("Todos los retos" por defecto) y orden (más antiguas primero por defecto,

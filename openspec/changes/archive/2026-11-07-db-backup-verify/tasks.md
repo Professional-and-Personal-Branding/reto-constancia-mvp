@@ -1,7 +1,7 @@
 ## 0. Approval
 
 - [x] 0.1 The owner approves these artifacts (proposal, design D1–D7 and the defaults in Open Questions); no code before that
-- [ ] 0.2 Branch from `develop` (one PR with the script, `.gitignore` and the runbook)
+- [x] 0.2 Branch from `develop` (one PR with the script, `.gitignore` and the runbook)
 
 ## 1. Script
 
@@ -27,6 +27,6 @@
 
 ## 4. Verification and PR
 
-- [ ] 4.1 `node scripts/run-tests.mjs` 13/13 (format of the new file included), reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict`
-- [ ] 4.2 PR to `develop` in Spanish; the owner merges after the 3 CI jobs are green; it must be merged before the next release with a migration
+- [x] 4.1 `node scripts/run-tests.mjs` 13/13 (format of the new file included), reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict`
+- [x] 4.2 PR to `develop` in Spanish; the owner merges after the 3 CI jobs are green; it must be merged before the next release with a migration
 - [ ] 4.3 After the merge, republish the runbook artifact at release time (`node scripts/build-runbook-artifact.mjs --ref origin/main`)
