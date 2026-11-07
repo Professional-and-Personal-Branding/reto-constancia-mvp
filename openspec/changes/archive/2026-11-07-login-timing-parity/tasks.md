@@ -8,7 +8,7 @@
 - [x] 1.1 Unit, `backend/src/auth/password-hash.spec.ts`: `hashPassword` produces an argon2id hash that `argon2.verify` accepts; the dummy hash of `AuthService` has the same `$argon2id$v=…$m=…,t=…,p=…$` prefix
 - [x] 1.2 Unit, `auth.service.spec.ts` (mock `argon2.verify`, real `hash`): unknown email → `verify` once with the dummy hash and `UnauthorizedException('Credenciales inválidas')`; inactive user with the right password → once with the dummy hash (not the user's) and the same exception; wrong password → once with the user's hash and the same exception; valid login → once with the user's hash and tokens
 - [x] 1.3 API e2e, `backend/test/app.e2e-spec.ts`: unknown email, inactive user (created and deactivated with Prisma, prefix `e2e-timing-`) and wrong password answer 401 with identical bodies; count the logins of the file against the 5/min limit
-- [ ] 1.4 Run them and check they fail for the expected reason
+- [x] 1.4 Run them and check they fail for the expected reason
 
 ## 2. Backend
 
@@ -24,6 +24,6 @@
 
 ## 4. Verification and PR
 
-- [ ] 4.1 `node scripts/run-tests.mjs` 13/13, reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict`
-- [ ] 4.2 PR to `develop` in Spanish; the owner merges after the 3 CI jobs are green
+- [x] 4.1 `node scripts/run-tests.mjs` 13/13, reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict`
+- [x] 4.2 PR to `develop` in Spanish; the owner merges after the 3 CI jobs are green
 - [x] 4.3 At archive time: if `session-validity` does not exist yet in `openspec/specs/` (this change archived before `effective-session-checks`), rewrite its generic Purpose

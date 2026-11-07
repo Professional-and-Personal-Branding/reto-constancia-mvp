@@ -80,12 +80,13 @@ limit as login, counting every request whatever its outcome. Beyond the limit th
 
 ### Requirement: A password change keeps the current session and ends the others
 A successful password change SHALL answer 200 with a new `{ accessToken, refreshToken }` pair. Every
-refresh token MUST carry a fingerprint of the user's password hash, computed as an HMAC with the
-refresh secret, and `POST /api/auth/refresh` MUST reject with 401 "Refresh token inválido" any
-refresh token whose fingerprint is missing or does not match the user's current hash. The
-fingerprint MUST NOT appear in any response body other than inside the signed token, and the hash
-itself MUST never be exposed. Access tokens already issued remain valid until they expire. No schema
-change SHALL be required.
+refresh token and every access token MUST carry a fingerprint of the user's password hash, computed as
+an HMAC with the refresh secret. `POST /api/auth/refresh` MUST reject with 401 "Refresh token
+inválido" any refresh token whose fingerprint is missing or does not match the user's current hash,
+and every route protected by the JWT guard MUST reject with 401 "Sesión no válida" any access token
+whose fingerprint is missing or does not match. The other sessions of the user therefore end at their
+next request. The fingerprint MUST NOT appear in any response body other than inside the signed
+tokens, and the hash itself MUST never be exposed. No schema change SHALL be required.
 
 #### Scenario: Current session continues
 - **GIVEN** a user logged in on device A
@@ -96,6 +97,11 @@ change SHALL be required.
 - **GIVEN** the same user also logged in on device B before the change
 - **WHEN** device B refreshes its tokens after the change
 - **THEN** the response is 401 and the web on device B goes to `/login`
+
+#### Scenario: Other sessions end at their next request
+- **GIVEN** the same user also logged in on device B before the change, with a live access token
+- **WHEN** device B calls any protected route with that access token after the change
+- **THEN** the response is 401 "Sesión no válida", the web tries to refresh, the refresh answers 401 and the web goes to `/login`
 
 #### Scenario: New password works and the old one does not
 - **WHEN** the user logs in after the change
@@ -108,7 +114,7 @@ change SHALL be required.
 
 #### Scenario: Password reset by the seed
 - **GIVEN** the seed admin's password reset by running the seed with a new `SEED_ADMIN_PASSWORD`
-- **WHEN** a refresh token issued before the reset is used
+- **WHEN** an access token or a refresh token issued before the reset is used
 - **THEN** the response is 401
 
 ### Requirement: The web offers a "Mi cuenta" page
@@ -122,7 +128,7 @@ read-only data and two independent forms:
   hint "Mínimo 8 caracteres, con al menos una letra y un número." If the new password and its
   confirmation differ the page MUST show "Las contraseñas no coinciden" and MUST NOT call the API.
   On success it MUST store the returned tokens, clear the three fields and show "Contraseña
-  actualizada. Las sesiones abiertas en otros dispositivos se cerrarán en unos minutos."
+  actualizada. Se cerraron las sesiones abiertas en otros dispositivos."
 
 Errors from the API SHALL be shown in Spanish next to the form that caused them (the API message,
 or "Demasiados intentos. Espera un minuto e inténtalo de nuevo." for 429), and MUST NOT end the
@@ -143,7 +149,7 @@ session.
 
 #### Scenario: Successful change in the web
 - **WHEN** the user submits the right current password and a valid new one twice
-- **THEN** the success message appears, the fields are cleared, the stored tokens are the new ones and reloading the page keeps the session
+- **THEN** "Contraseña actualizada. Se cerraron las sesiones abiertas en otros dispositivos." appears, the fields are cleared, the stored tokens are the new ones and reloading the page keeps the session
 
 ### Requirement: A rejected refresh does not discard newer tokens
 When `POST /api/auth/refresh` rejects a refresh token, the web MUST clear the stored session only
