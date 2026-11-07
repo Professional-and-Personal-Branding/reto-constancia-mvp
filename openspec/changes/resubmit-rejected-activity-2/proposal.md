@@ -39,6 +39,10 @@ without duplicated work (design D9).
   "Solo se pueden reenviar actividades rechazadas"; not enrolled 403 (same as registering); rule
   violations 400 with the registration messages. Never 409: the date and the unique index are
   untouched.
+- **Only pending activities can be rejected** (coordinator decision, design D12): rejecting a
+  `REJECTED` or `VALIDATED` activity answers 409 "Solo se pueden rechazar actividades pendientes"
+  without changes (closed challenge keeps its 400 first). No web flow or existing test re-rejects;
+  a mistaken validation is fixed by deleting the activity.
 - **Rejection history.** Every `POST /activities/:id/reject` also writes an `ActivityRejection`
   row (reason, admin, time) in the same transaction. The migration backfills one row per current
   `REJECTED` activity with a reason. `rejectionReason` keeps meaning "reason of the current
@@ -53,15 +57,21 @@ without duplicated work (design D9).
   rejecting and deleting the same activity run one after the other on fresh data. Today the
   challenge lock is `FOR SHARE` and does not serialize them (finding of `edit-pending-activity` D3;
   it also makes the archived "Owner withdraws first → 404" scenario true, today it can be a 500).
+  For `validate` and `remove` the only visible change is that 404 instead of 500. A row-lock
+  timeout answers its own 409 "La actividad se está modificando; vuelve a intentarlo en unos
+  segundos" instead of the misleading "El reto se está cerrando…".
 - **Shared field rules.** The registration checks are extracted to a pure
   `checkActivityFields(challenge, values, hasHeartRateProof)` used by `create` and the
   resubmission (the helper `edit-pending-activity` D2 already names).
 - **Web, participant:** a rejected row in "Mis actividades" offers "Corregir y reenviar" (primary)
   and "Retirar"; the hint becomes "Puedes corregirla y reenviarla, o retirarla y registrar ese día
   de nuevo.". "Corregir y reenviar" opens the upload form in resubmission mode
-  (`/dashboard/upload?reenviar=<id>`): fields prefilled, date fixed, current photos listed with
-  "Quitar", new photos uploaded as today. After sending: "Actividad reenviada. Queda pendiente de
-  validación." Any row with earlier rejections shows "Rechazos anteriores (n)".
+  (`/dashboard/upload?reenviar=<id>`), bound to the activity's own challenge (not the selector):
+  fields prefilled, date fixed, the two photo slots prefilled with the stored photos as remote
+  previews ("Quitar", replace, move between slots to re-tag), extra stored photos under "Otras
+  fotos (n)", only new files uploaded. After sending: "Actividad reenviada. Queda pendiente de
+  validación." in a focused status region. Any row with earlier rejections shows a `<details>`
+  "Rechazos anteriores (n)".
 - **Web, admin "Validar":** a resubmitted card shows the badge "Reenviada" ("Reenviada ×n" from the
   second time) and the list of earlier rejections. The pending badge in the menu already counts it
   again; no other notification channel is added.
@@ -94,9 +104,11 @@ without duplicated work (design D9).
 
 - **Schema / migration (highlighted):** `prisma/schema.prisma` (`ActivityRejection`,
   `DailyActivity.resubmissionCount`, relations), one migration
-  `<timestamp>_add_activity_rejection_history` with an SQL backfill. Additive; the previous version
-  runs on the new schema (design D3, Migration Plan). The release needs the verified backup of
-  runbook §5.1 before deploying.
+  `<timestamp>_add_activity_rejection_history` with an idempotent SQL backfill (also kept as
+  `backend/prisma/sql/backfill-activity-rejections.sql`, the catch-up step after a rollback and
+  redeploy). Additive; the previous version runs on the new schema (design D3, Migration Plan).
+  Shipped alone in `release/1.15.0`; the verified backup of runbook §5.1 is mandatory before
+  deploying.
 - **Backend:** `ActivitiesController` (`PUT :id/resubmission`), new `ResubmitActivityDto`,
   `ActivitiesService.resubmit`, `reject` (writes history), `lockOpenActivity` (row lock, used by
   `validate`, `reject`, `remove`, `resubmit`), `checkActivityFields` extracted from `create`,
@@ -113,5 +125,7 @@ without duplicated work (design D9).
   `docs/runbook-despliegue.md` §4 (revert line for the release with this migration),
   `docs/security-owasp.md` (one line: owner-only resubmission, history without admin identity),
   `CHANGELOG.md` (migration and how to go back).
-- **Delivery:** 2 PRs — PR 1 migration + API (`feature/resubmit-rejected-activity-2-api`), PR 2 web
+- **Delivery:** 2 PRs — PR 1 migration + API (`feature/resubmit-rejected-activity-2-api`, with
+  the runbook §4 revert text and the CHANGELOG entry), PR 2 web
   (`feature/resubmit-rejected-activity-2-web`) after PR 1 is merged. PR 1 is deployable alone.
+  Release `release/1.15.0` from `develop`.

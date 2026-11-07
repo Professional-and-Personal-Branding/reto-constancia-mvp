@@ -86,18 +86,26 @@ model ActivityRejection {
   rows whose `validatedById` is missing.
 - `resubmissionCount` drives the "Reenviada" badge precisely (history alone would also flag an
   import "update" of a rejected row to `PENDING`) and would support a limit if the owner wants one.
-- Backfill in the same migration, in SQL (PostgreSQL 16 has `gen_random_uuid()`):
+- Backfill, **idempotent**, kept in one file `backend/prisma/sql/backfill-activity-rejections.sql`
+  and copied verbatim at the end of the migration (PostgreSQL 16 has `gen_random_uuid()`):
 
 ```sql
 INSERT INTO "ActivityRejection" ("id", "activityId", "reason", "rejectedById", "rejectedAt")
-SELECT gen_random_uuid()::text, "id", "rejectionReason", "validatedById",
-       COALESCE("validatedAt", "updatedAt")
-FROM "DailyActivity"
-WHERE "status" = 'REJECTED' AND "rejectionReason" IS NOT NULL;
+SELECT gen_random_uuid()::text, a."id", a."rejectionReason", a."validatedById",
+       COALESCE(a."validatedAt", a."updatedAt")
+FROM "DailyActivity" a
+WHERE a."status" = 'REJECTED' AND a."rejectionReason" IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM "ActivityRejection" r
+    WHERE r."activityId" = a."id" AND r."reason" = a."rejectionReason"
+  );
 ```
 
-  Rejections already reversed or withdrawn before the migration are not recoverable (their reason
-  was overwritten or deleted); the history starts with the current ones.
+  Running it twice inserts nothing the second time. Rejections already reversed or withdrawn
+  before the migration are not recoverable (their reason was overwritten or deleted); the history
+  starts with the current ones. The same file is the catch-up step after a rollback (Migration
+  Plan 3), run with `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql`
+  (Prisma CLI already in the repo; no new dependency).
 - Manual down script (documented in the runbook, not a Prisma migration, which are forward only):
   `DROP TABLE "ActivityRejection"; ALTER TABLE "DailyActivity" DROP COLUMN "resubmissionCount";`
   plus deleting the migration row from `_prisma_migrations`. Not needed for a rollback (see
@@ -118,12 +126,26 @@ Races this decides (today, under `FOR SHARE` only, both writers can read `REJECT
   activity `VALIDATED` with the data the admin saw. Resubmit first → the validation sees `PENDING`
   with the new data and assesses the heart-rate rule on it (it may then need the override). Without
   the lock the activity could end `VALIDATED` with photos and numbers nobody reviewed.
-- Resubmit vs reject: either the resubmission answers 403 (rejected again first, new history row)
-  or the rejection applies to the resubmitted data (accepted, same as `edit-pending-activity`; the
-  participant can resubmit again).
+- Resubmit vs reject: a `REJECTED` activity cannot be rejected again (D12), so the rejection answers
+  409 unless the resubmission committed first, in which case it applies to the resubmitted
+  `PENDING` data (accepted, same as `edit-pending-activity`; the participant can resubmit again).
 - Resubmit vs withdraw (two tabs of the owner): the second answers 404.
 - Withdraw vs validate (existing): the validation answers 404 instead of a Prisma `P2025` 500,
   which makes the archived scenario "Owner withdraws first" of `activity-withdrawal` true.
+
+**Scope for `validate` and `remove`:** their only observable changes are "404 instead of 500" when
+the activity was deleted by a concurrent operation, and the row-lock 409 below. Their rules,
+messages and responses stay as they are.
+
+**Row-lock timeout has its own message.** `SET LOCAL lock_timeout = '5000ms'` (`WRITER_TX`) now also
+covers the row lock, and `withChallengeLock` maps every lock timeout to 409 "El reto se está
+cerrando; vuelve a intentarlo en unos segundos", which is wrong when the conflict is another
+operation on the same activity. `lockOpenActivity` wraps only the `FOR UPDATE` statement: if
+`isLockTimeout(e)` it throws 409 "La actividad se está modificando; vuelve a intentarlo en unos
+segundos" (neutral "tú" like every other API message, instead of the voseo of the request). The
+transaction rolls back as usual; a timeout on the challenge lock keeps its current message. The
+5 s row timeout fires before the 10 s transaction timeout, so the order of the existing timers
+does not change.
 
 ### D5. Order of checks of `resubmit` and what it writes
 
@@ -152,10 +174,10 @@ Outside the lock: `findOne(id)` → 404 "Actividad no encontrada". Inside `withC
 After the commit: `void deleteAssetsLater(droppedIds)`. If anything fails, nothing is written and
 nothing is released. The date never changes, so the unique index is never hit and there is no 409.
 
-`reject` (also under D4) writes, in the same transaction as today's update, one
-`ActivityRejection { activityId, reason, rejectedById: validatorId, rejectedAt: now }`. `validate`
-keeps clearing `rejectionReason` and does not touch the history (an admin reversal leaves its
-trace). The import is unchanged.
+`reject` (also under D4, and only for `PENDING`, D12) writes, in the same transaction as today's
+update, one `ActivityRejection { activityId, reason, rejectedById: validatorId, rejectedAt: now }`.
+`validate` keeps clearing `rejectionReason` and does not touch the history (an admin reversal
+leaves its trace). The import is unchanged.
 
 ### D6. No resubmission limit
 
@@ -200,14 +222,37 @@ withdrawal of rejected activities (P1).
   only when the selected challenge is `ACTIVE`) and "Retirar" (unchanged confirmation).
 - **Resubmission mode of the upload form** (`/dashboard/upload?reenviar=<id>`): reuses the form,
   its client checks and its upload widgets instead of a second inline form with uploads (heavy on a
-  phone). It loads the activity from `GET /activities/:id`; if it is not the participant's
-  `REJECTED` activity of an active challenge it shows "Esta actividad ya no se puede reenviar." and
-  a link back. Date shown read-only; current photos listed with "Quitar"; new ones added as today;
-  title "Corregir y reenviar", button "Reenviar". On success it returns to the dashboard with
-  "Actividad reenviada. Queda pendiente de validación." and invalidates `['activities']` and
-  `['results']` (calendar and "Mi avance" live there). On an API error it shows the message.
-- **History in the row:** any activity with earlier rejections shows a collapsed "Rechazos
-  anteriores (n)" listing date and reason, excluding the current one when it is `REJECTED`.
+  phone). Title "Corregir y reenviar", button "Reenviar", date shown read-only, fields prefilled.
+- **Challenge of the activity, not of the selector.** In this mode the form loads
+  `GET /activities/:id` and takes the challenge from the activity itself (`challengeId` for the
+  upload signature, the challenge's heart-rate rule for the client checks); it ignores
+  `useActiveChallenge`, so a participant enrolled in two active challenges resubmits in the right
+  one whatever the selector shows. **Guard:** the form shows only "Esta actividad ya no se puede
+  reenviar." and a link back to the dashboard when the read answers 403 or 404, when the activity is
+  not `REJECTED`, when its challenge is not `ACTIVE`, or when it is not the user's own; the API
+  decides again on submit.
+- **Photo slots in resubmission mode.** The form keeps its two fixed slots (activity photo and
+  heart-rate capture). `PhotoSlot` gains an `existing` value `{ url, cloudinaryId, type }` shown as a
+  remote preview without a `File`.
+  - Prefill: the first stored `HEART_RATE` photo fills the capture slot; the first stored `ACTIVITY`
+    or `METRICS` photo fills the activity slot. Any other stored photo (imports or API calls with
+    several `ACTIVITY` photos) is listed under "Otras fotos (n)" with a remote preview and "Quitar";
+    it is kept unless removed, with its stored type.
+  - "Quitar" empties a slot (the stored photo is dropped on submit); choosing a file replaces the
+    existing photo of that slot (dropped too).
+  - Re-tag: an existing photo shows "Usar como captura de FC" / "Usar como foto de la actividad",
+    which moves it to the other slot when that slot is empty; the type sent is the slot's type.
+  - Submit uploads only slots with a new `File`; the body lists slot photos (existing or uploaded)
+    plus the kept "Otras fotos". The activity slot stays required, as when registering.
+- **After success:** back to the dashboard with "Actividad reenviada. Queda pendiente de
+  validación." in a `role="status"` region that receives focus (`tabIndex={-1}`), and invalidation
+  of `['activities']` and `['results']` (calendar and "Mi avance" live there). On an API error the
+  form shows the message.
+- **History in the row:** a native `<details>` with `<summary>Rechazos anteriores (n)</summary>`
+  (closed by default; keyboard and screen readers handled by the element), listing date and
+  reason, excluding the current one when the row is `REJECTED`.
+- **Rejected row at 375 px:** "Corregir y reenviar" first, styled as the primary button;
+  "Retirar" second as a ghost button; both wrap below the text without horizontal scroll.
 - **"Validar":** card badge "Reenviada" when `resubmissionCount > 0` ("Reenviada ×n" when n ≥ 2)
   and the list of earlier rejections. The menu badge already counts the activity again (it is
   `PENDING`).
@@ -235,18 +280,60 @@ in its release branch. Then its 0.3 update applies, with these overlaps already 
 - `checkActivityFields`: extracted here; its 1.3 becomes "reuse".
 - Its `challenge-lifecycle` delta modifies the same two requirements as this one: it MUST be
   rebased on the archived text (keep "resubmitting" and add "editing").
-- Badge "Modificada" (`updatedAt ≠ createdAt`): every resubmitted activity also satisfies it; the
-  card SHALL show "Reenviada" instead when `resubmissionCount > 0`, and "Modificada" only otherwise.
+- Badge "Modificada" (`updatedAt ≠ createdAt`, its task 3.3 and D4): every resubmitted activity
+  also satisfies it; the card SHALL show "Reenviada" instead when `resubmissionCount > 0`, and
+  "Modificada" only otherwise. The note lives in this change's task 5.2; that file is not edited
+  before this change is archived.
+- Its row-lock requirement inherits the 409 "La actividad se está modificando; vuelve a intentarlo
+  en unos segundos" of D4 for edit timeouts.
 - Row actions: `PENDING` "Editar" + "Retirar"; `REJECTED` "Corregir y reenviar" + "Retirar";
   `VALIDATED` none. Catalog: it keeps `TC-ACT-27`, `TC-ACT-28`, `TC-UI-14`; this change uses
   `TC-ACT-29..31` and `TC-UI-15`; its journey takes the next free number after
   `19-resubmit-activity.spec.ts`.
 - Migration status: it still needs none.
 
+### D12. Only pending activities can be rejected (coordinator decision, 2026-11-07)
+
+`reject` gets a status check after the closed check and the row lock: the status re-read under the
+lock not `PENDING` → **409 "Solo se pueden rechazar actividades pendientes"**, without changing the
+activity nor its history. Reasons: with a history, re-rejecting a `REJECTED` activity would only
+stack entries for the same data, and rejecting a `VALIDATED` one would silently remove points
+outside the validation queue. `validate` of a `REJECTED` activity (reversal) stays allowed.
+
+Impact checked on `develop`:
+
+- **Web:** the "Validar" page only lists `PENDING` cards and is the only web caller of
+  `/reject`; no web flow re-rejects.
+- **Tests:** every API e2e and Playwright call to `/reject` targets a freshly created `PENDING`
+  activity (`platform-rules`, `asset-cleanup`, `activity-calendar`, `10-api-only-actions`,
+  `13-my-month`), except the `FREEZE` e2e, which rejects a `VALIDATED` activity of a `COMPLETED`
+  challenge and still gets 400 because the closed check comes first. The unit tests of `reject` in
+  `activities.service.spec.ts` are re-checked when implementing (none is known to reject a
+  non-pending activity).
+- **Specs:** `challenge-lifecycle` "Rejecting after closing" (a `VALIDATED` activity of a
+  `COMPLETED` challenge → 400) still holds, closed first. No spec allows re-rejecting.
+- **Operations:** an admin who validated by mistake can no longer turn it into a rejection through
+  the API; the way out is deleting the activity (admins may delete any activity of a challenge that
+  is not closed) so the participant registers the day again. Documented in `docs/challenge-rules.md`
+  and the guide's admin step. `docs/architecture.md` state diagram: no `VALIDATED --> REJECTED`.
+- **Import:** unchanged; an import "update" can still set any status.
+
 ## Risks / Trade-offs
 
-- **First migration since 1.4.0** → additive, backfill idempotent within the migration, verified
-  backup (runbook §5.1) mandatory before deploying; the previous version runs on the new schema.
+- **First migration since 1.4.0** → additive, idempotent backfill, verified backup (runbook §5.1)
+  mandatory before deploying; the previous version runs on the new schema.
+- **`deleteAssetsLater` is count-then-delete, not atomic** → a dropped photo whose `cloudinaryId`
+  is attached again by another registration between the count and the deletion can lose its file.
+  Only reachable through hand-made API calls reusing an id (the web always uploads new files with
+  ids assigned by the storage), and already accepted by `activity-withdrawal` ("Reusing a released
+  file id through the API"). Accepted; no code change.
+- **Deadlock possible when deleting an admin user** → the new FK `rejectedById … ON DELETE SET NULL`
+  makes deleting a user update history rows, which can take row locks in an order opposite to a
+  concurrent `reject`. The same exposure already exists with `validatedById` on `DailyActivity`;
+  users are deactivated, not deleted, in normal operation. Postgres resolves a deadlock by aborting
+  one transaction (the request answers an error and can be retried). Accepted.
+- **Reject of a non-pending activity now answers 409** (D12) → no current flow uses it; the
+  mistaken-validation case is handled by deleting the activity.
 - **Row lock changes `validate`, `reject` and `remove`** → same behaviour except under a real race,
   where it becomes correct; unit tests of the call order and API e2e of parallel requests.
 - **Admin rejects on a stale view** (rejection applies to resubmitted data) → accepted; the
@@ -264,31 +351,42 @@ in its release branch. Then its 0.3 update applies, with these overlaps already 
 
 1. PR 1 adds the migration; `prisma migrate deploy` applies it at API start (runbook §2). The
    release notes and `CHANGELOG.md` list it, so the verified backup of §5.1 runs before deploying.
+   Release: `release/1.15.0` from `develop`, a release **with a migration**; nothing else in it
+   needs one.
 2. **Going back to 1.14.0 without restoring:** redeploy API and web 1.14.0 and leave the schema as
    is. The old Prisma client selects explicit columns (ignores `resubmissionCount`), never reads
    the new table, and its deletions cascade through the new FK at the database level. Effects
-   while rolled back: rejections are not recorded in the history and resubmitted counters stop
-   growing; nothing breaks. Redeploying the new version later is a no-op migration.
-3. **Full schema removal** (only if wanted): the manual down script of D3, after rolling back the
+   while rolled back: rejections are not recorded in the history (1.14.0 can also re-reject and
+   overwrite a reason), resubmission counters stop growing; nothing breaks.
+3. **Redeploying 1.15.0 after a rollback:** `migrate deploy` finds the migration already applied
+   and does not run it again, so the rejections made while rolled back have no history entry yet.
+   Right after the API is up, run the catch-up backfill (D3), which only inserts the missing
+   `(activityId, reason)` pairs:
+   `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql` (from `backend/`,
+   with the production `DATABASE_URL`, after the §5.1 backup). Running it when nothing is missing
+   inserts nothing. Reasons overwritten by a re-rejection during the rollback are not recoverable.
+4. **Full schema removal** (only if wanted): the manual down script of D3, after rolling back the
    code. Restoring the §5.1 backup is not needed for a rollback and would lose data written since.
-4. The runbook §4 gets the revert line for the release that ships this change.
+5. PR 1 carries the runbook §4 text (how to go back to 1.14.0, step 3 above, and that the §5.1
+   verified backup with `OK` is mandatory before deploying) and the `CHANGELOG.md` entry, so the
+   release branch only collects them.
 
 ## Open Questions
 
-Defaults already written into the spec; none blocks approving the artifacts.
+Review round of 2026-11-07 (three reviewers, all "approve with changes"): the coordinator adopted
+the recommended option of P1–P4 and decided D12. They remain subject to the owner's approval in
+task 0.1:
 
-- **P1. Resubmission limit.** [NO BLOQUEANTE] (a) no limit; (b) a fixed limit (for example 3 per
-  activity) together with forbidding the withdrawal of rejected activities, which reverses archived
-  D2/D4. Recommendation: (a) (D6): a limit without (b)'s second half is bypassed by withdrawing.
-- **P2. Keep the withdrawal of rejected activities.** [NO BLOQUEANTE] (a) keep both paths, web
-  puts "Corregir y reenviar" first; (b) remove the withdrawal for `REJECTED`. Recommendation: (a),
-  as archived D7 said; withdrawing is the only way out when the day stopped being valid or the date
-  was wrong.
-- **P3. Admin identity in the history.** [NO BLOQUEANTE] (a) reason and time only, for everyone;
-  (b) admins also see who rejected. Recommendation: (a), the participant never saw the admin's
-  identity and the admins work as one team; `rejectedById` is stored, so (b) is a later read-only
-  change.
-- **P4. Release and gate.** [BLOQUEANTE for planning, not for approval] (a) ship this change alone
-  in the next minor (1.15.0, release with a migration) and start `edit-pending-activity` after it
-  is archived (D11); (b) wait and ship both in the same release, which the gate forbids unless the
-  owner changes it. Recommendation: (a).
+- **P1. Resubmission limit:** none (D6).
+- **P2. Withdrawal of rejected activities:** kept; the web puts "Corregir y reenviar" first.
+- **P3. History visibility:** reason and time only, for owner and admins; `rejectedById` stored,
+  not exposed.
+- **P4. Release:** this change alone in `release/1.15.0` (with a migration);
+  `edit-pending-activity` starts after this change is archived (D11).
+
+Still open for the owner:
+
+- **P5. Rejecting a validated activity by mistake.** [NO BLOQUEANTE] With D12 the admin can no
+  longer reject a `VALIDATED` activity. Options: (a) delete it and let the participant register
+  again (no new code); (b) a future "revert validation" back to `PENDING`. Recommendation: (a)
+  until a real case shows up.

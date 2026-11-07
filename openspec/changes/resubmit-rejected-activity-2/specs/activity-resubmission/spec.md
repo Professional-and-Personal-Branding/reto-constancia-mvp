@@ -103,8 +103,9 @@ rejecting admin and the time. `rejectionReason` SHALL remain the reason of the c
 Validating a rejected activity SHALL clear `rejectionReason` and keep its history. Resubmitting
 SHALL keep the history. Deleting an activity SHALL delete its history. When the schema change is
 applied, each existing `REJECTED` activity with a reason SHALL get one history entry with that
-reason. An import that updates an existing activity SHALL keep its history and SHALL NOT add
-entries.
+reason. The backfill SHALL be idempotent: running it again SHALL only add an entry for a `REJECTED`
+activity whose current reason has no entry yet, so it can be re-run after a rollback and redeploy.
+An import that updates an existing activity SHALL keep its history and SHALL NOT add entries.
 
 #### Scenario: Two rejections and a resubmission
 - **GIVEN** an activity rejected with "Foto borrosa", resubmitted, then rejected with "Falta la captura de FC"
@@ -125,6 +126,33 @@ entries.
 - **GIVEN** before the schema change, a `REJECTED` activity with reason "Foto borrosa" and a `PENDING` activity
 - **WHEN** the migration is applied
 - **THEN** the rejected activity has one history entry "Foto borrosa" and the pending one has none
+
+#### Scenario: Catch-up backfill after a rollback
+- **GIVEN** the schema change was applied, the previous version was redeployed and an admin rejected a pending activity with "Sin captura" while it ran, and the new version is deployed again
+- **WHEN** the catch-up backfill runs twice
+- **THEN** that activity has exactly one history entry "Sin captura" and no other activity gains entries
+
+### Requirement: Only pending activities can be rejected
+`POST /api/activities/:id/reject` SHALL decide on the activity re-read under the challenge lock and
+the activity row lock. After the closed-challenge check (400, which keeps its precedence), an
+activity whose status is not `PENDING` MUST be refused with 409 "Solo se pueden rechazar
+actividades pendientes", without changing the activity nor its history. Validating a `REJECTED`
+activity SHALL remain allowed.
+
+#### Scenario: Rejecting again
+- **GIVEN** a `REJECTED` activity with reason "Foto borrosa" and one history entry
+- **WHEN** an admin rejects it with "Otra razón"
+- **THEN** the response is 409 "Solo se pueden rechazar actividades pendientes", `rejectionReason` is still "Foto borrosa" and the history still has one entry
+
+#### Scenario: Rejecting a validated activity
+- **GIVEN** a `VALIDATED` activity of an `ACTIVE` challenge
+- **WHEN** an admin rejects it
+- **THEN** the response is 409 "Solo se pueden rechazar actividades pendientes" and the activity stays `VALIDATED` with its score
+
+#### Scenario: Closed challenge keeps its precedence
+- **GIVEN** a `VALIDATED` activity of a `COMPLETED` challenge
+- **WHEN** an admin rejects it
+- **THEN** the response is 400 "El reto está cerrado; sus actividades son definitivas"
 
 ### Requirement: Rejection history is visible only to the owner and admins
 The activities returned by `GET /api/activities/me` to their owner, and by `GET /api/activities`,
@@ -151,7 +179,12 @@ Validating, rejecting, deleting and resubmitting an activity SHALL lock the acti
 (`SELECT … FOR UPDATE`) after locking its challenge and before re-reading the activity, so that
 concurrent operations on the same activity run one after the other and each decides on the state
 committed by the previous one. The locks SHALL always be taken in the order challenge, then
-activity. No such race SHALL answer 500.
+activity. No such race SHALL answer 500. For validating and deleting, the only observable changes
+SHALL be 404 "Actividad no encontrada" instead of an error when a concurrent operation deleted the
+activity, and the row-lock conflict below. When the row lock cannot be taken within the writers'
+5-second lock timeout, the response MUST be 409 "La actividad se está modificando; vuelve a
+intentarlo en unos segundos" without changes; a timeout on the challenge lock SHALL keep the message
+"El reto se está cerrando; vuelve a intentarlo en unos segundos".
 
 #### Scenario: Validation commits before the resubmission
 - **WHEN** an admin validates a `REJECTED` activity while its owner resubmits it, and the validation commits first
@@ -162,8 +195,13 @@ activity. No such race SHALL answer 500.
 - **THEN** the validation assesses the heart-rate rule on the resubmitted values and photos
 
 #### Scenario: Rejection racing the resubmission
-- **WHEN** an admin rejects a `REJECTED` activity again while its owner resubmits it
-- **THEN** exactly one applies first: either the resubmission answers 403 and the history gains the new reason, or the rejection applies to the resubmitted activity and the history gains the new reason
+- **WHEN** an admin rejects a `REJECTED` activity while its owner resubmits it
+- **THEN** either the rejection runs first and answers 409 "Solo se pueden rechazar actividades pendientes" and the resubmission then answers 200, or the resubmission commits first and the rejection applies to the resubmitted `PENDING` activity and adds one history entry
+
+#### Scenario: Row held by another operation
+- **GIVEN** another transaction holds the lock of an activity's row for more than 5 seconds
+- **WHEN** an admin validates that activity
+- **THEN** the response is 409 "La actividad se está modificando; vuelve a intentarlo en unos segundos" and the activity is unchanged
 
 #### Scenario: Withdrawal racing a validation
 - **WHEN** the owner withdraws a `PENDING` or `REJECTED` activity while an admin validates it, and the withdrawal commits first
@@ -171,16 +209,25 @@ activity. No such race SHALL answer 500.
 
 ### Requirement: The web lets the owner correct and resubmit a rejected activity
 In "Mis actividades", a `REJECTED` row of an `ACTIVE` challenge SHALL offer "Corregir y reenviar"
-next to "Retirar". It SHALL open the upload form in resubmission mode
-(`/dashboard/upload?reenviar=<id>`), titled "Corregir y reenviar", with the fields prefilled, the
-date shown read-only, the current photos listed with "Quitar", new photos added as when
-registering, the same client checks and the button "Reenviar". On success the dashboard SHALL show
-"Actividad reenviada. Queda pendiente de validación." and the list, the calendar and "Mi avance"
-SHALL update. On an API error the form SHALL show the API message. If the activity is not the
-participant's `REJECTED` activity of an active challenge, the form SHALL show "Esta actividad ya
-no se puede reenviar." with a link back to the dashboard. Any row whose activity has earlier
-rejections SHALL show a collapsed "Rechazos anteriores (n)" listing each date and reason, not
-counting the current rejection of a `REJECTED` row.
+as the first, primary action and "Retirar" second. It SHALL open the upload form in resubmission
+mode (`/dashboard/upload?reenviar=<id>`), titled "Corregir y reenviar", with the fields prefilled,
+the date shown read-only, the same client checks and the button "Reenviar". The form SHALL use the
+challenge of the activity itself, not the challenge chosen in the active-challenge selector. Its
+activity-photo and heart-rate-capture slots SHALL be prefilled with the stored photos (first
+`ACTIVITY` or `METRICS` photo and first `HEART_RATE` photo) as remote previews; any other stored
+photo SHALL be listed under "Otras fotos (n)" and kept unless removed. Each existing photo SHALL
+offer "Quitar", choosing a file SHALL replace the photo of that slot, and an existing photo SHALL
+be movable to the other slot when it is empty ("Usar como captura de FC" / "Usar como foto de la
+actividad"), its type then being the slot's. Only new files SHALL be uploaded; the activity-photo
+slot SHALL be required. On success the dashboard SHALL show "Actividad reenviada. Queda pendiente
+de validación." in a status region that receives focus, and the list, the calendar and "Mi avance"
+SHALL update. On an API error the form SHALL show the API message. If the activity cannot be read
+(403 or 404), is not `REJECTED`, belongs to a challenge that is not `ACTIVE` or is not the user's
+own, the form SHALL show only "Esta actividad ya no se puede reenviar." with a link back to the
+dashboard. Any row whose activity has earlier rejections SHALL show a collapsed disclosure
+"Rechazos anteriores (n)" (a native `details` element or an equivalent control with
+`aria-expanded`) listing each date and reason, not counting the current rejection of a `REJECTED`
+row.
 
 #### Scenario: Participant fixes a rejected day from the phone
 - **GIVEN** a participant on a phone-sized screen with a rejected activity whose reason is "Falta la captura de FC"
@@ -199,6 +246,35 @@ counting the current rejection of a `REJECTED` row.
 #### Scenario: Closed challenge
 - **WHEN** the participant views a rejected activity of a challenge that is not active
 - **THEN** the row offers no "Corregir y reenviar"
+
+#### Scenario: Activity of another active challenge than the selected one
+- **GIVEN** a participant enrolled in active challenges A and B, with B selected, and a rejected activity of A
+- **WHEN** they open its resubmission link and send it with a new photo
+- **THEN** the photo is uploaded for challenge A and the response is 200
+
+#### Scenario: Prefilled photos, remove and re-tag
+- **GIVEN** a rejected activity whose only photo is a heart-rate capture stored as type `ACTIVITY`
+- **WHEN** the participant opens "Corregir y reenviar", taps "Usar como captura de FC", adds a new activity photo and taps "Reenviar"
+- **THEN** only the new file is uploaded and the activity keeps the capture with type `HEART_RATE`
+
+#### Scenario: Imported activity with several photos
+- **GIVEN** a rejected activity with three `ACTIVITY` photos
+- **WHEN** the participant opens "Corregir y reenviar"
+- **THEN** the first fills the activity slot, "Otras fotos (2)" lists the other two with "Quitar", and removing one drops only that photo on submit
+
+#### Scenario: Rejected row on a phone
+- **GIVEN** a participant on a 375 px wide screen with a rejected activity
+- **WHEN** they look at its row
+- **THEN** "Corregir y reenviar" is the first and primary action, "Retirar" comes second, and the page has no horizontal scroll
+
+#### Scenario: Notice announced and focused
+- **WHEN** a resubmission succeeds
+- **THEN** the dashboard's notice "Actividad reenviada. Queda pendiente de validación." is in a `role="status"` region that has the focus
+
+#### Scenario: History disclosure
+- **GIVEN** a pending activity with one earlier rejection
+- **WHEN** the participant activates "Rechazos anteriores (1)" with the keyboard
+- **THEN** the list opens showing the date and reason, and its expanded state is exposed to assistive technology
 
 ### Requirement: The admin sees resubmitted activities and their history
 In the admin "Validar" page, a card whose activity has `resubmissionCount` greater than 0 SHALL
