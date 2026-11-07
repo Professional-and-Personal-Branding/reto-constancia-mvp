@@ -19,9 +19,9 @@
 ## 3. QA catalog and docs
 
 - [x] 3.1 Re-check that `TC-CHAL-26` is still free; add it to `docs/qa/catalog.mjs` (D5): pre "Sesión de admin; un reto activo con una actividad pendiente", steps (Tab/Shift+Tab, confirm with a slow server, Escape, 409, Tab, Escape, reopen), expected (focus never leaves the dialog and the list is inert; Escape does nothing while "Cerrando…"; Tab after the 409 goes to the first control; Escape closes and focus is on "Cerrar reto"; reopening shows the checkbox unticked), auto: the W journey of 2.1 and the five `focus-trap.test.ts` tests
-- [ ] 3.2 Regenerate `docs/qa/test-cases.*`
+- [x] 3.2 Regenerate `docs/qa/test-cases.*`
 - [x] 3.3 `CHANGELOG.md` "Sin publicar": the close dialog is now a proper modal (debt of 1.12.1 paid)
 
 ## 4. Verification (once, at the end, before opening the PR)
 
-- [ ] 4.1 `node scripts/run-tests.mjs` 13/13; reset the local database; `node scripts/validate-test-cases.mjs` ends with "Pruebas sin caso: 0"; `openspec validate --all --strict`
+- [x] 4.1 `node scripts/run-tests.mjs` 13/13; reset the local database; `node scripts/validate-test-cases.mjs` ends with "Pruebas sin caso: 0"; `openspec validate --all --strict`

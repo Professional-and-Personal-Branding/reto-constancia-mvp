@@ -36,4 +36,4 @@
 ## 6. Verification and PR
 
 - [x] 6.1 `node scripts/run-tests.mjs` 13/13, reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict`
-- [ ] 6.2 PR to `develop` in Spanish; the owner merges after the 3 CI jobs are green
+- [x] 6.2 PR to `develop` in Spanish; the owner merges after the 3 CI jobs are green

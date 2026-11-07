@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-06** · rama `feature/validation-queue-filters` · commit `b35cc64` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-07** · rama `release/1.14.0` · commit `981289b` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**163 casos** · 163 aprobados · 0 fallidos · 0 con limitación conocida · 162 automatizados.
+**165 casos** · 165 aprobados · 0 fallidos · 0 con limitación conocida · 163 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,7 +17,7 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 23 | 23 | 0 |
+| [Autenticación y sesión](#auth) | 24 | 24 | 0 |
 | [Seguridad y configuración](#sec) | 14 | 14 | 0 |
 | [Gestión de retos](#chal) | 26 | 26 | 0 |
 | [Participantes y pagos](#part) | 11 | 11 | 0 |
@@ -28,7 +28,7 @@
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
 | [Interfaz y navegación](#ui) | 13 | 13 | 0 |
-| [Salud del servicio](#health) | 5 | 5 | 0 |
+| [Salud del servicio](#health) | 6 | 6 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
 <a id="auth"></a>
@@ -60,6 +60,7 @@
 | [TC-AUTH-21](#tc-auth-21) | El admin reinicia la contraseña de un usuario | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-22](#tc-auth-22) | Reinicio de contraseña: permisos, propio id y límite | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-23](#tc-auth-23) | Un cambio de contraseña corta al instante los access tokens anteriores | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-24](#tc-auth-24) | El login falla igual con email inexistente, usuario inactivo o contraseña incorrecta | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -217,6 +218,7 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Unitaria | `auth.service.spec.ts` | login con email inexistente verifica contra el hash señuelo y lanza Unauthorized |
 | ✅ | Unitaria | `auth.service.spec.ts` | login con password incorrecto lanza Unauthorized |
 | ✅ | API e2e | `app.e2e-spec.ts` | POST /api/auth/login con password incorrecto -> 401 |
 
@@ -836,6 +838,42 @@
 | ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: tras el cambio el access token anterior responde 401 y el nuevo sigue sirviendo |
 | ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un access token sin pwv (anterior al despliegue) responde 401 y el refresh lo repone |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el access token emitido antes del reinicio responde 401 al instante |
+
+<a id="tc-auth-24"></a>
+
+### TC-AUTH-24 · El login falla igual con email inexistente, usuario inactivo o contraseña incorrecta
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Una cuenta activa, otra desactivada y un email sin cuenta.
+
+**Datos de prueba:** POST /api/auth/login con las tres combinaciones
+
+**Pasos**
+
+1. Iniciar sesión con un email que no existe.
+2. Iniciar sesión con la contraseña correcta de un usuario desactivado.
+3. Iniciar sesión con una contraseña errónea de un usuario activo.
+
+**Resultado esperado**
+
+- Los tres casos responden 401 "Credenciales inválidas" con el mismo cuerpo.
+- En los tres se ejecuta una sola verificación argon2: contra el hash señuelo (email inexistente o usuario inactivo) o contra el hash del usuario (contraseña errónea), de modo que la latencia no revela qué correos tienen cuenta activa.
+- El hash señuelo usa el mismo algoritmo y parámetros que las contraseñas reales.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `password-hash.spec.ts` | produce un hash argon2id que argon2.verify acepta |
+| ✅ | Unitaria | `auth.service.spec.ts` | login con email inexistente verifica contra el hash señuelo y lanza Unauthorized |
+| ✅ | Unitaria | `auth.service.spec.ts` | el hash señuelo comparte algoritmo y parámetros con las contraseñas reales |
+| ✅ | Unitaria | `auth.service.spec.ts` | login válido devuelve tokens |
+| ✅ | API e2e | `app.e2e-spec.ts` | el login responde igual con email inexistente, usuario inactivo o contraseña incorrecta |
 
 <a id="sec"></a>
 
@@ -5881,6 +5919,7 @@
 | [TC-HEALTH-03](#tc-health-03) | La readiness responde 503 con la base caída | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-04](#tc-health-04) | Toda respuesta lleva un X-Request-Id y una línea de acceso segura | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-05](#tc-health-05) | Apagado ordenado | Media | Funcional | ✅ Aprobado |
+| [TC-HEALTH-06](#tc-health-06) | El respaldo de la base se verifica restaurándolo | Alta | Funcional | ✅ Aprobado (manual) |
 
 <a id="tc-health-01"></a>
 
@@ -6045,6 +6084,36 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: al cerrar la app se cierra la conexión a la base y queda registrado |
+
+<a id="tc-health-06"></a>
+
+### TC-HEALTH-06 · El respaldo de la base se verifica restaurándolo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado (manual) |
+
+**Precondiciones**
+
+- Docker con el contenedor reto-constancia-db en marcha.
+
+**Datos de prueba:** node scripts/db-backup.mjs; --target con un host no local; --file con un volcado completo y otro truncado
+
+**Pasos**
+
+1. Con DATABASE_URL apuntando a una base local con datos, ejecutar node scripts/db-backup.mjs.
+2. Ejecutarlo con --target postgresql://postgres:postgres@example.com:5432/postgres.
+3. Ejecutar --file con el volcado generado y con una copia truncada a la mitad de los bytes.
+4. Listar las bases del servidor local.
+
+**Resultado esperado**
+
+- El respaldo termina con OK (código 0), con las cuentas iguales por tabla.
+- El destino no local termina con código 2, sin archivo ni base creados.
+- El volcado completo da OK (sin comparación con el origen); el truncado da FALLO (código 1).
+- No queda ninguna base reto_restore_check_*.
+
+**Verificación manual:** Aprobado el 2026-11-06. Evidencia: base de origen temporal (3 tablas, 52 filas): OK exit 0 x2; destino example.com exit 2 sin archivos; mismo origen y destino exit 2; --file OK exit 0; volcado truncado FALLO exit 1; sin bases reto_restore_check_* al final.
 
 <a id="par"></a>
 
