@@ -215,7 +215,8 @@ sequenceDiagram
   API->>API: regla FC: heartRateMinutes >= minHeartRateMinutes y foto HEART_RATE (400 si no cumple)
   API-->>FE: actividad PENDING
 
-  A->>API: GET /activities/pending
+  A->>API: GET /activities/pending/count (insignia del menú, cada 60 s y al validar)
+  A->>API: GET /activities/pending?challengeId&order=asc (más antiguas primero)
   A->>API: POST /activities/:id/validate (o /reject)
   Note over A,API: si la actividad no cumple la regla de FC: 400 salvo { override: true, note } (queda en validationNote)
   API-->>A: VALIDATED / REJECTED
@@ -296,7 +297,7 @@ Comandos, variables y pasos: `docs/deploy-seenode.md`. Migraciones con
 | Participantes | `POST/DELETE /challenges/:id/participants...` · `POST .../participants/bulk` (hasta 200 ids, resultado por usuario) · `PATCH .../payment` | ADMIN |
 | Pagos | `PATCH /challenges/:id/participants/me/payment-proof` | participante |
 | Actividades | `POST /activities` · `GET /activities/me` · `GET /activities/me/calendar?challengeId=` · `DELETE /activities/:id` | autenticado |
-| Actividades | `GET /activities` · `GET /activities/pending` · `:id/validate` · `:id/reject` | ADMIN |
+| Actividades | `GET /activities` · `GET /activities/pending` (`challengeId`, `order`) · `GET /activities/pending/count` (pendientes de retos activos) · `:id/validate` · `:id/reject` | ADMIN |
 | Upload | `POST /upload/sign` · `POST /upload/local` (dev) | autenticado / público(dev) |
 | Import | `GET /import/template` · `POST /import/activities/preview` · `/commit` · `GET /import/sheet/status` · `POST /import/sheet/preview` · `/commit` | ADMIN |
 | Health | `GET /health` · `GET /health/db` | público |

@@ -5,6 +5,44 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.14.0] — 2026-11-07
+
+Sin migraciones ni variables nuevas. Para volver a la 1.13.0 se redespliegan API y web juntas; los access tokens emitidos con la 1.14.0 llevan `pwv` y la 1.13.0 los ignora, así que las sesiones sobreviven.
+
+**Nota de despliegue:** tras desplegar, los access tokens vigentes reciben un 401 y la web los renueva sola con su refresh token (nadie vuelve a iniciar sesión); los clientes hechos a mano (curl, scripts) deben renovar una vez.
+
+### Agregado
+
+- Validar: selector de reto ("Todos los retos" por defecto) y orden (más antiguas primero por defecto,
+  o más nuevas), guardados en la dirección de la página; cada tarjeta nombra su reto y las de un reto
+  cerrado salen marcadas "Reto cerrado" y sin botones. El menú muestra en "Validar" un contador con las
+  pendientes de los retos activos (oculto en 0, "99+" desde 100). API: `GET /activities/pending` acepta
+  `order=asc|desc` (ascendente por defecto) y responde 400 si `challengeId` no es un UUID; nueva
+  `GET /activities/pending/count`. Sin migración; para volver atrás se redespliegan API y web juntas.
+- `scripts/db-backup.mjs`: respaldo de la base verificado. Vuelca la base, la restaura en una base temporal
+  local y compara las filas de cada tabla con el origen (`OK`/`FALLO`); usa los clientes del PATH o el
+  contenedor `reto-constancia-db`. El runbook §5.1 lo exige antes de desplegar una migración. Sin
+  migraciones ni dependencias nuevas.
+
+### Corregido
+
+- El login hace siempre una verificación argon2: con un email inexistente o un usuario inactivo se
+  verifica contra un hash señuelo con los mismos parámetros, así que la latencia ya no revela qué correos
+  tienen cuenta activa; los tres fallos (email inexistente, inactivo, contraseña errónea) responden el
+  mismo 401 "Credenciales inválidas". `POST /auth/register` sigue respondiendo 409 para un correo
+  existente (anotado en Mejoras futuras de `docs/security-owasp.md`). Sin migración; para volver atrás
+  basta redesplegar la API anterior.
+- Un cambio de contraseña (desde Mi cuenta, reinicio del admin o del seed) corta al instante los access
+  tokens anteriores: el access token lleva la misma huella `pwv` que el refresh token y la API la compara
+  en cada petición (antes valían hasta 15 minutos más). La sesión que cambió la contraseña sigue. Al
+  desplegar, los access tokens vigentes reciben un 401 y la web los renueva sola con su refresh token:
+  nadie vuelve a iniciar sesión; los clientes hechos a mano (curl, scripts) deben renovar una vez. El
+  texto de éxito de Mi cuenta y el del reinicio en Usuarios dejan de decir "en unos minutos". Sin
+  migración; para volver atrás basta redesplegar la API y la web anteriores.
+- El diálogo de cerrar reto (y de guardar la premiación) es ahora un modal accesible como el de
+  renovar: el teclado no sale de él, el resto de la página queda inerte, Escape no hace nada mientras
+  cierra y el foco vuelve al botón que lo abrió. Salda la deuda anotada en la 1.12.1. Sin migración.
+
 ## [1.13.0] — 2026-10-29
 
 Minor sin migraciones, dependencias ni variables de entorno. Para volver a la 1.12.1 se despliegan API y web juntas; las sesiones sobreviven (los refresh tokens ya llevaban `pwv` desde la 1.12.0). Tras el despliegue nadie necesita volver a iniciar sesión; el admin del seed puede rotar su contraseña desde Mi cuenta o desde Usuarios. Destacan el chequeo de sesión efectivo (desactivar o degradar surte efecto en la siguiente petición), Mi avance, los pagos en lote y el reinicio de contraseña por el admin con la página Usuarios.
@@ -29,6 +67,9 @@ Minor sin migraciones, dependencias ni variables de entorno. Para volver a la 1.
   minutos, lo que dura el access token): la API comprueba que el usuario exista y esté activo y usa
   su rol vigente de la base. No se puede desactivar la propia cuenta ni dejar la plataforma sin
   administrador activo (con bloqueo de filas, también en peticiones simultáneas). Sin migración.
+- El diálogo de cerrar reto (y de guardar la premiación) es ahora un modal accesible como el de
+  renovar: el teclado no sale de él, el resto de la página queda inerte, Escape no hace nada mientras
+  cierra y el foco vuelve al botón que lo abrió. Salda la deuda anotada en la 1.12.1. Sin migración.
 
 ## [1.12.1] — 2026-10-28
 

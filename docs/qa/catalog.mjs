@@ -107,6 +107,7 @@ export const CASES = [
     steps: ['POST /api/auth/login con contraseña errónea.'],
     expected: ['401 "Credenciales inválidas".', 'El mensaje es el mismo exista o no el email (no revela cuentas).'],
     auto: [
+      U('auth.service.spec.ts', 'login con email inexistente verifica contra el hash señuelo y lanza Unauthorized'),
       U('auth.service.spec.ts', 'login con password incorrecto lanza Unauthorized'),
       A('app.e2e-spec.ts', 'POST /api/auth/login con password incorrecto -> 401'),
     ],
@@ -223,10 +224,10 @@ export const CASES = [
     id: 'TC-AUTH-16', title: 'Cambiar la contraseña desde Mi cuenta', priority: 'Alta', type: 'Funcional', guide: '1.5',
     pre: ['Usuario con una sesión y una segunda sesión del mismo usuario.'],
     data: 'contraseña actual; nueva "Nuev0Pass2" dos veces; luego una confirmación distinta',
-    steps: ['Cambiar la contraseña.', 'Renovar la segunda sesión.', 'Iniciar sesión con la contraseña vieja y con la nueva.', 'Probar una confirmación distinta en la web.'],
-    expected: ['200 con un par de tokens nuevo y el mensaje de éxito; los campos quedan vacíos y la sesión sigue tras recargar.', 'La renovación de la segunda sesión responde 401 y la de la sesión nueva 200.', 'La contraseña vieja responde 401 "Credenciales inválidas" y la nueva 200.', 'Una confirmación distinta muestra "Las contraseñas no coinciden" sin llamar a la API.'],
+    steps: ['Cambiar la contraseña.', 'Usar el access token y renovar el refresh token de la segunda sesión.', 'Iniciar sesión con la contraseña vieja y con la nueva.', 'Probar una confirmación distinta en la web.'],
+    expected: ['200 con un par de tokens nuevo y el mensaje "Contraseña actualizada. Se cerraron las sesiones abiertas en otros dispositivos."; los campos quedan vacíos y la sesión sigue tras recargar.', 'La segunda sesión recibe 401 en su siguiente petición y al renovar; la sesión nueva sigue con 200.', 'La contraseña vieja responde 401 "Credenciales inválidas" y la nueva 200.', 'Una confirmación distinta muestra "Las contraseñas no coinciden" sin llamar a la API.'],
     auto: [
-      U('auth.service.spec.ts', 'el refresh token lleva pwv y el access token no'),
+      U('auth.service.spec.ts', 'el access token y el refresh token llevan la misma pwv'),
       U('auth.service.spec.ts', 'la huella no es ni contiene el hash de la contraseña'),
       U('auth.service.spec.ts', 'refresh acepta un token cuya huella coincide con el hash actual'),
       U('users.service.spec.ts', 'changePassword: guarda el hash nuevo y devuelve un par de tokens nuevo'),
@@ -289,20 +290,20 @@ export const CASES = [
     expected: ['403 "No tienes permiso para esta acción" y ranking sin email ni paid para A.', '200 para el promovido sin iniciar sesión de nuevo.'],
     auto: [
       U('jwt.strategy.spec.ts', 'validate devuelve sub, email y rol leídos de la base y no los del token'),
-      U('jwt.strategy.spec.ts', 'validate busca por id y selecciona solo id, email, role y active'),
+      U('jwt.strategy.spec.ts', 'validate busca por id y selecciona solo id, email, role, active y passwordHash'),
       A('session-checks.e2e-spec.ts', 'SESSION: un admin degradado con access token vivo recibe 403 en rutas de admin y el ranking sin emails'),
       A('session-checks.e2e-spec.ts', 'SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión'),
     ],
   },
   {
     id: 'TC-AUTH-21', title: 'El admin reinicia la contraseña de un usuario', priority: 'Alta', type: 'Seguridad', guide: '3.5',
-    pre: ['Sesión de admin.', 'Participante Ana con una sesión abierta (refresh token).'],
+    pre: ['Sesión de admin.', 'Participante Ana con una sesión abierta (access token y refresh token).'],
     data: 'POST /api/users/<Ana>/reset-password',
-    steps: ['Reiniciar la contraseña de Ana.', 'Iniciar sesión como Ana con la temporal y con la contraseña vieja.', 'Renovar la sesión anterior de Ana.'],
+    steps: ['Reiniciar la contraseña de Ana.', 'Iniciar sesión como Ana con la temporal y con la contraseña vieja.', 'Usar el access token anterior de Ana y renovar su sesión anterior.'],
     expected: [
       '200 con solo temporaryPassword (xxxx-xxxx-xxxx) y Cache-Control: no-store.',
       'Con la temporal el inicio de sesión da 200; con la vieja 401 "Credenciales inválidas".',
-      'La renovación de la sesión anterior da 401.',
+      'Las sesiones abiertas se cortan en su próxima petición: el access token anterior da 401 "Sesión no válida" y la renovación de la sesión anterior da 401.',
       'Una línea admin_password_reset en los logs, sin la contraseña.',
     ],
     auto: [
@@ -310,6 +311,7 @@ export const CASES = [
       U('users.service.spec.ts', 'resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal'),
       U('users.service.spec.ts', 'resetPasswordByAdmin escribe la línea de auditoría sin la contraseña'),
       A('admin-users.e2e-spec.ts', 'RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir'),
+      A('admin-users.e2e-spec.ts', 'RESET: el access token emitido antes del reinicio responde 401 al instante'),
       A('admin-users.e2e-spec.ts', 'RESET: el refresh token emitido antes del reinicio se rechaza'),
       W('18-admin-users.spec.ts', 'el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario'),
     ],
@@ -330,6 +332,49 @@ export const CASES = [
       A('admin-users.e2e-spec.ts', 'RESET: el admin no puede reiniciar su propia contraseña'),
       A('admin-users.e2e-spec.ts', 'RESET: un usuario inexistente responde 404 y un cuerpo con propiedades 400'),
       A('admin-users.e2e-spec.ts', 'RESET: el sexto reinicio en un minuto responde 429'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-23', title: 'Un cambio de contraseña corta al instante los access tokens anteriores', priority: 'Alta', type: 'Seguridad', guide: '1.5',
+    pre: ['Usuario con dos sesiones abiertas (A y B) con access token vivo.', 'Un access token firmado sin pwv, como los emitidos antes del despliegue.'],
+    data: 'GET /api/auth/me con cada access token; cambio desde Mi cuenta; reinicio del admin',
+    steps: ['Cambiar la contraseña desde la sesión A.', 'Llamar a GET /api/auth/me con el access token anterior de A, con el nuevo y con el de la sesión B.', 'Probar el access token sin pwv y renovarlo con el refresh token vigente.', 'Reiniciar la contraseña desde el admin y llamar con el access token que Ana tenía.'],
+    expected: [
+      'El access token anterior al cambio responde 401 "Sesión no válida"; el nuevo de la sesión A responde 200.',
+      'El access token sin pwv responde 401 y la renovación con el refresh token vigente responde 200 con un par que sirve.',
+      'Tras el reinicio del admin, el access token anterior de Ana responde 401 al instante y el admin sigue con 200.',
+      'La respuesta no incluye el hash ni la huella.',
+    ],
+    auto: [
+      U('password-fingerprint.spec.ts', 'la huella tiene 22 caracteres base64url y no es ni contiene el hash'),
+      U('password-fingerprint.spec.ts', 'la huella cambia cuando cambia el hash y es estable para el mismo hash'),
+      U('password-fingerprint.spec.ts', 'matchesFingerprint acepta la huella propia'),
+      U('password-fingerprint.spec.ts', 'matchesFingerprint rechaza undefined, un número, una cadena más corta y la huella de otro hash'),
+      U('jwt.strategy.spec.ts', "validate: pwv que no coincide con el hash actual responde 401 'Sesión no válida'"),
+      U('jwt.strategy.spec.ts', 'validate: access token sin pwv responde 401'),
+      U('jwt.strategy.spec.ts', 'validate no devuelve passwordHash'),
+      U('auth.service.spec.ts', 'el access token y el refresh token llevan la misma pwv'),
+      A('account.e2e-spec.ts', 'ACCOUNT: tras el cambio el access token anterior responde 401 y el nuevo sigue sirviendo'),
+      A('account.e2e-spec.ts', 'ACCOUNT: un access token sin pwv (anterior al despliegue) responde 401 y el refresh lo repone'),
+      A('admin-users.e2e-spec.ts', 'RESET: el access token emitido antes del reinicio responde 401 al instante'),
+    ],
+  },
+  {
+    id: 'TC-AUTH-24', title: 'El login falla igual con email inexistente, usuario inactivo o contraseña incorrecta', priority: 'Alta', type: 'Seguridad', guide: '1.2',
+    pre: ['Una cuenta activa, otra desactivada y un email sin cuenta.'],
+    data: 'POST /api/auth/login con las tres combinaciones',
+    steps: ['Iniciar sesión con un email que no existe.', 'Iniciar sesión con la contraseña correcta de un usuario desactivado.', 'Iniciar sesión con una contraseña errónea de un usuario activo.'],
+    expected: [
+      'Los tres casos responden 401 "Credenciales inválidas" con el mismo cuerpo.',
+      'En los tres se ejecuta una sola verificación argon2: contra el hash señuelo (email inexistente o usuario inactivo) o contra el hash del usuario (contraseña errónea), de modo que la latencia no revela qué correos tienen cuenta activa.',
+      'El hash señuelo usa el mismo algoritmo y parámetros que las contraseñas reales.',
+    ],
+    auto: [
+      U('password-hash.spec.ts', 'produce un hash argon2id que argon2.verify acepta'),
+      U('auth.service.spec.ts', 'login con email inexistente verifica contra el hash señuelo y lanza Unauthorized'),
+      U('auth.service.spec.ts', 'el hash señuelo comparte algoritmo y parámetros con las contraseñas reales'),
+      U('auth.service.spec.ts', 'login válido devuelve tokens'),
+      A('app.e2e-spec.ts', 'el login responde igual con email inexistente, usuario inactivo o contraseña incorrecta'),
     ],
   },
 
@@ -1051,6 +1096,34 @@ export const CASES = [
     ],
   },
 
+  {
+    id: 'TC-CHAL-26', title: 'Diálogo de cierre: teclado, Escape mientras cierra y retorno del foco', priority: 'Alta', type: 'UI', guide: '6.3',
+    pre: ['Sesión de admin; un reto activo con una actividad pendiente.'],
+    data: 'Reto activo con una actividad pendiente; un servidor lento que responde 409 al cerrar',
+    steps: [
+      'Abrir "Cerrar reto" y moverse con Tab y Shift+Tab.',
+      'Marcar la casilla, confirmar con un servidor lento y pulsar Escape.',
+      'Con la respuesta 409, pulsar Tab.',
+      'Pulsar Escape.',
+      'Abrir "Cerrar reto" otra vez.',
+    ],
+    expected: [
+      'El foco no sale del diálogo y el resto de la página queda inerte.',
+      'Escape no hace nada mientras dice "Cerrando…".',
+      'Tras el 409, Tab va al primer control del diálogo.',
+      'Escape cierra el diálogo y el foco vuelve al botón "Cerrar reto".',
+      'Al reabrir, la casilla aparece sin marcar y el botón de confirmar deshabilitado.',
+    ],
+    auto: [
+      W('12-assisted-close.spec.ts', 'el diálogo de cierre atrapa el foco, ignora Escape mientras cierra y devuelve el foco'),
+      F('focus-trap.test.ts', 'nextFocusIndex: hacia delante avanza y da la vuelta al llegar al último'),
+      F('focus-trap.test.ts', 'nextFocusIndex: hacia atrás retrocede y da la vuelta al llegar al primero'),
+      F('focus-trap.test.ts', 'nextFocusIndex: sin foco en ningún control (-1) va al primero o al último'),
+      F('focus-trap.test.ts', 'nextFocusIndex: sin controles devuelve -1'),
+      F('focus-trap.test.ts', 'nextFocusIndex: con un solo control se queda en él'),
+    ],
+  },
+
   // ───────────────────────────── PART ─────────────────────────────
   {
     id: 'TC-PART-01', title: 'Inscribir participantes', priority: 'Alta', type: 'Funcional', guide: '3.1',
@@ -1607,6 +1680,29 @@ export const CASES = [
       F('progress.test.ts', 'Mi avance: días alcanzados con puntaje 0 dan NO_SCORE'),
       F('progress.test.ts', 'Mi avance: el porcentaje no supera 100'),
       W('16-my-progress.spec.ts', 'Mi avance muestra lo que falta para el mínimo y luego que ya se alcanza'),
+    ],
+  },
+  {
+    id: 'TC-ACT-26', title: 'Cola de validación por reto, orden y contador (API)', priority: 'Alta', type: 'Funcional', guide: '5.2',
+    pre: ['Dos retos activos (A con actividades pendientes de los días 3, 1 y dos del 2, B con una) y un reto cerrado con una pendiente.'],
+    data: 'GET /api/activities/pending con challengeId y order; GET /api/activities/pending/count',
+    steps: [
+      'Pedir la cola de A sin order, con order=desc y la cola sin parámetros.',
+      'Enviar challengeId=abc y order=sideways.',
+      'Pedir el contador, validar una pendiente de B y pedirlo otra vez; repetir las rutas como participante.',
+    ],
+    expected: [
+      'La cola de A sale de la más antigua a la más nueva (el empate del mismo día lo rompe la creación), con el nombre del reto en cada item; order=desc la invierte.',
+      'Sin parámetros lista las pendientes de todos los retos, incluida la del reto cerrado con challenge.status COMPLETED.',
+      'Los parámetros inválidos responden 400.',
+      'El contador cuenta solo las pendientes de retos activos (la del cerrado no), baja tras validar, y el participante recibe 403 en ambas rutas.',
+    ],
+    auto: [
+      U('activities.service.spec.ts', 'findPending ordena de la más antigua a la más nueva por defecto y filtra por reto y PENDING'),
+      U('activities.service.spec.ts', 'findPending con order=desc invierte el orden y sin reto lista todos'),
+      U('activities.service.spec.ts', 'findAll sin order conserva el orden descendente y trae nombre y estado del reto'),
+      U('activities.service.spec.ts', 'countPending cuenta las PENDING de retos ACTIVE'),
+      A('platform-rules.e2e-spec.ts', 'QUEUE: la cola filtra por reto, ordena de la más antigua y el contador cuenta solo retos activos'),
     ],
   },
 
@@ -2355,6 +2451,25 @@ export const CASES = [
     ],
   },
   {
+    id: 'TC-UI-13', title: 'Selector de reto, orden y contador en Validar', priority: 'Alta', type: 'UI', guide: '5.2',
+    pre: ['Sesión de administrador.', 'Dos retos activos: A con una pendiente y B con dos (los días 5 y 20).'],
+    data: 'Reto B elegido en el selector; "Más nuevas primero"; validar una pendiente',
+    steps: [
+      'Abrir Validar sin elegir reto.',
+      'Elegir el reto B, cambiar a "Más nuevas primero" y recargar la página.',
+      'Validar una actividad de B.',
+    ],
+    expected: [
+      'Sin reto elegido se ven las pendientes de todos los retos, la más antigua primero, cada tarjeta con el nombre de su reto, y el menú muestra el contador de pendientes de retos activos.',
+      'Con B solo salen sus dos tarjetas, el resumen cuenta 2, el reto y el orden quedan en la URL y sobreviven a la recarga.',
+      'Al validar una, el contador del menú baja en 1 sin recargar.',
+    ],
+    auto: [
+      F('pending.test.ts', 'insignia de pendientes: sin número en 0, el valor hasta 99 y 99+ por encima'),
+      W('03-admin-validation.spec.ts', 'la cola filtra por reto, ordena de la más antigua y el menú muestra el contador'),
+    ],
+  },
+  {
     id: 'TC-UI-06', title: 'El tema sigue al sistema por defecto', priority: 'Media', type: 'UI', guide: '1.4',
     pre: ['Navegador sin tema elegido (sin la clave reto.theme).'],
     data: 'Sistema en modo claro; sistema en modo oscuro; cambio del sistema con la app abierta; valor guardado inválido',
@@ -2460,6 +2575,25 @@ export const CASES = [
     steps: ['Enviar SIGTERM al proceso, o redesplegar en Seenode.'],
     expected: ['Los logs muestran "Conexión a la base cerrada" antes de que el proceso termine.', 'En Linux el proceso termina por la señal (código 143); es el cierre normal.'],
     auto: [A('ops-observability.e2e-spec.ts', 'OPS: al cerrar la app se cierra la conexión a la base y queda registrado')],
+  },
+
+  {
+    id: 'TC-HEALTH-06', title: 'El respaldo de la base se verifica restaurándolo', priority: 'Alta', type: 'Funcional', guide: '8.1',
+    pre: ['Docker con el contenedor reto-constancia-db en marcha.'],
+    data: 'node scripts/db-backup.mjs; --target con un host no local; --file con un volcado completo y otro truncado',
+    steps: [
+      'Con DATABASE_URL apuntando a una base local con datos, ejecutar node scripts/db-backup.mjs.',
+      'Ejecutarlo con --target postgresql://postgres:postgres@example.com:5432/postgres.',
+      'Ejecutar --file con el volcado generado y con una copia truncada a la mitad de los bytes.',
+      'Listar las bases del servidor local.',
+    ],
+    expected: [
+      'El respaldo termina con OK (código 0), con las cuentas iguales por tabla.',
+      'El destino no local termina con código 2, sin archivo ni base creados.',
+      'El volcado completo da OK (sin comparación con el origen); el truncado da FALLO (código 1).',
+      'No queda ninguna base reto_restore_check_*.',
+    ],
+    manual: { date: '2026-11-06', result: 'Aprobado', evidence: 'base de origen temporal (3 tablas, 52 filas): OK exit 0 x2; destino example.com exit 2 sin archivos; mismo origen y destino exit 2; --file OK exit 0; volcado truncado FALLO exit 1; sin bases reto_restore_check_* al final' },
   },
 
   // ───────────────────────────── PAR ─────────────────────────────

@@ -6,7 +6,11 @@ Resumen de los controles implementados, mapeados a principios de OWASP
 ## Controles implementados
 
 - Hashing de contraseñas con Argon2 (no se guardan en claro):
-  - `backend/src/auth/auth.service.ts` (`argon2.hash` / `argon2.verify`).
+  - `backend/src/auth/auth.service.ts` (`argon2.verify`) y `backend/src/auth/password-hash.ts`
+    (`hashPassword`, el único camino para hashear contraseñas).
+- Verificación argon2 constante en el login: con un email inexistente o un usuario inactivo se verifica
+  contra un hash señuelo (mismos parámetros, calculado al arrancar), de modo que la latencia no revela
+  qué correos tienen cuenta activa (TC-AUTH-24).
   - El hash nunca se devuelve al cliente (`sanitize()` quita `passwordHash`;
     además `SAFE_USER_SELECT` en `backend/src/users/users.service.ts`).
 - Política de contraseñas (mínimo 8, letra + número, máximo 72):
@@ -22,11 +26,14 @@ Resumen de los controles implementados, mapeados a principios de OWASP
     `backend/src/auth/auth.module.ts`.
   - Refresh token: secreto distinto (`JWT_REFRESH_SECRET`) y
     `JWT_REFRESH_EXPIRES_IN` (default 7d) en `auth.service.ts`.
-  - El refresh token termina al cambiar la contraseña: lleva una huella (`pwv`, HMAC-SHA256 del
-    hash con `JWT_REFRESH_SECRET`, 22 caracteres) y `refresh` rechaza con 401 un token sin huella o
-    con una huella que ya no coincide con el hash actual (cambio desde "Mi cuenta" o reinicio por
-    el seed). La sesión que cambia la contraseña recibe tokens nuevos; las demás dejan de renovarse
-    y sus access tokens ya emitidos valen hasta 15 minutos más. Sin migración.
+  - Los tokens terminan al cambiar la contraseña: el access token y el refresh token llevan una huella
+    (`pwv`, HMAC-SHA256 del hash con `JWT_REFRESH_SECRET`, 22 caracteres). `JwtStrategy` la compara en
+    cada petición (con la misma lectura por id que ya hace) y responde 401 "Sesión no válida" si falta
+    o no coincide; `refresh` rechaza igual un token sin huella o con una huella vieja. Vale para el
+    cambio desde "Mi cuenta", el reinicio del admin y el reinicio por el seed: la sesión que cambia la
+    contraseña recibe tokens nuevos y las demás dejan de servir en su próxima petición. El hash nunca
+    llega a `req.user`. Sin migración. Rotar `JWT_REFRESH_SECRET` cierra además todos los access
+    tokens al instante (antes, solo al renovar): hay que iniciar sesión de nuevo.
   - `PATCH /users/me/password`: 5 intentos/min por IP (como el login), 400 si la contraseña actual
     es incorrecta (no 401, para que la web no confunda el error con una sesión vencida), misma regla
     de contraseña que el registro (8 a 72 caracteres, con letra y número) y nueva distinta de la actual.
@@ -136,11 +143,12 @@ usuario en su próxima renovación. Cada reinicio deja una línea `[Audit]` con 
 
 ## Mejoras futuras (no bloqueantes)
 
-- Cerrar las otras sesiones al instante tras un cambio de contraseña (por ejemplo, la huella `pwv`
-  también en el access token): hoy un cambio de contraseña corta las otras sesiones en su próxima
-  renovación, hasta 15 minutos después.
 - Cambio de contraseña obligatorio al primer ingreso tras un reinicio del admin (necesita una
   migración con una columna `mustChangePassword`).
 - Verificación de correo y flujo de "olvidé mi contraseña".
 - Bloqueo temporal de cuenta tras N fallos (complementa el rate limiting por IP).
 - Cabecera CSP afinada en Helmet para el frontend.
+- Enumeración de cuentas por `POST /auth/register`: responde 409 "Email ya registrado" para un correo
+  existente, un oráculo más barato que el tiempo de respuesta del login. Cerrarlo sin canal de correo
+  rompe el alta (el 409 ayuda a los usuarios reales), y desactivar el registro público es una decisión
+  de producto del owner (`login-timing-parity`, P1).

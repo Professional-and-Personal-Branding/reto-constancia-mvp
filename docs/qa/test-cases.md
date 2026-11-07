@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-10-30** · rama `release/1.13.0` · commit `3da134a` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-07** · rama `release/1.14.0` · commit `981289b` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**159 casos** · 159 aprobados · 0 fallidos · 0 con limitación conocida · 158 automatizados.
+**165 casos** · 165 aprobados · 0 fallidos · 0 con limitación conocida · 163 automatizados.
 
 ## Cómo leer cada caso
 
@@ -17,18 +17,18 @@
 
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
-| [Autenticación y sesión](#auth) | 22 | 22 | 0 |
+| [Autenticación y sesión](#auth) | 24 | 24 | 0 |
 | [Seguridad y configuración](#sec) | 14 | 14 | 0 |
-| [Gestión de retos](#chal) | 25 | 25 | 0 |
+| [Gestión de retos](#chal) | 26 | 26 | 0 |
 | [Participantes y pagos](#part) | 11 | 11 | 0 |
-| [Actividades y validación](#act) | 25 | 25 | 0 |
+| [Actividades y validación](#act) | 26 | 26 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 8 | 8 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
-| [Interfaz y navegación](#ui) | 12 | 12 | 0 |
-| [Salud del servicio](#health) | 5 | 5 | 0 |
+| [Interfaz y navegación](#ui) | 13 | 13 | 0 |
+| [Salud del servicio](#health) | 6 | 6 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
 <a id="auth"></a>
@@ -59,6 +59,8 @@
 | [TC-AUTH-20](#tc-auth-20) | El rol vigente de la base manda sobre el del token | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-21](#tc-auth-21) | El admin reinicia la contraseña de un usuario | Alta | Seguridad | ✅ Aprobado |
 | [TC-AUTH-22](#tc-auth-22) | Reinicio de contraseña: permisos, propio id y límite | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-23](#tc-auth-23) | Un cambio de contraseña corta al instante los access tokens anteriores | Alta | Seguridad | ✅ Aprobado |
+| [TC-AUTH-24](#tc-auth-24) | El login falla igual con email inexistente, usuario inactivo o contraseña incorrecta | Alta | Seguridad | ✅ Aprobado |
 
 <a id="tc-auth-01"></a>
 
@@ -216,6 +218,7 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
+| ✅ | Unitaria | `auth.service.spec.ts` | login con email inexistente verifica contra el hash señuelo y lanza Unauthorized |
 | ✅ | Unitaria | `auth.service.spec.ts` | login con password incorrecto lanza Unauthorized |
 | ✅ | API e2e | `app.e2e-spec.ts` | POST /api/auth/login con password incorrecto -> 401 |
 
@@ -553,14 +556,14 @@
 **Pasos**
 
 1. Cambiar la contraseña.
-2. Renovar la segunda sesión.
+2. Usar el access token y renovar el refresh token de la segunda sesión.
 3. Iniciar sesión con la contraseña vieja y con la nueva.
 4. Probar una confirmación distinta en la web.
 
 **Resultado esperado**
 
-- 200 con un par de tokens nuevo y el mensaje de éxito; los campos quedan vacíos y la sesión sigue tras recargar.
-- La renovación de la segunda sesión responde 401 y la de la sesión nueva 200.
+- 200 con un par de tokens nuevo y el mensaje "Contraseña actualizada. Se cerraron las sesiones abiertas en otros dispositivos."; los campos quedan vacíos y la sesión sigue tras recargar.
+- La segunda sesión recibe 401 en su siguiente petición y al renovar; la sesión nueva sigue con 200.
 - La contraseña vieja responde 401 "Credenciales inválidas" y la nueva 200.
 - Una confirmación distinta muestra "Las contraseñas no coinciden" sin llamar a la API.
 
@@ -568,7 +571,7 @@
 
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
-| ✅ | Unitaria | `auth.service.spec.ts` | el refresh token lleva pwv y el access token no |
+| ✅ | Unitaria | `auth.service.spec.ts` | el access token y el refresh token llevan la misma pwv |
 | ✅ | Unitaria | `auth.service.spec.ts` | la huella no es ni contiene el hash de la contraseña |
 | ✅ | Unitaria | `auth.service.spec.ts` | refresh acepta un token cuya huella coincide con el hash actual |
 | ✅ | Unitaria | `users.service.spec.ts` | changePassword: guarda el hash nuevo y devuelve un par de tokens nuevo |
@@ -713,7 +716,7 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | Unitaria | `jwt.strategy.spec.ts` | validate devuelve sub, email y rol leídos de la base y no los del token |
-| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate busca por id y selecciona solo id, email, role y active |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate busca por id y selecciona solo id, email, role, active y passwordHash |
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un admin degradado con access token vivo recibe 403 en rutas de admin y el ranking sin emails |
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | SESSION: un participante promovido usa rutas de admin sin volver a iniciar sesión |
 
@@ -728,7 +731,7 @@
 **Precondiciones**
 
 - Sesión de admin.
-- Participante Ana con una sesión abierta (refresh token).
+- Participante Ana con una sesión abierta (access token y refresh token).
 
 **Datos de prueba:** POST /api/users/<Ana>/reset-password
 
@@ -736,13 +739,13 @@
 
 1. Reiniciar la contraseña de Ana.
 2. Iniciar sesión como Ana con la temporal y con la contraseña vieja.
-3. Renovar la sesión anterior de Ana.
+3. Usar el access token anterior de Ana y renovar su sesión anterior.
 
 **Resultado esperado**
 
 - 200 con solo temporaryPassword (xxxx-xxxx-xxxx) y Cache-Control: no-store.
 - Con la temporal el inicio de sesión da 200; con la vieja 401 "Credenciales inválidas".
-- La renovación de la sesión anterior da 401.
+- Las sesiones abiertas se cortan en su próxima petición: el access token anterior da 401 "Sesión no válida" y la renovación de la sesión anterior da 401.
 - Una línea admin_password_reset en los logs, sin la contraseña.
 
 **Validación automatizada**
@@ -753,6 +756,7 @@
 | ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin guarda solo el hash nuevo y devuelve la contraseña temporal |
 | ✅ | Unitaria | `users.service.spec.ts` | resetPasswordByAdmin escribe la línea de auditoría sin la contraseña |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin recibe una contraseña temporal una sola vez, sin caché, y la vieja deja de servir |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el access token emitido antes del reinicio responde 401 al instante |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el refresh token emitido antes del reinicio se rechaza |
 | ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
 
@@ -789,6 +793,87 @@
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el admin no puede reiniciar su propia contraseña |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: un usuario inexistente responde 404 y un cuerpo con propiedades 400 |
 | ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el sexto reinicio en un minuto responde 429 |
+
+<a id="tc-auth-23"></a>
+
+### TC-AUTH-23 · Un cambio de contraseña corta al instante los access tokens anteriores
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.5 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Usuario con dos sesiones abiertas (A y B) con access token vivo.
+- Un access token firmado sin pwv, como los emitidos antes del despliegue.
+
+**Datos de prueba:** GET /api/auth/me con cada access token; cambio desde Mi cuenta; reinicio del admin
+
+**Pasos**
+
+1. Cambiar la contraseña desde la sesión A.
+2. Llamar a GET /api/auth/me con el access token anterior de A, con el nuevo y con el de la sesión B.
+3. Probar el access token sin pwv y renovarlo con el refresh token vigente.
+4. Reiniciar la contraseña desde el admin y llamar con el access token que Ana tenía.
+
+**Resultado esperado**
+
+- El access token anterior al cambio responde 401 "Sesión no válida"; el nuevo de la sesión A responde 200.
+- El access token sin pwv responde 401 y la renovación con el refresh token vigente responde 200 con un par que sirve.
+- Tras el reinicio del admin, el access token anterior de Ana responde 401 al instante y el admin sigue con 200.
+- La respuesta no incluye el hash ni la huella.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | la huella tiene 22 caracteres base64url y no es ni contiene el hash |
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | la huella cambia cuando cambia el hash y es estable para el mismo hash |
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | matchesFingerprint acepta la huella propia |
+| ✅ | Unitaria | `password-fingerprint.spec.ts` | matchesFingerprint rechaza undefined, un número, una cadena más corta y la huella de otro hash |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: pwv que no coincide con el hash actual responde 401 'Sesión no válida' |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate: access token sin pwv responde 401 |
+| ✅ | Unitaria | `jwt.strategy.spec.ts` | validate no devuelve passwordHash |
+| ✅ | Unitaria | `auth.service.spec.ts` | el access token y el refresh token llevan la misma pwv |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: tras el cambio el access token anterior responde 401 y el nuevo sigue sirviendo |
+| ✅ | API e2e | `account.e2e-spec.ts` | ACCOUNT: un access token sin pwv (anterior al despliegue) responde 401 y el refresh lo repone |
+| ✅ | API e2e | `admin-users.e2e-spec.ts` | RESET: el access token emitido antes del reinicio responde 401 al instante |
+
+<a id="tc-auth-24"></a>
+
+### TC-AUTH-24 · El login falla igual con email inexistente, usuario inactivo o contraseña incorrecta
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Autenticación y sesión | Alta | Seguridad | 1.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Una cuenta activa, otra desactivada y un email sin cuenta.
+
+**Datos de prueba:** POST /api/auth/login con las tres combinaciones
+
+**Pasos**
+
+1. Iniciar sesión con un email que no existe.
+2. Iniciar sesión con la contraseña correcta de un usuario desactivado.
+3. Iniciar sesión con una contraseña errónea de un usuario activo.
+
+**Resultado esperado**
+
+- Los tres casos responden 401 "Credenciales inválidas" con el mismo cuerpo.
+- En los tres se ejecuta una sola verificación argon2: contra el hash señuelo (email inexistente o usuario inactivo) o contra el hash del usuario (contraseña errónea), de modo que la latencia no revela qué correos tienen cuenta activa.
+- El hash señuelo usa el mismo algoritmo y parámetros que las contraseñas reales.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `password-hash.spec.ts` | produce un hash argon2id que argon2.verify acepta |
+| ✅ | Unitaria | `auth.service.spec.ts` | login con email inexistente verifica contra el hash señuelo y lanza Unauthorized |
+| ✅ | Unitaria | `auth.service.spec.ts` | el hash señuelo comparte algoritmo y parámetros con las contraseñas reales |
+| ✅ | Unitaria | `auth.service.spec.ts` | login válido devuelve tokens |
+| ✅ | API e2e | `app.e2e-spec.ts` | el login responde igual con email inexistente, usuario inactivo o contraseña incorrecta |
 
 <a id="sec"></a>
 
@@ -1328,6 +1413,7 @@
 | [TC-CHAL-23](#tc-chal-23) | Renovar un reto en el mes siguiente (API) | Alta | Funcional | ✅ Aprobado |
 | [TC-CHAL-24](#tc-chal-24) | Renovar desde la lista de retos | Alta | UI | ✅ Aprobado |
 | [TC-CHAL-25](#tc-chal-25) | Diálogo de renovar: teclado y reto sin participantes | Alta | UI | ✅ Aprobado |
+| [TC-CHAL-26](#tc-chal-26) | Diálogo de cierre: teclado, Escape mientras cierra y retorno del foco | Alta | UI | ✅ Aprobado |
 
 <a id="tc-chal-01"></a>
 
@@ -2307,6 +2393,47 @@
 | ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: con un solo control se queda en él |
 | ✅ | Web (unitaria) | `renewal.test.ts` | rosterLabel: sin participantes avisa, con uno va en singular y con varios cuenta |
 
+<a id="tc-chal-26"></a>
+
+### TC-CHAL-26 · Diálogo de cierre: teclado, Escape mientras cierra y retorno del foco
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Gestión de retos | Alta | UI | 6.3 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de admin; un reto activo con una actividad pendiente.
+
+**Datos de prueba:** Reto activo con una actividad pendiente; un servidor lento que responde 409 al cerrar
+
+**Pasos**
+
+1. Abrir "Cerrar reto" y moverse con Tab y Shift+Tab.
+2. Marcar la casilla, confirmar con un servidor lento y pulsar Escape.
+3. Con la respuesta 409, pulsar Tab.
+4. Pulsar Escape.
+5. Abrir "Cerrar reto" otra vez.
+
+**Resultado esperado**
+
+- El foco no sale del diálogo y el resto de la página queda inerte.
+- Escape no hace nada mientras dice "Cerrando…".
+- Tras el 409, Tab va al primer control del diálogo.
+- Escape cierra el diálogo y el foco vuelve al botón "Cerrar reto".
+- Al reabrir, la casilla aparece sin marcar y el botón de confirmar deshabilitado.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | UI | `12-assisted-close.spec.ts` | el diálogo de cierre atrapa el foco, ignora Escape mientras cierra y devuelve el foco |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: hacia delante avanza y da la vuelta al llegar al último |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: hacia atrás retrocede y da la vuelta al llegar al primero |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: sin foco en ningún control (-1) va al primero o al último |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: sin controles devuelve -1 |
+| ✅ | Web (unitaria) | `focus-trap.test.ts` | nextFocusIndex: con un solo control se queda en él |
+
 <a id="part"></a>
 
 ## Participantes y pagos
@@ -2785,6 +2912,7 @@
 | [TC-ACT-23](#tc-act-23) | Mi mes: estados, enlaces, racha y teléfono | Alta | UI | ✅ Aprobado |
 | [TC-ACT-24](#tc-act-24) | Corregir un día rechazado | Alta | Funcional | ✅ Aprobado |
 | [TC-ACT-25](#tc-act-25) | Mi avance: cuánto falta para el mínimo | Alta | UI | ✅ Aprobado |
+| [TC-ACT-26](#tc-act-26) | Cola de validación por reto, orden y contador (API) | Alta | Funcional | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -3659,6 +3787,43 @@
 | ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: días alcanzados con puntaje 0 dan NO_SCORE |
 | ✅ | Web (unitaria) | `progress.test.ts` | Mi avance: el porcentaje no supera 100 |
 | ✅ | UI | `16-my-progress.spec.ts` | Mi avance muestra lo que falta para el mínimo y luego que ya se alcanza |
+
+<a id="tc-act-26"></a>
+
+### TC-ACT-26 · Cola de validación por reto, orden y contador (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Funcional | 5.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Dos retos activos (A con actividades pendientes de los días 3, 1 y dos del 2, B con una) y un reto cerrado con una pendiente.
+
+**Datos de prueba:** GET /api/activities/pending con challengeId y order; GET /api/activities/pending/count
+
+**Pasos**
+
+1. Pedir la cola de A sin order, con order=desc y la cola sin parámetros.
+2. Enviar challengeId=abc y order=sideways.
+3. Pedir el contador, validar una pendiente de B y pedirlo otra vez; repetir las rutas como participante.
+
+**Resultado esperado**
+
+- La cola de A sale de la más antigua a la más nueva (el empate del mismo día lo rompe la creación), con el nombre del reto en cada item; order=desc la invierte.
+- Sin parámetros lista las pendientes de todos los retos, incluida la del reto cerrado con challenge.status COMPLETED.
+- Los parámetros inválidos responden 400.
+- El contador cuenta solo las pendientes de retos activos (la del cerrado no), baja tras validar, y el participante recibe 403 en ambas rutas.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.service.spec.ts` | findPending ordena de la más antigua a la más nueva por defecto y filtra por reto y PENDING |
+| ✅ | Unitaria | `activities.service.spec.ts` | findPending con order=desc invierte el orden y sin reto lista todos |
+| ✅ | Unitaria | `activities.service.spec.ts` | findAll sin order conserva el orden descendente y trae nombre y estado del reto |
+| ✅ | Unitaria | `activities.service.spec.ts` | countPending cuenta las PENDING de retos ACTIVE |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | QUEUE: la cola filtra por reto, ordena de la más antigua y el contador cuenta solo retos activos |
 
 <a id="res"></a>
 
@@ -5312,6 +5477,7 @@
 | [TC-UI-10](#tc-ui-10) | El encabezado entra completo en escritorio y en móvil | Media | Regresión | ✅ Aprobado |
 | [TC-UI-11](#tc-ui-11) | Un error inesperado al validar muestra el código para soporte | Media | UI | ✅ Aprobado |
 | [TC-UI-12](#tc-ui-12) | Página Usuarios del admin | Alta | UI | ✅ Aprobado |
+| [TC-UI-13](#tc-ui-13) | Selector de reto, orden y contador en Validar | Alta | UI | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -5574,6 +5740,40 @@
 | ✅ | UI | `18-admin-users.spec.ts` | el admin busca, desactiva, cambia el rol y reinicia la contraseña de un usuario |
 | ✅ | Guía | `capture.spec.ts` | Usuarios: búsqueda, estado y acciones por fila |
 
+<a id="tc-ui-13"></a>
+
+### TC-UI-13 · Selector de reto, orden y contador en Validar
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Alta | UI | 5.2 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Sesión de administrador.
+- Dos retos activos: A con una pendiente y B con dos (los días 5 y 20).
+
+**Datos de prueba:** Reto B elegido en el selector; "Más nuevas primero"; validar una pendiente
+
+**Pasos**
+
+1. Abrir Validar sin elegir reto.
+2. Elegir el reto B, cambiar a "Más nuevas primero" y recargar la página.
+3. Validar una actividad de B.
+
+**Resultado esperado**
+
+- Sin reto elegido se ven las pendientes de todos los retos, la más antigua primero, cada tarjeta con el nombre de su reto, y el menú muestra el contador de pendientes de retos activos.
+- Con B solo salen sus dos tarjetas, el resumen cuenta 2, el reto y el orden quedan en la URL y sobreviven a la recarga.
+- Al validar una, el contador del menú baja en 1 sin recargar.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `pending.test.ts` | insignia de pendientes: sin número en 0, el valor hasta 99 y 99+ por encima |
+| ✅ | UI | `03-admin-validation.spec.ts` | la cola filtra por reto, ordena de la más antigua y el menú muestra el contador |
+
 <a id="tc-ui-06"></a>
 
 ### TC-UI-06 · El tema sigue al sistema por defecto
@@ -5719,6 +5919,7 @@
 | [TC-HEALTH-03](#tc-health-03) | La readiness responde 503 con la base caída | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-04](#tc-health-04) | Toda respuesta lleva un X-Request-Id y una línea de acceso segura | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-05](#tc-health-05) | Apagado ordenado | Media | Funcional | ✅ Aprobado |
+| [TC-HEALTH-06](#tc-health-06) | El respaldo de la base se verifica restaurándolo | Alta | Funcional | ✅ Aprobado (manual) |
 
 <a id="tc-health-01"></a>
 
@@ -5883,6 +6084,36 @@
 | | Suite | Archivo | Prueba |
 |---|---|---|---|
 | ✅ | API e2e | `ops-observability.e2e-spec.ts` | OPS: al cerrar la app se cierra la conexión a la base y queda registrado |
+
+<a id="tc-health-06"></a>
+
+### TC-HEALTH-06 · El respaldo de la base se verifica restaurándolo
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado (manual) |
+
+**Precondiciones**
+
+- Docker con el contenedor reto-constancia-db en marcha.
+
+**Datos de prueba:** node scripts/db-backup.mjs; --target con un host no local; --file con un volcado completo y otro truncado
+
+**Pasos**
+
+1. Con DATABASE_URL apuntando a una base local con datos, ejecutar node scripts/db-backup.mjs.
+2. Ejecutarlo con --target postgresql://postgres:postgres@example.com:5432/postgres.
+3. Ejecutar --file con el volcado generado y con una copia truncada a la mitad de los bytes.
+4. Listar las bases del servidor local.
+
+**Resultado esperado**
+
+- El respaldo termina con OK (código 0), con las cuentas iguales por tabla.
+- El destino no local termina con código 2, sin archivo ni base creados.
+- El volcado completo da OK (sin comparación con el origen); el truncado da FALLO (código 1).
+- No queda ninguna base reto_restore_check_*.
+
+**Verificación manual:** Aprobado el 2026-11-06. Evidencia: base de origen temporal (3 tablas, 52 filas): OK exit 0 x2; destino example.com exit 2 sin archivos; mismo origen y destino exit 2; --file OK exit 0; volcado truncado FALLO exit 1; sin bases reto_restore_check_* al final.
 
 <a id="par"></a>
 

@@ -260,12 +260,12 @@
 
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Manual de uso · versión 1.13.0 · 29 oct 2026</div>
+    <div class="eyebrow">Manual de uso · versión 1.14.0 · 7 nov 2026</div>
     <h1>Reto de <span>Constancia</span></h1>
     <p class="lede">Todo lo que hace la plataforma, en el orden en que ocurre durante un mes de reto: poner el sistema en marcha, configurar el reto, inscribir y cobrar, registrar y validar actividades, cerrar con ranking y premio, cargar historial y operar. Marca cada paso cuando lo completes; tu avance queda guardado en este navegador.</p>
     <div class="facts">
       <span><b>Para</b> administradores, participantes y quien opera el servidor</span>
-      <span class="verified">Verificado el 29 oct 2026: batería 13 de 13 · 159 de 159 casos aprobados con 851 pruebas</span>
+      <span class="verified">Verificado el 7 nov 2026: batería 13 de 13 · 165 de 165 casos aprobados con 873 pruebas</span>
       <span><b>Capturas</b> de la web real en modo claro, generadas por Playwright con datos de demostración</span>
       <span><b>Moneda de ejemplo</b> BOB · <b>zona</b> America/La_Paz</span>
     </div>
@@ -406,7 +406,7 @@
           why: 'Cualquier persona, participante o administrador, corrige su nombre y rota su contraseña sin pedir ayuda. El administrador del seed la cambia aquí tras su primer inicio de sesión.',
           actions: ['Abre <span class="ui">Mi cuenta</span>, la última sección del menú.', 'En <span class="ui">Nombre</span> escribe el nuevo nombre (2 a 80 caracteres) y pulsa <span class="ui">Guardar nombre</span>.', 'En <span class="ui">Contraseña</span> escribe la actual, la nueva dos veces (mínimo 8 caracteres, con una letra y un número) y pulsa <span class="ui">Cambiar contraseña</span>.'],
           expect: '"Nombre actualizado." y el encabezado muestra el nombre nuevo sin recargar. Al cambiar la contraseña ves "Contraseña actualizada…", los campos quedan vacíos y esta sesión sigue abierta.',
-          note: 'Las sesiones abiertas en otros dispositivos se cierran en su próxima renovación (hasta 15 minutos). Una contraseña actual incorrecta no cierra tu sesión: solo muestra el error. Hay un límite de 5 intentos por minuto.',
+          note: 'Las sesiones abiertas en otros dispositivos se cierran en su próxima petición, sin esperar a que venza la sesión. Una contraseña actual incorrecta no cierra tu sesión: solo muestra el error. Hay un límite de 5 intentos por minuto.',
           refs: ['TC-AUTH-15', 'TC-AUTH-16', 'TC-AUTH-17', 'TC-AUTH-18']
         }
       ]
@@ -511,7 +511,7 @@
           id: '3.5', role: 'admin', title: 'Administrar usuarios', route: '/dashboard/admin/users',
           why: 'Para activar o desactivar una cuenta, cambiar su rol o dar una contraseña nueva a quien la olvidó, sin tocar la base de datos.',
           actions: ['Abre <span class="ui">Usuarios</span> y escribe en <span class="ui">Buscar por nombre o correo</span>: la búsqueda no distingue mayúsculas ni tildes.', 'Cada fila muestra el rol (<span class="ui">Admin</span> o <span class="ui">Participante</span>) y si la cuenta está <span class="ui">Activo</span> o <span class="ui">Inactivo</span>. Usa <span class="ui">Desactivar</span> o <span class="ui">Activar</span>, y <span class="ui">Hacer admin</span> o <span class="ui">Quitar admin</span>; todas piden confirmación salvo activar.', 'Para dar una contraseña nueva, pulsa <span class="ui">Reiniciar contraseña</span> y confirma: aparece <span class="ui">Contraseña temporal de</span> la persona, con el botón <span class="ui">Copiar</span>.', 'Compártela por un canal privado (no por el grupo) y pídele que la cambie en <span class="ui">Mi cuenta</span> al entrar. Si la cuenta está inactiva, actívala antes para que pueda entrar.', 'Tu propia fila dice <span class="ui">Tú</span> y no tiene acciones; tu contraseña se cambia en <span class="ui">Mi cuenta</span>.'],
-          expect: 'Cada cambio se refleja en la fila al confirmar. La contraseña temporal se muestra una sola vez: al cerrar el diálogo no se puede volver a ver, y habría que reiniciarla de nuevo. Las sesiones abiertas de esa persona se cierran en pocos minutos; para cortar el acceso de inmediato, desactiva la cuenta primero.',
+          expect: 'Cada cambio se refleja en la fila al confirmar. La contraseña temporal se muestra una sola vez: al cerrar el diálogo no se puede volver a ver, y habría que reiniciarla de nuevo. Las sesiones abiertas de esa persona se cierran en su próxima petición.',
           note: 'Si el resultado es un error (por ejemplo, quitar al último administrador activo), el mensaje aparece sobre la lista y nada cambia. Un participante que abre esta dirección solo ve un aviso: la API tampoco le responde.',
           refs: ['TC-AUTH-21', 'TC-UI-12']
         }
@@ -589,10 +589,10 @@
         {
           id: '5.2', role: 'admin', title: 'Validar una actividad', route: '/dashboard/admin/validations',
           why: 'Solo las validadas suman al ranking.',
-          actions: ['Pulsa <span class="ui">✓ Validar</span>.', 'Si la actividad no cumple la regla de FC, se abre un campo de nota: explica por qué la aceptas (5 a 300 caracteres) y pulsa <span class="ui">Validar con nota</span>.'],
+          actions: ['Si hay varios retos activos, elige uno en <span class="ui">Reto</span> para trabajarlo por separado (o deja <span class="ui">Todos los retos</span>); <span class="ui">Orden</span> empieza por las más antiguas y puedes pasar a las más nuevas. Tu elección queda en la dirección de la página.', 'Pulsa <span class="ui">✓ Validar</span>.', 'Si la actividad no cumple la regla de FC, se abre un campo de nota: explica por qué la aceptas (5 a 300 caracteres) y pulsa <span class="ui">Validar con nota</span>.'],
           expect: 'La tarjeta sale de la lista y el participante suma un día. La nota de excepción queda guardada.',
-          note: 'Esto es útil para registros históricos que no tienen captura. Si la API falla de forma inesperada, el aviso muestra un código: compártelo con el técnico para que lo busque en los logs.',
-          refs: ['TC-ACT-08', 'TC-ACT-15', 'TC-UI-11']
+          note: 'Esto es útil para registros históricos que no tienen captura. Si la API falla de forma inesperada, el aviso muestra un código: compártelo con el técnico para que lo busque en los logs. El número junto a <span class="ui">Validar</span> en el menú cuenta las pendientes de los retos activos (desaparece en 0 y muestra 99+ desde 100). Las actividades de un reto cerrado salen con la marca <span class="ui">Reto cerrado</span> y sin botones: ya son definitivas.',
+          refs: ['TC-ACT-08', 'TC-ACT-15', 'TC-UI-11', 'TC-ACT-26', 'TC-UI-13']
         },
         {
           id: '5.3', role: 'admin', title: 'Rechazar una actividad', route: '/dashboard/admin/validations',

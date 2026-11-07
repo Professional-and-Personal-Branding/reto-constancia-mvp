@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.13.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.14.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -38,7 +38,7 @@ Sin estos puntos en verde **no se despliega**.
       comportamiento.
 - [ ] Hay ventana acordada con el administrador del reto (idealmente fuera del horario en que
       los participantes suben su actividad del día).
-- [ ] Respaldo de la base reciente (ver §5.1) si la versión trae migraciones.
+- [ ] Respaldo verificado con `node scripts/db-backup.mjs` (`OK`) si la versión trae migraciones (ver §5.1).
 
 ---
 
@@ -186,7 +186,7 @@ espera que `PATCH /api/users/me/password` responda 200 con tokens. Avisa a los p
 es el primer despliegue, sigue el paso 3 de §1.5.
 
 **Migraciones:** se aplican solas en el arranque de la API (`prisma migrate deploy`). Son
-solo hacia adelante. Si la versión trae alguna, toma el respaldo de §5.1 antes del paso 3.
+solo hacia adelante. Si la versión trae alguna, corre el respaldo verificado de §5.1 y despliega solo con `OK`, antes del paso 3.
 
 ---
 
@@ -261,19 +261,47 @@ volver a la 1.10.0 se despliegan API y web juntas, porque la web usa `renewal-pr
 La 1.12.0 (con «Mi cuenta») tampoco trae migraciones: para volver a la 1.11.0 se despliegan API y web juntas. Los refresh tokens que emite llevan un dato extra que la anterior ignora, así que las sesiones sobreviven a la reversión; las contraseñas cambiadas mientras tanto quedan cambiadas (son hashes normales).
 La 1.12.1 (endurece la renovación y la inscripción en bloque) tampoco trae migraciones ni variables: para volver a la 1.12.0 se despliegan API y web juntas; no cambia ningún contrato.
 La 1.13.0 (chequeo de sesión efectivo, «Mi avance», pagos en lote y reinicio de contraseña por el admin) tampoco trae migraciones ni variables: para volver a la 1.12.1 se despliegan API y web juntas. Las sesiones sobreviven a la reversión (los refresh tokens ya llevaban `pwv` desde la 1.12.0); una contraseña temporal emitida mientras tanto sigue siendo un hash normal, y la web de la 1.12.1 no tiene la página Usuarios ni las casillas de pago.
+La 1.14.0 (revocación instantánea de access tokens, filtros de la cola de validación, respaldo verificado, modal de cierre y login sin filtración por latencia) tampoco trae migraciones ni variables: para volver a la 1.13.0 se despliegan API y web juntas. Los access tokens emitidos con la 1.14.0 llevan `pwv` y la 1.13.0 los ignora, así que las sesiones sobreviven a la reversión.
 
 ---
 
 ## 5. Datos
 
-### 5.1 Respaldo antes de migraciones
+### 5.1 Respaldo verificado antes de migraciones
 
-```bash
-# Desde una máquina con acceso a la base (o la shell del servicio)
-pg_dump "$DATABASE_URL" --format=custom --file=reto-$(date +%Y%m%d-%H%M).dump
+`scripts/db-backup.mjs` vuelca la base, restaura el volcado en una base temporal local
+(`reto_restore_check_*`, que borra al terminar) y compara las filas de cada tabla con el origen.
+Solo lee el origen. Usa `pg_dump`, `pg_restore` y `psql` del PATH y, si no están, el contenedor
+`reto-constancia-db`.
+
+**Cuándo:** antes de cada despliegue cuyas notas de versión listen una migración, y una vez al mes.
+**Un despliegue con migración no se hace sin un `OK`.**
+
+**Cómo (Windows, este proyecto):**
+
+```powershell
+docker compose up -d postgres
+$env:DATABASE_URL = '<url de producción>'; node scripts/db-backup.mjs; Remove-Item Env:DATABASE_URL
 ```
 
-Guarda el archivo fuera de Seenode. Restaurar:
+En Git Bash: `DATABASE_URL='<url>' node scripts/db-backup.mjs`. Escribe `backups/reto-AAAAMMDD-HHMM.dump`
+(carpeta ignorada por git). Si la base solo es alcanzable desde la shell del servicio, haz el volcado
+allí (`pg_dump "$DATABASE_URL" --format=custom --file=reto.dump`), descárgalo y verifícalo con
+`node scripts/db-backup.mjs --file reto.dump`: termina con `OK (sin comparación con el origen)`,
+una prueba más débil (compara a ojo un par de cuentas con las pantallas del admin).
+
+**Resultado:** `OK` (código 0) permite desplegar. `FALLO` (código 1; el volcado queda como
+`*.unverified.dump`) no: repite el respaldo; "la base cambió durante el respaldo" se arregla
+repitiéndolo en un momento sin actividad. Código 2: el script se negó (destino no local, falta
+Docker o el cliente es más viejo que el servidor); el mensaje dice qué hacer.
+
+**Dónde guardarlo:** el `.dump` contiene datos personales (nombres, correos, pagos): fuera del
+repositorio y de Seenode, en una carpeta cifrada del dueño; nunca en incidencias ni chats.
+
+**Cuántos:** los últimos 3 verificados, más el previo a cada release con migración hasta confirmar
+la siguiente; el resto se borra a mano (el script nunca borra).
+
+**Restaurar** (comando manual, ahora con un archivo verificado):
 
 ```bash
 pg_restore --clean --if-exists --no-owner --dbname "$DATABASE_URL" reto-AAAAMMDD-HHMM.dump
