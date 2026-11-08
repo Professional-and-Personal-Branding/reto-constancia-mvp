@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-07** · rama `release/1.14.0` · commit `981289b` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-07** · rama `feature/resubmit-rejected-activity-api` · commit `664caab`. Detalle en [validation-report.md](validation-report.md).
 
-**165 casos** · 165 aprobados · 0 fallidos · 0 con limitación conocida · 163 automatizados.
+**168 casos** · 168 aprobados · 0 fallidos · 0 con limitación conocida · 166 automatizados.
 
 ## Cómo leer cada caso
 
@@ -21,7 +21,7 @@
 | [Seguridad y configuración](#sec) | 14 | 14 | 0 |
 | [Gestión de retos](#chal) | 26 | 26 | 0 |
 | [Participantes y pagos](#part) | 11 | 11 | 0 |
-| [Actividades y validación](#act) | 26 | 26 | 0 |
+| [Actividades y validación](#act) | 29 | 29 | 0 |
 | [Resultados y premiación](#res) | 6 | 6 | 0 |
 | [Reglas de puntaje](#score) | 8 | 8 | 0 |
 | [Finanzas](#fin) | 9 | 9 | 0 |
@@ -2913,6 +2913,9 @@
 | [TC-ACT-24](#tc-act-24) | Corregir un día rechazado | Alta | Funcional | ✅ Aprobado |
 | [TC-ACT-25](#tc-act-25) | Mi avance: cuánto falta para el mínimo | Alta | UI | ✅ Aprobado |
 | [TC-ACT-26](#tc-act-26) | Cola de validación por reto, orden y contador (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-ACT-29](#tc-act-29) | Corregir y reenviar una actividad rechazada (API) | Alta | Funcional | ✅ Aprobado |
+| [TC-ACT-30](#tc-act-30) | Historial de rechazos: se guarda, solo lo ven el dueño y el admin, y se borra al retirar | Alta | Seguridad | ✅ Aprobado |
+| [TC-ACT-31](#tc-act-31) | Reenvío y revisión simultáneos: gana una sola | Alta | Integración | ✅ Aprobado |
 
 <a id="tc-act-01"></a>
 
@@ -3824,6 +3827,164 @@
 | ✅ | Unitaria | `activities.service.spec.ts` | findAll sin order conserva el orden descendente y trae nombre y estado del reto |
 | ✅ | Unitaria | `activities.service.spec.ts` | countPending cuenta las PENDING de retos ACTIVE |
 | ✅ | API e2e | `platform-rules.e2e-spec.ts` | QUEUE: la cola filtra por reto, ordena de la más antigua y el contador cuenta solo retos activos |
+
+<a id="tc-act-29"></a>
+
+### TC-ACT-29 · Corregir y reenviar una actividad rechazada (API)
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Funcional | 4.6 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con regla de FC de 20 min y una actividad rechazada ("Falta la captura de FC") con una foto; un segundo participante; un reto cerrado con una rechazada.
+
+**Datos de prueba:** PUT /api/activities/:id/resubmission
+
+**Pasos**
+
+1. Reenviar con la misma foto, una captura de FC nueva y 25 min de FC.
+2. Reenviar otra vez la misma actividad.
+3. Reenviar con un campo date en el cuerpo.
+4. Reenviar la actividad del otro participante.
+5. Reenviar la del reto cerrado.
+6. Reenviar con 40 min de FC y 30 de duración.
+
+**Resultado esperado**
+
+- 200 con la actividad PENDING, el mismo id y la misma fecha, resubmissionCount 1 y sin motivo vigente.
+- 403 "Solo se pueden reenviar actividades rechazadas".
+- 400 por el campo no permitido.
+- 403 "No puedes reenviar esta actividad".
+- 400 "El reto está cerrado; sus actividades son definitivas".
+- 400 "Los minutos con FC no pueden superar la duración de la actividad".
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | el dueño corrige los datos de FC: queda PENDING con el mismo id y fecha y sin datos de revisión |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | fotos conservadas, nuevas y quitadas: solo las nuevas pasan assertOwnedAsset y las quitadas se liberan al final |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | si el reenvío falla no cambia ni libera ninguna foto |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | re-etiquetar una foto conservada deriva hasHeartRateProof y no libera archivos |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | una foto repetida en el cuerpo responde 400 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | una foto subida por otro participante responde 400 y no cambia nada |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | aplica las reglas vigentes del reto con los mensajes del registro (período, día, FC) |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | una actividad PENDING o VALIDATED responde 403 "Solo se pueden reenviar actividades rechazadas" |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | otro participante y un admin responden 403 "No puedes reenviar esta actividad" |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | un dueño que ya no participa en el reto responde 403 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | un reto cerrado responde 400 antes que el dueño y el estado; uno que no está activo responde "El reto no está activo" |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | una actividad inexistente responde 404 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | decide con la actividad releída bajo el lock: REJECTED afuera y VALIDATED adentro responde 403 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | acepta datos que cumplen la regla vigente |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | rechaza minutos con FC mayores que la duración y datos que incumplen la regla |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: rechazar, reenviar y rechazar de nuevo deja dos entradas en el historial y un contador de 1 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: un cuerpo con date, challengeId o status responde 400 y la actividad no cambia |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: otro participante y el admin reciben 403; el detalle ajeno no devuelve los motivos |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: en un reto cerrado responde 400 antes que el dueño y el estado, y no cambia nada |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: reenviar una rechazada libera la foto quitada, conserva la que sigue y la que otra actividad usa |
+| ✅ | API e2e | `asset-cleanup.e2e-spec.ts` | CLEAN: un reenvío rechazado (400) no libera ninguna foto |
+
+<a id="tc-act-30"></a>
+
+### TC-ACT-30 · Historial de rechazos: se guarda, solo lo ven el dueño y el admin, y se borra al retirar
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Seguridad | 4.6 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en un reto activo con una actividad pendiente y otra validada; un segundo participante; un admin.
+
+**Datos de prueba:** POST /api/activities/:id/reject, PUT /api/activities/:id/resubmission, GET /api/activities/me, /pending y /:id; backfill prisma/sql/backfill-activity-rejections.sql
+
+**Pasos**
+
+1. Rechazar la pendiente, reenviarla y rechazarla otra vez.
+2. Intentar rechazar de nuevo la rechazada y rechazar la validada.
+3. Leer /activities/me, /activities/pending, el detalle como el otro participante, el ranking y el calendario.
+4. Validar (revertir) una rechazada.
+5. Retirar una rechazada con historial.
+6. Correr dos veces el backfill de recuperación sobre una base con una rechazada sin entrada.
+
+**Resultado esperado**
+
+- Dos entradas en orden (motivo y hora) sin la identidad del admin.
+- 409 "Solo se pueden rechazar actividades pendientes" sin cambios en la actividad ni en el historial.
+- 403 sin motivos para el otro participante; el ranking y el calendario no muestran el historial; la cola del admin trae las entradas.
+- La validación conserva el historial.
+- El retiro borra la actividad y sus entradas.
+- El backfill agrega una entrada la primera vez y ninguna la segunda.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | rechazar una pendiente escribe un registro de historial en la misma transacción |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | rechazar una REJECTED o una VALIDATED responde 409 y no cambia ni escribe historial |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | el reto cerrado conserva su precedencia: una VALIDATED de un reto cerrado responde 400 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | reject decide con el estado releído bajo el lock: PENDING afuera y REJECTED adentro responde 409 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | validar una REJECTED conserva el historial: limpia el motivo vigente y no toca las entradas |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: rechazar, reenviar y rechazar de nuevo deja dos entradas en el historial y un contador de 1 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: rechazar de nuevo una rechazada o una validada responde 409 y no cambia nada |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: otro participante y el admin reciben 403; el detalle ajeno no devuelve los motivos |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: la cola del admin trae el historial sin identidad; ranking y calendario no lo muestran |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: retirar la actividad borra su historial |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: el backfill agrega una entrada por cada rechazada sin historial y al repetirlo no duplica; la migración lo trae copiado |
+
+<a id="tc-act-31"></a>
+
+### TC-ACT-31 · Reenvío y revisión simultáneos: gana una sola
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Actividades y validación | Alta | Integración | 4.6 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Actividad rechazada y una transacción de prueba que retiene su fila (SELECT … FOR UPDATE).
+
+**Datos de prueba:** validar, rechazar, retirar y reenviar la misma actividad en un orden forzado
+
+**Pasos**
+
+1. Validar primero y reenviar después.
+2. Reenviar primero y validar después.
+3. Rechazar primero (ya rechazada) y reenviar después.
+4. Retirar primero y validar después.
+5. Retener la fila más de 5 s y validar.
+
+**Resultado esperado**
+
+- La validación gana (VALIDATED con los datos viejos) y el reenvío responde 403 "Solo se pueden reenviar actividades rechazadas".
+- El reenvío responde 200 y la validación evalúa los datos nuevos, nunca VALIDATED con datos sin revisar.
+- El rechazo responde 409 "Solo se pueden rechazar actividades pendientes" y el reenvío 200.
+- 204 y luego 404 "Actividad no encontrada".
+- 409 "La actividad se está modificando; vuelve a intentarlo en unos segundos" y la actividad no cambia.
+- Ningún orden responde 500.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | validate: bloquea el reto, revisa el cierre, bloquea la fila FOR UPDATE y recién ahí relee la actividad |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | reject: bloquea el reto, revisa el cierre, bloquea la fila FOR UPDATE y recién ahí relee la actividad |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | remove: bloquea el reto, revisa el cierre, bloquea la fila FOR UPDATE y recién ahí relee la actividad |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | resubmit: bloquea el reto, revisa el cierre, bloquea la fila FOR UPDATE y recién ahí relee la actividad |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | un reto cerrado responde 400 sin llegar a bloquear la fila |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | validate: si la fila desapareció tras el lock responde 404 y no 500 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | reject: si la fila desapareció tras el lock responde 404 y no 500 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | remove: si la fila desapareció tras el lock responde 404 y no 500 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | resubmit: si la fila desapareció tras el lock responde 404 y no 500 |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | un timeout en el lock de la fila responde 409 con su propio mensaje |
+| ✅ | Unitaria | `activities.resubmission.spec.ts` | un timeout en el lock del reto conserva el mensaje "El reto se está cerrando…" |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: validar primero y reenviar después: gana la validación y el reenvío responde 403 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: reenviar primero y validar después: la validación evalúa los datos nuevos |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: rechazar primero una rechazada y reenviar después: el rechazo responde 409 y el reenvío 200 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: retirar primero y validar después: 204 y luego 404, nunca 500 |
+| ✅ | API e2e | `platform-rules.e2e-spec.ts` | RESUB: si la fila está retenida más de 5 s, validar responde 409 "La actividad se está modificando…" y no cambia nada |
 
 <a id="res"></a>
 

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import { QueryActivitiesDto } from './dto/query-activities.dto';
 import { QueryPendingDto } from './dto/query-pending.dto';
 import { MyCalendarQueryDto } from './dto/my-calendar-query.dto';
 import { RejectActivityDto } from './dto/reject-activity.dto';
+import { ResubmitActivityDto } from './dto/resubmit-activity.dto';
 import { ValidateActivityDto } from './dto/validate-activity.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -96,7 +98,11 @@ export class ActivitiesController {
       'Validar actividad (admin). Si no cumple la regla de FC del reto requiere { override: true, note }',
   })
   @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
-  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'El reto se está cerrando; vuelve a intentarlo en unos segundos | La actividad se está modificando; vuelve a intentarlo en unos segundos',
+  })
   validate(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
@@ -107,9 +113,13 @@ export class ActivitiesController {
 
   @Post(':id/reject')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Rechazar actividad (admin)' })
+  @ApiOperation({ summary: 'Rechazar actividad pendiente (admin)' })
   @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
-  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'El reto se está cerrando; vuelve a intentarlo en unos segundos | La actividad se está modificando; vuelve a intentarlo en unos segundos | Solo se pueden rechazar actividades pendientes',
+  })
   reject(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,
@@ -118,11 +128,36 @@ export class ActivitiesController {
     return this.activities.reject(id, user.sub, dto.reason);
   }
 
+  @Put(':id/resubmission')
+  @ApiOperation({
+    summary:
+      'Corregir y reenviar una actividad rechazada (su dueño). Conserva el id y la fecha; vuelve a PENDING',
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos, reto cerrado o no activo, o no cumple las reglas vigentes' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'No puedes reenviar esta actividad | Solo se pueden reenviar actividades rechazadas | No participas en este reto',
+  })
+  @ApiResponse({ status: 404, description: 'Actividad no encontrada' })
+  @ApiResponse({ status: 409, description: 'La actividad se está modificando; vuelve a intentarlo en unos segundos' })
+  resubmit(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ResubmitActivityDto,
+  ) {
+    return this.activities.resubmit(id, user.sub, dto);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar actividad (propia si pendiente o rechazada, o admin; nunca en un reto cerrado)' })
   @ApiResponse({ status: 400, description: 'El reto está cerrado; sus actividades son definitivas' })
-  @ApiResponse({ status: 409, description: 'El reto se está cerrando; vuelve a intentarlo en unos segundos' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'El reto se está cerrando; vuelve a intentarlo en unos segundos | La actividad se está modificando; vuelve a intentarlo en unos segundos',
+  })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: JwtPayload,

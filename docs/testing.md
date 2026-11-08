@@ -1,7 +1,7 @@
 # Pruebas automatizadas — Reto de Constancia
 
 Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
-catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (165 casos, cada uno con las
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (168 casos, cada uno con las
 pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
 [`test-cases.md`](./test-cases.md).
 
@@ -130,7 +130,7 @@ el PR #52: el relanzamiento quedó en verde.
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 77 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 165 casos de `docs/qa/` están enlazados a 873 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 168 casos de `docs/qa/` están enlazados a 919 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -143,6 +143,24 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-11-07 · rama `feature/resubmit-rejected-activity-api` (reenviar una rechazada, API y migración)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433). Base reiniciada con
+`npx prisma migrate reset --force` antes de la batería y otra vez antes del validador. Trae la migración
+`add_activity_rejection_history` (aditiva, con relleno idempotente): respaldo previo con
+`node scripts/db-backup.mjs` en `OK`, `migrate reset` y `migrate deploy` sobre base limpia aplicados, y
+relleno de recuperación ejecutado dos veces sobre una rechazada nueva (una entrada y luego ninguna).
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **168 de 168 casos aprobados** (166
+automatizados, 2 manuales) con 919 pruebas y 0 fallidas: unitarias del backend 440, unitarias de la web
+79, e2e de API 221, recorridos de UI 82, capturas de la guía 27 y sesiones paralelas 70;
+"Pruebas sin caso: 0". La primera corrida del validador falló una vez `07-theme.spec.ts` (fondo
+transparente en modo claro, TC-UI-09); pasó sola y en la corrida completa siguiente, sin cambios de
+código (la rama no toca la web). `openspec validate --all --strict`: 18 de 18. `npm audit --omit=dev`:
+0 avisos en el backend.
 
 ### 2026-11-07 · v1.14.0 (rama `release/1.14.0`)
 
