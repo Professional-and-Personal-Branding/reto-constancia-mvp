@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-07** · rama `feature/resubmit-rejected-activity-api` · commit `664caab`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-08** · rama `feature/resubmit-rejected-activity-2-web` · commit `79f79d8` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
-**168 casos** · 168 aprobados · 0 fallidos · 0 con limitación conocida · 166 automatizados.
+**169 casos** · 169 aprobados · 0 fallidos · 0 con limitación conocida · 167 automatizados.
 
 ## Cómo leer cada caso
 
@@ -27,7 +27,7 @@
 | [Finanzas](#fin) | 9 | 9 | 0 |
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
-| [Interfaz y navegación](#ui) | 13 | 13 | 0 |
+| [Interfaz y navegación](#ui) | 14 | 14 | 0 |
 | [Salud del servicio](#health) | 6 | 6 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
@@ -3731,7 +3731,7 @@
 
 **Resultado esperado**
 
-- La fila muestra el motivo, el aviso "Puedes retirarla y registrar ese día de nuevo." y el botón Retirar.
+- La fila muestra el motivo, el aviso "Puedes corregirla y reenviarla, o retirarla y registrar ese día de nuevo." y los botones "Corregir y reenviar" y "Retirar".
 - Mi mes lleva a esa fila.
 - Aparece la confirmación específica de las rechazadas.
 - Al confirmar la fila desaparece, se ve "Actividad retirada." con el enlace y el día queda "Sin registro".
@@ -5639,6 +5639,7 @@
 | [TC-UI-11](#tc-ui-11) | Un error inesperado al validar muestra el código para soporte | Media | UI | ✅ Aprobado |
 | [TC-UI-12](#tc-ui-12) | Página Usuarios del admin | Alta | UI | ✅ Aprobado |
 | [TC-UI-13](#tc-ui-13) | Selector de reto, orden y contador en Validar | Alta | UI | ✅ Aprobado |
+| [TC-UI-15](#tc-ui-15) | Corregir y reenviar una rechazada desde Mis actividades | Alta | UI | ✅ Aprobado |
 | [TC-UI-06](#tc-ui-06) | El tema sigue al sistema por defecto | Media | UI | ✅ Aprobado |
 | [TC-UI-07](#tc-ui-07) | Interruptor de modo claro/oscuro | Media | UI | ✅ Aprobado |
 | [TC-UI-08](#tc-ui-08) | El tema elegido se aplica sin parpadeo | Media | UI | ✅ Aprobado |
@@ -5934,6 +5935,57 @@
 |---|---|---|---|
 | ✅ | Web (unitaria) | `pending.test.ts` | insignia de pendientes: sin número en 0, el valor hasta 99 y 99+ por encima |
 | ✅ | UI | `03-admin-validation.spec.ts` | la cola filtra por reto, ordena de la más antigua y el menú muestra el contador |
+
+<a id="tc-ui-15"></a>
+
+### TC-UI-15 · Corregir y reenviar una rechazada desde Mis actividades
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Interfaz y navegación | Alta | UI | 4.6 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Participante inscrito en dos retos activos: A (regla de FC de 20 min) con dos actividades rechazadas, con motivo y una foto cada una, y B sin regla; un administrador.
+- Pantalla de 375 px de ancho.
+
+**Datos de prueba:** Web: Mis actividades > Corregir y reenviar (/dashboard/upload?reenviar=<id>); Validar. Captura de FC nueva y 25 min de FC
+
+**Pasos**
+
+1. Leer la fila rechazada del reto A en Mis actividades.
+2. Pulsar "Corregir y reenviar".
+3. Agregar la captura de FC, indicar 25 min de FC y pulsar "Reenviar".
+4. Abrir "Rechazos anteriores (1)" con el teclado.
+5. Con el reto B seleccionado, abrir el formulario de reenvío de la otra rechazada del reto A y reenviarla.
+6. Como administrador, abrir Validar con el reto A y validar la reenviada.
+7. Volver a abrir el enlace de reenvío de la actividad ya validada.
+
+**Resultado esperado**
+
+- La fila muestra el motivo, el aviso nuevo, "Corregir y reenviar" primero y "Retirar" después, sin desplazamiento horizontal.
+- El formulario se titula "Corregir y reenviar", muestra la fecha fija y la foto guardada precargada, y "Reenviar" sigue bloqueado sin la captura de FC.
+- Vuelve a Mi reto con el aviso "Actividad reenviada. Queda pendiente de validación." enfocado; la fila queda "Pendiente".
+- El desplegable muestra el motivo del rechazo anterior.
+- El formulario usa la regla de FC del reto A (no la del B) y la actividad se reenvía en A.
+- La tarjeta muestra la insignia "Reenviada" y el motivo anterior; al validar sale de la cola.
+- Aparece "Esta actividad ya no se puede reenviar." con un enlace de vuelta y sin botón Reenviar.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: la primera ACTIVITY y la primera HEART_RATE llenan los espacios |
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: una actividad importada con tres fotos ACTIVITY deja dos en Otras fotos |
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: quitar vacía el espacio y subir una captura nueva la agrega al cuerpo |
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: re-etiquetar mueve la foto al otro espacio con el tipo del espacio |
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: canResubmit pide dueño, rechazada y reto activo |
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: earlierRejections excluye el rechazo vigente solo si sigue rechazada |
+| ✅ | Web (unitaria) | `resubmission.test.ts` | reenvío: la insignia de la cola dice Reenviada y Reenviada ×n desde la segunda |
+| ✅ | UI | `19-resubmit-activity.spec.ts` | corrige una rechazada: formulario con la foto guardada, reenvío y aviso con foco |
+| ✅ | UI | `19-resubmit-activity.spec.ts` | con otro reto seleccionado, la actividad se reenvía en su propio reto |
+| ✅ | UI | `19-resubmit-activity.spec.ts` | ve "Reenviada" y el motivo anterior en la cola y valida |
+| ✅ | UI | `19-resubmit-activity.spec.ts` | una actividad que ya no está rechazada muestra el aviso y un enlace de vuelta |
 
 <a id="tc-ui-06"></a>
 

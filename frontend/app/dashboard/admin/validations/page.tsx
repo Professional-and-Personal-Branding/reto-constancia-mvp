@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api';
 import type { DailyActivity } from '@/lib/types';
 import { formatDay } from '@/lib/dates';
 import { useActiveChallenge } from '@/lib/use-active-challenge';
+import { earlierRejections, resubmittedLabel } from '@/lib/resubmission';
 
 function formatDate(iso: string): string {
   return formatDay(iso, { day: '2-digit', month: 'short', year: 'numeric' });
@@ -190,6 +191,9 @@ function ActivityCard({
   const [note, setNote] = useState('');
   // En un reto cerrado las actividades son definitivas: la API respondería 400 (design D4)
   const closedChallenge = activity.challenge?.status === 'COMPLETED';
+  // El participante la corrigió y reenvió: se avisa y se muestran los motivos de rechazos anteriores
+  const resubmittedBadge = resubmittedLabel(activity.resubmissionCount);
+  const earlier = earlierRejections(activity);
 
   return (
     <div className="card p-5">
@@ -227,13 +231,14 @@ function ActivityCard({
                 <p className="text-xs text-ink-dim mt-1">Reto: {activity.challenge.name}</p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               {activity.heartRateCompliant ? (
                 <span className="badge bg-ok/15 text-ok">Cumple FC</span>
               ) : (
                 <span className="badge bg-warn/15 text-warn">No cumple FC</span>
               )}
               {closedChallenge && <span className="badge bg-ink-mute/15 text-ink-dim">Reto cerrado</span>}
+              {resubmittedBadge && <span className="badge bg-accent/15 text-accent">{resubmittedBadge}</span>}
               <span className="badge-pending">Pendiente</span>
             </div>
           </div>
@@ -261,6 +266,21 @@ function ActivityCard({
               warn={!activity.heartRateCompliant}
             />
           </div>
+
+          {earlier.length > 0 && (
+            <div className="text-sm">
+              <p className="text-xs uppercase tracking-wider text-ink-mute">
+                Rechazos anteriores ({earlier.length})
+              </p>
+              <ul className="mt-1 space-y-1 text-ink-dim">
+                {earlier.map((r) => (
+                  <li key={r.rejectedAt}>
+                    {formatDate(r.rejectedAt)} · {r.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {activity.notes && (
             <p className="text-sm text-ink-dim italic">

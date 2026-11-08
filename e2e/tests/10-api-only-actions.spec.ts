@@ -160,7 +160,7 @@ test.describe('Participante', () => {
     await selectChallenge(page, challengeId, '/dashboard');
     const list = page.getByLabel('Mis actividades');
     await expect(list).toContainText('La foto no muestra el entrenamiento');
-    await expect(list).toContainText('Puedes retirarla y registrar ese día de nuevo.');
+    await expect(list).toContainText('Puedes corregirla y reenviarla, o retirarla y registrar ese día de nuevo.');
 
     await list.getByRole('button', { name: 'Retirar' }).click();
     await expect(list).toContainText('¿Retirar esta actividad rechazada? Se borrará con sus fotos y podrás registrar ese día de nuevo.');

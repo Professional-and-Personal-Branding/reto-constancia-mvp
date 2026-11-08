@@ -568,10 +568,22 @@
         {
           id: '4.5', role: 'participante', title: 'Retirar una actividad pendiente o rechazada', route: '/dashboard',
           why: 'Para corregir un registro antes de que lo validen o para registrar de nuevo un día que el administrador rechazó.',
-          actions: ['En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Retirar</span> en una actividad pendiente o rechazada (la rechazada muestra el motivo y el aviso <span class="ui">Puedes retirarla y registrar ese día de nuevo.</span>).', 'Confirma con <span class="ui">Sí, retirar</span> (o <span class="ui">No</span> para dejarla). Si era una rechazada, pulsa <span class="ui">Registrar ese día</span> para abrir el formulario con esa fecha.'],
+          actions: ['En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Retirar</span> en una actividad pendiente o rechazada (la rechazada muestra el motivo y el aviso <span class="ui">Puedes corregirla y reenviarla, o retirarla y registrar ese día de nuevo.</span>; para corregirla sin perder el día, ve al paso 4.6).', 'Confirma con <span class="ui">Sí, retirar</span> (o <span class="ui">No</span> para dejarla). Si era una rechazada, pulsa <span class="ui">Registrar ese día</span> para abrir el formulario con esa fecha.'],
           expect: 'La actividad desaparece, el contador baja y, si era la de hoy, la tarjeta de hoy vuelve a ofrecer <span class="ui">Registrar hoy</span>. Al retirar una rechazada aparece <span class="ui">Actividad retirada.</span> con el enlace <span class="ui">Registrar ese día</span>; la nueva actividad queda pendiente de validación.',
           note: 'Solo se retiran las propias, pendientes o rechazadas, y mientras el reto está abierto; las validadas no muestran el botón. Retirar una rechazada borra su motivo y sus fotos, y se puede repetir cuantas veces haga falta. El administrador puede borrar cualquiera por la API.',
           refs: ['TC-ACT-12', 'TC-ACT-24']
+        },
+        {
+          id: '4.6', role: 'participante', title: 'Corregir y reenviar una actividad rechazada', route: '/dashboard',
+          why: 'Para arreglar lo que el administrador observó (por ejemplo, la captura de FC) sin perder la actividad ni su fecha.',
+          actions: [
+            'En <span class="ui">Mis actividades</span>, pulsa <span class="ui">Corregir y reenviar</span> en la fila rechazada (aparece primero; <span class="ui">Retirar</span> queda como segunda opción).',
+            'El formulario abre con los datos y las fotos guardadas, y la fecha fija. Corrige lo que haga falta: cambia datos, pulsa <span class="ui">Quitar</span> o <span class="ui">Reemplazar</span> en una foto, o <span class="ui">Usar como captura de FC</span> / <span class="ui">Usar como foto de la actividad</span> si estaba mal etiquetada. Las fotos que no tocas se conservan.',
+            'Pulsa <span class="ui">Reenviar</span>.'
+          ],
+          expect: 'Vuelves a Mi reto con el aviso <span class="ui">Actividad reenviada. Queda pendiente de validación.</span>; la fila queda Pendiente y guarda <span class="ui">Rechazos anteriores (n)</span> con los motivos. El administrador la ve con la marca <span class="ui">Reenviada</span> (o <span class="ui">Reenviada ×n</span>) y los motivos anteriores.',
+          note: 'Solo se reenvían las propias, rechazadas y de un reto activo; si el enlace quedó viejo, el formulario dice <span class="ui">Esta actividad ya no se puede reenviar.</span> y ofrece volver. Se aplican las reglas vigentes del reto (por ejemplo, los minutos de FC) y las fotos nuevas deben ser tuyas. No hay límite de reenvíos, pero el administrador ve cuántas veces lo hiciste. Mientras está pendiente cuenta como cualquier pendiente: solo suma al ranking cuando el administrador la valida. Retirarla (paso 4.5) borra también el historial de rechazos.',
+          refs: ['TC-ACT-29', 'TC-ACT-30', 'TC-UI-15']
         }
       ]
     },
@@ -598,7 +610,8 @@
           id: '5.3', role: 'admin', title: 'Rechazar una actividad', route: '/dashboard/admin/validations',
           why: 'Cuando la evidencia no alcanza.',
           actions: ['Pulsa <span class="ui">✗ Rechazar</span>, escribe el motivo (al menos 3 caracteres) y pulsa <span class="ui">Confirmar rechazo</span>.'],
-          expect: 'La actividad pasa a Rechazado y el participante ve el motivo.',
+          expect: 'La actividad pasa a Rechazado y el participante ve el motivo; puede corregirla y reenviarla (paso 4.6).',
+          note: 'Solo se rechazan las pendientes: una actividad ya validada o rechazada responde "Solo se pueden rechazar actividades pendientes". Si validaste por error, borra la actividad (por la API) y que el participante la registre de nuevo.',
           refs: ['TC-ACT-09', 'TC-ACT-19']
         }
       ]
@@ -781,6 +794,7 @@
     ['Estado y motivo de rechazo de cada actividad', '4.4', 'auto'],
     ['Retirar una actividad pendiente o rechazada', '4.5', 'auto'],
     ['Corregir un día rechazado: retirar y registrar de nuevo', '4.5', 'auto'],
+    ['Corregir y reenviar una actividad rechazada, con su historial de rechazos', '4.6', 'auto'],
     ['Validación con chip de cumplimiento de FC', '5.1', 'auto'],
     ['Validar con nota de excepción', '5.2', 'auto'],
     ['Rechazar con motivo', '5.3', 'auto'],
