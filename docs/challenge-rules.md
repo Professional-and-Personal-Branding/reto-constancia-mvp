@@ -98,6 +98,16 @@ OpenSpec `enforce-heart-rate-minutes`, spec `activity-heart-rate-compliance`).
   cumplen se reportan como **advertencias** y se importan igual (registros
   históricos).
 - Todas las respuestas de actividades incluyen `heartRateCompliant` (derivado).
+- **Acciones del participante sobre una actividad rechazada** (cambio
+  `resubmit-rejected-activity-2`, spec `activity-resubmission`): corregirla y reenviarla con
+  `PUT /activities/:id/resubmission` (misma actividad, misma fecha, vuelve a `PENDING`; se aplican de nuevo
+  las reglas vigentes del reto, incluida la de FC), o retirarla y registrar ese día de nuevo. Cada rechazo
+  queda en un historial (motivo y hora; lo ven el dueño y los admins, nunca otros participantes) que se
+  borra al retirar la actividad.
+- **Solo se rechazan actividades pendientes** (409 en otro caso). Una validación hecha por error ya no
+  se convierte en rechazo por la API: se elimina la actividad (el admin puede borrar las de un reto no
+  cerrado) y el participante registra el día de nuevo. Validar una rechazada (revertir) sigue permitido y
+  conserva el historial.
 - `minHeartRateMinutes = 0` desactiva la regla para ese reto.
 
 **Gap #3 — Reglas de puntaje configurables por reto. RESUELTO** (cambio OpenSpec
