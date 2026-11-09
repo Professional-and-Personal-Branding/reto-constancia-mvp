@@ -144,6 +144,21 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-11-09 · v1.15.0 (rama `release/1.15.0`)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433). Base reiniciada con
+`npx prisma migrate reset --force` antes de la batería y antes del validador. Release minor con la
+migración `add_activity_rejection_history` (la primera desde la 1.4.0): reenviar una actividad rechazada
+(PR #108 API y #109 web). `npm audit --omit=dev`: 0 avisos en backend, frontend y e2e.
+
+**Batería** (`node scripts/run-tests.mjs`): **13 de 13 pasos en verde** a la primera.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **169 de 169 casos aprobados** (167
+automatizados, 2 manuales) con 930 pruebas y 0 fallidas: unitarias del backend 440, unitarias de la web
+86, e2e de API 221, recorridos de UI 86, capturas de la guía 27 y sesiones paralelas 70;
+"Pruebas sin caso: 0". `openspec validate --all --strict`: 18 de 18 (el cambio `resubmit-rejected-activity-2`
+quedó archivado y `edit-pending-activity` rebasado sobre él, solo documentos).
+
 ### 2026-11-08 · rama `feature/resubmit-rejected-activity-2-web` (reenviar una rechazada, web)
 
 Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433). Base reiniciada con

@@ -3,7 +3,13 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.15.0] — 2026-11-09
+
+**Esta versión trae una migración** (`add_activity_rejection_history`, la primera desde la 1.4.0; solo
+agrega). **No se despliega sin un respaldo verificado con `OK` (`node scripts/db-backup.mjs`, runbook §5.1).**
+Para volver a la 1.14.0 se redespliegan API y web 1.14.0 conservando el esquema (la 1.14.0 ignora la tabla y
+la columna nuevas); al volver a la 1.15.0 se corre el relleno de recuperación (runbook §4). Sin variables
+ni dependencias nuevas.
 
 ### Agregado
 

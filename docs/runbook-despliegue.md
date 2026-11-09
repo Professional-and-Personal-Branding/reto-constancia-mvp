@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.14.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.15.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
