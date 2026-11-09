@@ -19,6 +19,13 @@ Versionado [SemVer](https://semver.org/lang/es/).
   corrige y reenvía la misma actividad (mismo id y fecha, vuelve a pendiente, conserva las fotos que siguen,
   las fotos nuevas deben ser subidas propias y las quitadas se liberan al terminar) con las reglas vigentes
   del reto. Las actividades traen `resubmissionCount` y `rejections` (motivo y hora, sin el admin).
+- Web: en Mis actividades, la fila rechazada de un reto activo ofrece **Corregir y reenviar** (primero) y
+  **Retirar**. El formulario de subida tiene un modo de reenvío (`/dashboard/upload?reenviar=<id>`) con la
+  fecha fija, los datos y las fotos guardadas precargadas (quitar, reemplazar, usar como captura de FC o como
+  foto de la actividad, y "Otras fotos"), y usa el reto de la actividad aunque el selector muestre otro. Al
+  reenviar, el panel muestra "Actividad reenviada. Queda pendiente de validación." y la fila guarda
+  "Rechazos anteriores (n)". En Validar, la tarjeta lleva la marca "Reenviada" (o "Reenviada ×n") y los
+  motivos anteriores. Guía: paso 4.6.
 
 ### Cambiado
 
