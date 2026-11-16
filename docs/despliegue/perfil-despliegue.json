@@ -1,0 +1,129 @@
+{
+  "proyecto": {
+    "nombre": "reto-constancia-mvp",
+    "descripcion": "Plataforma de retos mensuales de constancia: API NestJS 11 + Prisma 5/PostgreSQL 16, web Next.js 15 con render en servidor, fotos en Cloudinary",
+    "tipo": "dos servicios web (API y web) + PostgreSQL; un solo servicio en compose (postgres) solo para desarrollo local",
+    "version": "1.15.0 (release/1.15.0 pendiente de fusión a main); última etiqueta v1.14.0"
+  },
+  "stack": {
+    "lenguajes": ["typescript"],
+    "gestor": "npm",
+    "frameworks": ["nestjs 11", "next 15", "react", "prisma 5", "passport (JWT)"],
+    "runtime": "node 20 (backend/Dockerfile: node:20-bookworm-slim, multi-etapa)",
+    "monorepo": false,
+    "paquetes": ["backend", "frontend", "e2e"]
+  },
+  "datos": {
+    "motor": "PostgreSQL 16 (prisma provider postgresql)",
+    "migraciones": "backend/prisma/migrations/ (la 1.15.0 trae la primera migración desde la 1.4.0); el contenedor ejecuta `prisma migrate deploy` al arrancar",
+    "respaldo": "scripts/db-backup.mjs (pg_dump + verificación de restauración); runbook §5.1 lo exige antes de migrar"
+  },
+  "parametros": {
+    "presupuesto": 10,
+    "tarjeta": "si",
+    "audiencia": "equipo",
+    "datos": "sensibles",
+    "ramas": "gitflow",
+    "modo": "proponer",
+    "profundidad": "normal"
+  },
+  "estadoActual": {
+    "desplegado": false,
+    "plataformaPlaneada": "Seenode (2 Web Services + PostgreSQL administrado) + Cloudinary",
+    "documentos": ["docs/runbook-despliegue.md", "docs/deploy-seenode.md"],
+    "nota": "No hay registro de un despliegue en producción: el runbook §8 es una plantilla de registro y las cuentas del owner están pendientes. El plan vigente (Seenode) entra como candidato «quedarse»."
+  },
+  "hechos": [
+    {
+      "pregunta": 2,
+      "hecho": "Proceso persistente: NestJS escucha con app.listen(port); sin websockets",
+      "evidencia": "backend/src/main.ts:80"
+    },
+    {
+      "pregunta": 3,
+      "hecho": "Sin tareas programadas ni setInterval/@Cron en el backend",
+      "evidencia": "grep en backend/src sin resultados; el cierre de reto es una acción del admin"
+    },
+    {
+      "pregunta": 4,
+      "hecho": "Escritura a disco solo en modo local de subidas (sin Cloudinary); en producción las fotos van a Cloudinary con firma del servidor",
+      "evidencia": "backend/src/upload/upload.service.ts:121 (isLocalMode), :218, :159-171"
+    },
+    {
+      "pregunta": 5,
+      "hecho": "Sin navegador sin cabeza ni binarios del sistema en producción; hash de contraseñas con argon2 (dependencia nativa con binarios precompilados)",
+      "evidencia": "backend/Dockerfile; backend/src/auth/password-hash.ts"
+    },
+    {
+      "pregunta": 6,
+      "hecho": "PostgreSQL con Prisma; Postgres 16 en desarrollo y CI",
+      "evidencia": "docker-compose.yml:5; .github/workflows/ci.yml"
+    },
+    {
+      "pregunta": 8,
+      "hecho": "Migraciones versionadas; `prisma migrate deploy` en el CMD del contenedor",
+      "evidencia": "backend/Dockerfile:42"
+    },
+    {
+      "pregunta": 13,
+      "hecho": "CI con 3 jobs obligatorios (Backend, Frontend, E2E de UI); batería local 13/13",
+      "evidencia": ".github/workflows/ci.yml; docs/testing.md §6"
+    },
+    {
+      "pregunta": 14,
+      "hecho": "Gitflow: main es producción, develop integración; el owner fusiona todos los PR",
+      "evidencia": "CLAUDE.md; docs/gitflow.md"
+    },
+    {
+      "pregunta": 15,
+      "hecho": "Variables solo por nombre: DATABASE_URL, NODE_ENV, PORT, API_PREFIX, CORS_ORIGIN, JWT_SECRET, JWT_ACCESS_EXPIRES_IN, JWT_REFRESH_SECRET, JWT_REFRESH_EXPIRES_IN, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_FOLDER, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_ADMIN_NAME; en la web NEXT_PUBLIC_API_URL (llega al navegador, no es secreta)",
+      "evidencia": "backend/.env.example; frontend/.env.example"
+    },
+    {
+      "pregunta": 16,
+      "hecho": "Servicios externos: Cloudinary (subidas firmadas); CORS_ORIGIN debe coincidir con el dominio de la web; trust proxy configurable",
+      "evidencia": "backend/src/main.ts:29"
+    },
+    {
+      "pregunta": 16,
+      "hecho": "Seenode no inyecta PORT: se fija en el panel y la app escucha en 0.0.0.0",
+      "evidencia": "docs/deploy-seenode.md (notas de plataforma)"
+    }
+  ],
+  "supuestos": [
+    {
+      "pregunta": 10,
+      "supuesto": "Decenas de usuarios por reto (grupo de amigos o equipo), unos cientos de peticiones por día, un reto activo al mes; sin requisito de funcionar sin conexión",
+      "motivo": "El owner no dio cifras; valor por omisión para audiencia equipo"
+    },
+    {
+      "pregunta": 7,
+      "supuesto": "Base de menos de 1 GB y fotos de actividad de hasta unos MB cada una, en Cloudinary",
+      "motivo": "Sin medición; el límite de subida lo fija UPLOAD_MAX_BYTES"
+    },
+    {
+      "pregunta": 12,
+      "supuesto": "Una caída de horas es tolerable si no pierde datos; el cierre mensual es la operación sensible",
+      "motivo": "Uso de comunidad, no comercial"
+    },
+    {
+      "pregunta": 17,
+      "supuesto": "Dominio: subdominio de la plataforma (sin dominio propio)",
+      "motivo": "No declarado"
+    }
+  ],
+  "restricciones": [
+    "Costo total de hosting y base de datos: hasta 10 USD por mes (Cloudinary en su plan gratuito)",
+    "El owner acepta cargar una tarjeta; la carga siempre el owner",
+    "Datos sensibles (credenciales con argon2, comprobantes de pago y fotos de actividad): acceso restringido, secretos fuera del repo",
+    "PostgreSQL 16 y proceso Node persistente (dos servicios: API y web con render en servidor)",
+    "Respaldo verificado con restauración antes de cada migración (scripts/db-backup.mjs necesita acceso de red a la base y pg_dump)",
+    "Volver atrás: redesplegar la versión anterior sin tocar el esquema; la base no se pierde al cambiar de plataforma",
+    "Nada de lo que hace Claude crea cuentas ni recursos en la nube sin confirmación del owner"
+  ],
+  "pendientesDelOwner": [
+    "Cuentas de la plataforma elegida y de Cloudinary",
+    "¿Dominio propio o subdominio de la plataforma?",
+    "Cifras reales de participantes por reto"
+  ]
+}
