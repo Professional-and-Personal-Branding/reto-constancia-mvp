@@ -1,0 +1,25 @@
+{
+  "parametros": {
+    "profundidad": "normal",
+    "presupuesto": 10,
+    "tarjeta": "si",
+    "audiencia": "equipo",
+    "datos": "sensibles",
+    "ramas": "gitflow",
+    "idioma": "es",
+    "salida": "docs/despliegue",
+    "modo": "proponer"
+  },
+  "decision": {
+    "fecha": "2026-11-16",
+    "plataforma": "seenode (variante de un Web Service con API y web, PostgreSQL Basic, Cloudinary; 8 USD/mes)",
+    "condicional": true,
+    "planB": "vps-docker",
+    "vetados": ["render"],
+    "documentos": [
+      "docs/despliegue/DECISION-DESPLIEGUE.md",
+      "docs/despliegue/RUNBOOK-DESPLIEGUE.md",
+      "docs/despliegue/perfil-despliegue.json"
+    ]
+  }
+}
