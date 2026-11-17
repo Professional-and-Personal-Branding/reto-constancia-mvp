@@ -1,7 +1,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ActivityStatus, UserRole } from '@prisma/client';
+import { ActivityStatus, PrismaClient, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
@@ -613,6 +615,355 @@ describe('Reglas de la plataforma (e2e)', () => {
 
     // Deja el reto como estaba para las pruebas siguientes
     expect((await request(http).delete(`/api/activities/${again.body.id}`).set(auth(token.ana))).status).toBe(204);
+  });
+
+  // ---------------- Reenvío de rechazadas (cambio resubmit-rejected-activity-2) ----------------
+
+  describe('RESUB: reenviar una actividad rechazada', () => {
+    let rid = ''; // reto activo con regla de FC de 20 minutos
+    let closedId = ''; // reto cerrado con una rechazada
+    let barrierDb: PrismaClient;
+    const day = (d: number) => `${YEAR}-11-${String(d).padStart(2, '0')}`;
+    const CLOSED_MSG = 'El reto está cerrado; sus actividades son definitivas';
+    const ONLY_REJECTED = 'Solo se pueden reenviar actividades rechazadas';
+    const BUSY = 'La actividad se está modificando; vuelve a intentarlo en unos segundos';
+
+    const photo = (who: 'ana' | 'bruno', name: string, type: 'ACTIVITY' | 'HEART_RATE' = 'ACTIVITY') => ({
+      ...ownedAsset({ challengeId: rid, userId: id[who], name }),
+      type,
+    });
+    const resubBody = (photos: unknown[], over: Record<string, unknown> = {}) => ({
+      exerciseType: 'RUNNING',
+      durationMinutes: 30,
+      heartRateMinutes: 25,
+      photos,
+      ...over,
+    });
+    const resubmit = (actId: string, who: keyof typeof emails, body: Record<string, unknown>) =>
+      request(http).put(`/api/activities/${actId}/resubmission`).set(auth(token[who])).send(body);
+    const reject = (actId: string, reason: string) =>
+      request(http).post(`/api/activities/${actId}/reject`).set(auth(token.admin)).send({ reason });
+    const dbActivity = (actId: string) => prisma.dailyActivity.findUnique({ where: { id: actId } });
+
+    /** Registra una actividad con foto y captura de FC y el admin la rechaza. */
+    async function rejectedActivity(date: string, reason: string, who: 'ana' | 'bruno' = 'ana') {
+      const photos = [photo(who, `a-${date}`), photo(who, `hr-${date}`, 'HEART_RATE')];
+      const created = await request(http).post('/api/activities').set(auth(token[who])).send({
+        challengeId: rid, date, exerciseType: 'RUNNING', durationMinutes: 30, heartRateMinutes: 25, photos,
+      });
+      expect(created.status).toBe(201);
+      const rejected = await reject(created.body.id, reason);
+      expect(rejected.status).toBe(201);
+      return { id: created.body.id as string, photos };
+    }
+
+    beforeAll(async () => {
+      const created = await request(http).post('/api/challenges').set(auth(token.admin)).send({
+        name: 'E2E Reenvío', month: 11, year: YEAR,
+        startDate: `${YEAR}-11-01T00:00:00.000Z`, endDate: `${YEAR}-11-28T23:59:59.000Z`,
+        validDays: [0, 1, 2, 3, 4, 5, 6], minHeartRateMinutes: 20,
+      });
+      expect(created.status).toBe(201);
+      rid = created.body.id;
+      await request(http).post(`/api/challenges/${rid}/activate`).set(auth(token.admin));
+      for (const who of ['ana', 'bruno'] as const) {
+        await request(http).post(`/api/challenges/${rid}/participants`).set(auth(token.admin)).send({ userId: id[who] });
+      }
+      const closed = await prisma.challenge.create({
+        data: {
+          name: 'E2E Reenvío cerrado', month: 12, year: YEAR, status: 'COMPLETED', minHeartRateMinutes: 0,
+          startDate: new Date(`${YEAR}-12-01T00:00:00.000Z`), endDate: new Date(`${YEAR}-12-28T23:59:59.000Z`),
+        },
+      });
+      closedId = closed.id;
+      barrierDb = new PrismaClient();
+    });
+
+    afterAll(async () => {
+      await barrierDb?.$disconnect();
+    });
+
+    // ----- Barrera determinista: una transacción de prueba retiene la fila de la actividad -----
+
+    async function holdRow(actId: string) {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      let locked!: () => void;
+      const isLocked = new Promise<void>((resolve) => (locked = resolve));
+      const holder = barrierDb.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "DailyActivity" WHERE id = ${actId} FOR UPDATE`;
+          locked();
+          await held;
+        },
+        { maxWait: 5_000, timeout: 60_000 },
+      );
+      await isLocked;
+      return {
+        release: async () => {
+          release();
+          await holder;
+        },
+      };
+    }
+
+    /** Espera, mirando pg_stat_activity, a que `n` sentencias estén esperando el lock de una fila de actividad. */
+    async function waitUntilWaiting(n: number) {
+      const until = Date.now() + 10_000;
+      for (;;) {
+        const rows = await barrierDb.$queryRaw<{ n: number }[]>`
+          SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock'
+            AND query LIKE '%"DailyActivity"%FOR UPDATE%'`;
+        if (rows[0].n >= n) return;
+        if (Date.now() > until) throw new Error(`Solo ${rows[0].n} de ${n} peticiones esperan el lock de la fila`);
+        await new Promise((r) => setTimeout(r, 25));
+      }
+    }
+
+    /** Envía las peticiones en el orden forzado y confirma que cada una ya espera antes de enviar la siguiente. */
+    async function racedInOrder(actId: string, requests: request.Test[]) {
+      const barrier = await holdRow(actId);
+      const pending: Promise<request.Response>[] = [];
+      try {
+        for (const [i, req] of requests.entries()) {
+          pending.push(req.then((r) => r));
+          await waitUntilWaiting(i + 1);
+        }
+      } finally {
+        await barrier.release();
+      }
+      return Promise.all(pending);
+    }
+
+    // ----- Flujo completo, historial y visibilidad -----
+
+    it('RESUB: rechazar, reenviar y rechazar de nuevo deja dos entradas en el historial y un contador de 1', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(3), 'Foto borrosa');
+      const newHr = photo('ana', 'hr-nueva-3', 'HEART_RATE');
+
+      const res = await resubmit(actId, 'ana', resubBody([photos[0], newHr], { heartRateMinutes: 28, notes: 'Con captura nueva' }));
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        id: actId, status: 'PENDING', rejectionReason: null, resubmissionCount: 1,
+        heartRateMinutes: 28, hasHeartRateProof: true, notes: 'Con captura nueva', heartRateCompliant: true,
+      });
+      expect(res.body.date).toContain(day(3));
+      expect(res.body.photos.map((p: { cloudinaryId: string }) => p.cloudinaryId).sort()).toEqual(
+        [photos[0].cloudinaryId, newHr.cloudinaryId].sort(),
+      );
+      expect(res.body.rejections).toHaveLength(1);
+      expect(res.body.rejections[0].reason).toBe('Foto borrosa');
+      expect(Object.keys(res.body.rejections[0]).sort()).toEqual(['reason', 'rejectedAt']);
+
+      expect((await reject(actId, 'Falta la captura de FC')).status).toBe(201);
+      const mine = await request(http).get(`/api/activities/me?challengeId=${rid}`).set(auth(token.ana));
+      const item = mine.body.find((a: { id: string }) => a.id === actId);
+      expect(item).toMatchObject({ status: 'REJECTED', rejectionReason: 'Falta la captura de FC', resubmissionCount: 1 });
+      expect(item.rejections.map((r: { reason: string }) => r.reason)).toEqual(['Foto borrosa', 'Falta la captura de FC']);
+      expect(new Date(item.rejections[0].rejectedAt).getTime()).toBeLessThanOrEqual(new Date(item.rejections[1].rejectedAt).getTime());
+    });
+
+    it('RESUB: rechazar de nuevo una rechazada o una validada responde 409 y no cambia nada', async () => {
+      const { id: actId } = await rejectedActivity(day(4), 'Foto borrosa');
+      const again = await reject(actId, 'Otra razón');
+      expect(again.status).toBe(409);
+      expect(again.body.message).toBe('Solo se pueden rechazar actividades pendientes');
+      expect((await dbActivity(actId))?.rejectionReason).toBe('Foto borrosa');
+      expect(await prisma.activityRejection.count({ where: { activityId: actId } })).toBe(1);
+
+      // Validar una rechazada (revertir) conserva el historial
+      const validated = await request(http).post(`/api/activities/${actId}/validate`).set(auth(token.admin));
+      expect(validated.status).toBe(201);
+      expect(validated.body).toMatchObject({ status: 'VALIDATED', rejectionReason: null });
+      expect(await prisma.activityRejection.count({ where: { activityId: actId } })).toBe(1);
+
+      const late = await reject(actId, 'Demasiado tarde');
+      expect(late.status).toBe(409);
+      expect(late.body.message).toBe('Solo se pueden rechazar actividades pendientes');
+      expect((await dbActivity(actId))?.status).toBe(ActivityStatus.VALIDATED);
+      expect(await prisma.activityRejection.count({ where: { activityId: actId } })).toBe(1);
+    });
+
+    it('RESUB: un cuerpo con date, challengeId o status responde 400 y la actividad no cambia', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(5), 'Foto borrosa');
+      for (const extra of [{ date: day(6) }, { challengeId: rid }, { status: 'VALIDATED' }]) {
+        const res = await resubmit(actId, 'ana', resubBody(photos, extra));
+        expect(res.status).toBe(400);
+      }
+      const after = await dbActivity(actId);
+      expect(after).toMatchObject({ status: 'REJECTED', resubmissionCount: 0 });
+    });
+
+    it('RESUB: otro participante y el admin reciben 403; el detalle ajeno no devuelve los motivos', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(7), 'Motivo privado de Ana');
+      for (const who of ['bruno', 'admin'] as const) {
+        const res = await resubmit(actId, who, resubBody(photos));
+        expect(res.status).toBe(403);
+        expect(res.body.message).toBe('No puedes reenviar esta actividad');
+      }
+      const detail = await request(http).get(`/api/activities/${actId}`).set(auth(token.bruno));
+      expect(detail.status).toBe(403);
+      expect(JSON.stringify(detail.body)).not.toContain('Motivo privado de Ana');
+      expect((await dbActivity(actId))?.status).toBe(ActivityStatus.REJECTED);
+
+      const unknown = await resubmit('00000000-0000-4000-8000-000000000000', 'ana', resubBody(photos));
+      expect(unknown.status).toBe(404);
+      expect(unknown.body.message).toBe('Actividad no encontrada');
+    });
+
+    it('RESUB: en un reto cerrado responde 400 antes que el dueño y el estado, y no cambia nada', async () => {
+      const act = await prisma.dailyActivity.create({
+        data: {
+          challengeId: closedId, userId: id.ana, date: new Date(`${YEAR}-12-03T00:00:00.000Z`), exerciseType: 'RUNNING',
+          durationMinutes: 30, status: ActivityStatus.REJECTED, rejectionReason: 'Tarde',
+        },
+      });
+      const body = resubBody([{ ...ownedAsset({ challengeId: closedId, userId: id.ana, name: 'cerrado' }), type: 'ACTIVITY' }], { heartRateMinutes: undefined });
+      for (const who of ['ana', 'bruno', 'admin'] as const) {
+        const res = await resubmit(act.id, who, body);
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(CLOSED_MSG);
+      }
+      expect(await dbActivity(act.id)).toMatchObject({ status: 'REJECTED', resubmissionCount: 0 });
+    });
+
+    it('RESUB: la cola del admin trae el historial sin identidad; ranking y calendario no lo muestran', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(8), 'Reflejo en la pantalla');
+      const calendar = () => request(http).get(`/api/activities/me/calendar?challengeId=${rid}`).set(auth(token.ana));
+      const before = (await calendar()).body.summary;
+
+      const res = await resubmit(actId, 'ana', resubBody(photos));
+      expect(res.status).toBe(200);
+
+      const pending = await request(http).get(`/api/activities/pending?challengeId=${rid}`).set(auth(token.admin));
+      const item = pending.body.find((a: { id: string }) => a.id === actId);
+      expect(item).toMatchObject({ resubmissionCount: 1 });
+      expect(item.rejections).toHaveLength(1);
+      expect(item.rejections[0].reason).toBe('Reflejo en la pantalla');
+      expect(JSON.stringify(item.rejections)).not.toContain(id.admin);
+
+      const after = await calendar();
+      expect(after.body.summary.rejected).toBe(before.rejected - 1);
+      expect(after.body.summary.pending).toBe(before.pending + 1);
+      expect(after.body.summary.registered).toBe(before.registered);
+      expect(JSON.stringify(after.body)).not.toContain('Reflejo en la pantalla');
+      expect(JSON.stringify(after.body)).not.toContain('rejections');
+
+      const results = await request(http).get(`/api/challenges/${rid}/results`).set(auth(token.ana));
+      expect(results.status).toBe(200);
+      expect(JSON.stringify(results.body)).not.toContain('Reflejo en la pantalla');
+      expect(JSON.stringify(results.body)).not.toContain('rejections');
+    });
+
+    it('RESUB: retirar la actividad borra su historial', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(9), 'Primera razón');
+      expect((await resubmit(actId, 'ana', resubBody(photos))).status).toBe(200);
+      expect((await reject(actId, 'Segunda razón')).status).toBe(201);
+      expect(await prisma.activityRejection.count({ where: { activityId: actId } })).toBe(2);
+
+      const del = await request(http).delete(`/api/activities/${actId}`).set(auth(token.ana));
+      expect(del.status).toBe(204);
+      expect(await dbActivity(actId)).toBeNull();
+      expect(await prisma.activityRejection.count({ where: { activityId: actId } })).toBe(0);
+    });
+
+    it('RESUB: el backfill agrega una entrada por cada rechazada sin historial y al repetirlo no duplica; la migración lo trae copiado', async () => {
+      // Una rechazada creada "a mano" (como la dejaría la 1.14.0 tras una vuelta atrás) sin entrada de historial
+      const act = await prisma.dailyActivity.create({
+        data: {
+          challengeId: rid, userId: id.bruno, date: new Date(`${YEAR}-11-20T00:00:00.000Z`), exerciseType: 'RUNNING',
+          durationMinutes: 30, status: ActivityStatus.REJECTED, rejectionReason: 'Sin captura', validatedById: id.admin,
+        },
+      });
+      const sqlPath = join(process.cwd(), 'prisma', 'sql', 'backfill-activity-rejections.sql');
+      const sql = readFileSync(sqlPath, 'utf8');
+      const rows = () => prisma.activityRejection.findMany({ where: { activityId: act.id } });
+
+      await prisma.$executeRawUnsafe(sql);
+      const first = await rows();
+      expect(first).toHaveLength(1);
+      expect(first[0]).toMatchObject({ reason: 'Sin captura', rejectedById: id.admin });
+      await prisma.$executeRawUnsafe(sql);
+      expect(await rows()).toHaveLength(1);
+
+      // La migración trae el mismo INSERT, palabra por palabra
+      const insert = sql.slice(sql.indexOf('INSERT INTO'));
+      const dir = readdirSync(join(process.cwd(), 'prisma', 'migrations')).find((d) => d.endsWith('_add_activity_rejection_history'));
+      expect(dir).toBeDefined();
+      const migration = readFileSync(join(process.cwd(), 'prisma', 'migrations', dir!, 'migration.sql'), 'utf8');
+      expect(migration.replace(/\r\n/g, '\n')).toContain(insert.replace(/\r\n/g, '\n'));
+    });
+
+    // ----- Carreras con barrera determinista (design D4) -----
+
+    it('RESUB: validar primero y reenviar después: gana la validación y el reenvío responde 403', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(10), 'Foto borrosa');
+      const [validate, resub] = await racedInOrder(actId, [
+        request(http).post(`/api/activities/${actId}/validate`).set(auth(token.admin)),
+        resubmit(actId, 'ana', resubBody(photos, { durationMinutes: 45 })),
+      ]);
+      expect(validate.status).toBe(201);
+      expect(validate.body).toMatchObject({ status: 'VALIDATED', durationMinutes: 30 });
+      expect(resub.status).toBe(403);
+      expect(resub.body.message).toBe(ONLY_REJECTED);
+      expect(await dbActivity(actId)).toMatchObject({ status: 'VALIDATED', durationMinutes: 30, resubmissionCount: 0 });
+    }, 30_000);
+
+    it('RESUB: reenviar primero y validar después: la validación evalúa los datos nuevos', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(11), 'Foto borrosa');
+      const [resub, validate] = await racedInOrder(actId, [
+        resubmit(actId, 'ana', resubBody(photos, { durationMinutes: 45 })),
+        request(http).post(`/api/activities/${actId}/validate`).set(auth(token.admin)),
+      ]);
+      expect(resub.status).toBe(200);
+      expect(validate.status).toBeLessThan(500);
+      // Nunca VALIDATED con datos que el admin no revisó: lo validado son los datos reenviados
+      expect([201, 400]).toContain(validate.status);
+      const stored = await dbActivity(actId);
+      if (validate.status === 201) expect(stored).toMatchObject({ status: 'VALIDATED', durationMinutes: 45, resubmissionCount: 1 });
+      else expect(stored?.status).toBe(ActivityStatus.PENDING);
+      expect(stored?.durationMinutes).toBe(45);
+    }, 30_000);
+
+    it('RESUB: rechazar primero una rechazada y reenviar después: el rechazo responde 409 y el reenvío 200', async () => {
+      const { id: actId, photos } = await rejectedActivity(day(12), 'Foto borrosa');
+      const [rej, resub] = await racedInOrder(actId, [
+        reject(actId, 'Otra razón'),
+        resubmit(actId, 'ana', resubBody(photos)),
+      ]);
+      expect(rej.status).toBe(409);
+      expect(rej.body.message).toBe('Solo se pueden rechazar actividades pendientes');
+      expect(resub.status).toBe(200);
+      expect(await dbActivity(actId)).toMatchObject({ status: 'PENDING', resubmissionCount: 1 });
+      expect(await prisma.activityRejection.count({ where: { activityId: actId } })).toBe(1);
+    }, 30_000);
+
+    it('RESUB: retirar primero y validar después: 204 y luego 404, nunca 500', async () => {
+      const { id: actId } = await rejectedActivity(day(13), 'Foto borrosa');
+      const [del, validate] = await racedInOrder(actId, [
+        request(http).delete(`/api/activities/${actId}`).set(auth(token.ana)),
+        request(http).post(`/api/activities/${actId}/validate`).set(auth(token.admin)),
+      ]);
+      expect(del.status).toBe(204);
+      expect(validate.status).toBe(404);
+      expect(validate.body.message).toBe('Actividad no encontrada');
+      expect(await dbActivity(actId)).toBeNull();
+    }, 30_000);
+
+    it('RESUB: si la fila está retenida más de 5 s, validar responde 409 "La actividad se está modificando…" y no cambia nada', async () => {
+      const { id: actId } = await rejectedActivity(day(14), 'Foto borrosa');
+      const barrier = await holdRow(actId);
+      let res: request.Response;
+      try {
+        res = await request(http).post(`/api/activities/${actId}/validate`).set(auth(token.admin));
+      } finally {
+        await barrier.release();
+      }
+      expect(res.status).toBe(409);
+      expect(res.body.message).toBe(BUSY);
+      expect(await dbActivity(actId)).toMatchObject({ status: 'REJECTED', rejectionReason: 'Foto borrosa' });
+    }, 30_000);
   });
 
   // ---------------- Premiación ----------------

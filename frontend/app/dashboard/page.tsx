@@ -11,6 +11,7 @@ import { ACCEPT, uploadToCloudinary } from '@/lib/cloudinary';
 import { amountOwed, formatUploadDate } from '@/lib/payment';
 import { canRegisterAgain, todayDuty } from '@/lib/calendar';
 import { progressMessage, qualifyProgress } from '@/lib/progress';
+import { canResubmit, earlierRejections } from '@/lib/resubmission';
 import { MyMonth } from '@/components/my-month';
 import type {
   ChallengeParticipant,
@@ -72,6 +73,20 @@ export default function DashboardPage() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const { challenge } = useActiveChallenge();
+
+  // Aviso de un reenvío recién hecho (el formulario vuelve con ?reenviada=1): se limpia la URL
+  // y el aviso recibe el foco para que lo anuncien los lectores de pantalla
+  const [resubmitted, setResubmitted] = useState(false);
+  const resubmittedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('reenviada') === '1') {
+      setResubmitted(true);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+  useEffect(() => {
+    if (resubmitted) resubmittedRef.current?.focus();
+  }, [resubmitted, challenge]);
 
   const { data: activities } = useQuery<DailyActivity[]>({
     queryKey: ['activities', 'me', challenge?.id],
@@ -318,6 +333,16 @@ export default function DashboardPage() {
       {/* Mis actividades */}
       <section>
         <h2 className="display text-2xl mb-4 tracking-wider">Mis actividades</h2>
+        {resubmitted && (
+          <div
+            ref={resubmittedRef}
+            role="status"
+            tabIndex={-1}
+            className="text-sm bg-ok/10 border border-ok/30 rounded-md px-4 py-2.5 mb-3 outline-none focus:ring-2 focus:ring-ok/50"
+          >
+            Actividad reenviada. Queda pendiente de validación.
+          </div>
+        )}
         {withdrawError && (
           <div role="alert" className="text-bad text-sm bg-bad/10 border border-bad/30 rounded-md px-4 py-2.5 mb-3">
             {withdrawError}
@@ -339,6 +364,7 @@ export default function DashboardPage() {
               <ActivityRow
                 key={a.id}
                 activity={a}
+                resubmittable={canResubmit(a, user?.id, challenge.status)}
                 withdrawing={withdrawMut.isPending && withdrawMut.variables?.id === a.id}
                 onWithdraw={() => withdrawMut.mutate({ id: a.id, date: a.date, rejected: a.status === 'REJECTED' })}
               />
@@ -458,10 +484,13 @@ function StatusBadge({ status }: { status: DailyActivity['status'] }) {
 
 function ActivityRow({
   activity,
+  resubmittable,
   onWithdraw,
   withdrawing,
 }: {
   activity: DailyActivity;
+  /** Rechazada, propia y de un reto activo: se puede corregir y reenviar */
+  resubmittable: boolean;
   onWithdraw: () => void;
   withdrawing: boolean;
 }) {
@@ -469,6 +498,7 @@ function ActivityRow({
   const [confirming, setConfirming] = useState(false);
   const rejected = activity.status === 'REJECTED';
   const withdrawable = activity.status === 'PENDING' || rejected;
+  const earlier = earlierRejections(activity);
   return (
     <div id={`actividad-${activity.id}`} className="p-4 flex flex-wrap items-center gap-4 scroll-mt-20">
       <div className="display text-2xl text-ink-dim w-16 text-center">
@@ -483,13 +513,36 @@ function ActivityRow({
           <p className="text-sm text-bad mt-1">⚠ {activity.rejectionReason}</p>
         )}
         {rejected && (
-          <p className="text-sm text-ink-dim mt-1">Puedes retirarla y registrar ese día de nuevo.</p>
+          <p className="text-sm text-ink-dim mt-1">
+            {resubmittable
+              ? 'Puedes corregirla y reenviarla, o retirarla y registrar ese día de nuevo.'
+              : 'Puedes retirarla y registrar ese día de nuevo.'}
+          </p>
+        )}
+        {earlier.length > 0 && (
+          <details className="mt-2 text-sm">
+            <summary className="cursor-pointer text-ink-dim">Rechazos anteriores ({earlier.length})</summary>
+            <ul className="mt-1.5 space-y-1 text-ink-dim">
+              {earlier.map((r) => (
+                <li key={r.rejectedAt}>
+                  {formatDate(r.rejectedAt)} · {r.reason}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
       <StatusBadge status={activity.status} />
-      {withdrawable &&
+      {(resubmittable || withdrawable) && (
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {resubmittable && (
+            <Link href={`/dashboard/upload?reenviar=${activity.id}`} className="btn-primary text-sm py-1 px-3">
+              Corregir y reenviar
+            </Link>
+          )}
+          {withdrawable &&
         (confirming ? (
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-ink-dim">
               {rejected
                 ? '¿Retirar esta actividad rechazada? Se borrará con sus fotos y podrás registrar ese día de nuevo.'
@@ -512,6 +565,8 @@ function ActivityRow({
             Retirar
           </button>
         ))}
+        </div>
+      )}
     </div>
   );
 }

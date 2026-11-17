@@ -123,6 +123,52 @@ describe('Limpieza de archivos subidos (e2e, modo local)', () => {
     expect(await gone(shared.path)).toBe(true);
   });
 
+  it('CLEAN: reenviar una rechazada libera la foto quitada, conserva la que sigue y la que otra actividad usa', async () => {
+    const kept = await upload('activity', 'reenvio-conservada.png');
+    const dropped = await upload('activity', 'reenvio-quitada.png');
+    const shared = await upload('activity', 'reenvio-compartida.png');
+    const added = await upload('activity', 'reenvio-nueva.png');
+    const rejectedAct = await request(http).post('/api/activities').set(auth(ana)).send(activity(`${YEAR}-01-14`, [kept, dropped, shared]));
+    const other = await request(http).post('/api/activities').set(auth(ana)).send(activity(`${YEAR}-01-15`, [shared]));
+    expect([rejectedAct.status, other.status]).toEqual([201, 201]);
+    expect((await request(http).post(`/api/activities/${rejectedAct.body.id}/reject`).set(auth(admin)).send({ reason: 'La foto no se ve' })).status).toBe(201);
+
+    const body = {
+      exerciseType: 'RUNNING', durationMinutes: 30,
+      photos: [kept, added].map((p) => ({ url: p.url, cloudinaryId: p.cloudinaryId, type: 'ACTIVITY' })),
+    };
+    const res = await request(http).put(`/api/activities/${rejectedAct.body.id}/resubmission`).set(auth(ana)).send(body);
+    expect(res.status).toBe(200);
+    expect(res.body.photos.map((p: { cloudinaryId: string }) => p.cloudinaryId).sort()).toEqual([kept.cloudinaryId, added.cloudinaryId].sort());
+
+    // La quitada se borra; la conservada, la nueva y la que sigue usando la otra actividad quedan
+    expect(await gone(dropped.path)).toBe(true);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(existsSync(kept.path)).toBe(true);
+    expect(existsSync(added.path)).toBe(true);
+    expect(existsSync(shared.path)).toBe(true);
+    for (const f of [kept, added, shared]) rmSync(f.path, { force: true });
+  });
+
+  it('CLEAN: un reenvío rechazado (400) no libera ninguna foto', async () => {
+    const stored = await upload('activity', 'reenvio-fallido.png');
+    const replacement = await upload('activity', 'reenvio-reemplazo.png');
+    const act = await request(http).post('/api/activities').set(auth(ana)).send(activity(`${YEAR}-01-16`, [stored]));
+    expect(act.status).toBe(201);
+    await request(http).post(`/api/activities/${act.body.id}/reject`).set(auth(admin)).send({ reason: 'La foto no se ve' });
+
+    // Minutos con FC mayores que la duración: se rechaza antes de escribir
+    const res = await request(http).put(`/api/activities/${act.body.id}/resubmission`).set(auth(ana)).send({
+      exerciseType: 'RUNNING', durationMinutes: 30, heartRateMinutes: 60,
+      photos: [{ url: replacement.url, cloudinaryId: replacement.cloudinaryId, type: 'ACTIVITY' }],
+    });
+    expect(res.status).toBe(400);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(existsSync(stored.path)).toBe(true);
+    expect(existsSync(replacement.path)).toBe(true);
+    for (const f of [stored, replacement]) rmSync(f.path, { force: true });
+  });
+
   it('CLEAN: una foto importada (import/...) nunca se borra al retirar la actividad', async () => {
     const dir = join(process.cwd(), 'uploads', 'import', 'e2e-clean');
     mkdirSync(dir, { recursive: true });

@@ -77,6 +77,8 @@ erDiagram
   Challenge ||--o{ DailyActivity : agrupa
   Challenge ||--o{ ChallengeAward : otorga
   DailyActivity ||--o{ ActivityPhoto : adjunta
+  DailyActivity ||--o{ ActivityRejection : historial
+  User ||--o{ ActivityRejection : rechazó
 
   User {
     uuid id PK
@@ -122,6 +124,14 @@ erDiagram
     enum status "PENDING|VALIDATED|REJECTED"
     string rejectionReason
     string validationNote "nota del admin al validar con override"
+    int resubmissionCount "veces que el dueño corrigió y reenvió"
+  }
+  ActivityRejection {
+    uuid id PK
+    uuid activityId FK "borra en cascada"
+    string reason
+    uuid rejectedById FK "interno, nunca en la API; SET NULL"
+    datetime rejectedAt
   }
   ChallengeAward {
     uuid id PK
@@ -171,6 +181,7 @@ stateDiagram-v2
     PENDING --> VALIDATED: admin valida
     PENDING --> REJECTED: admin rechaza (con motivo)
     REJECTED --> VALIDATED: admin re-valida
+    REJECTED --> PENDING: participante corrige y reenvía
   }
 ```
 
@@ -296,7 +307,7 @@ Comandos, variables y pasos: `docs/deploy-seenode.md`. Migraciones con
 | Retos | `GET /challenges` · `GET /challenges/active` · `GET /challenges/active/list` · `GET /challenges/:id` · `:id/results` · `:id/participants` | autenticado |
 | Participantes | `POST/DELETE /challenges/:id/participants...` · `POST .../participants/bulk` (hasta 200 ids, resultado por usuario) · `PATCH .../payment` | ADMIN |
 | Pagos | `PATCH /challenges/:id/participants/me/payment-proof` | participante |
-| Actividades | `POST /activities` · `GET /activities/me` · `GET /activities/me/calendar?challengeId=` · `DELETE /activities/:id` | autenticado |
+| Actividades | `POST /activities` · `GET /activities/me` · `GET /activities/me/calendar?challengeId=` · `PUT /activities/:id/resubmission` (su dueño, solo rechazadas de un reto activo) · `DELETE /activities/:id` | autenticado |
 | Actividades | `GET /activities` · `GET /activities/pending` (`challengeId`, `order`) · `GET /activities/pending/count` (pendientes de retos activos) · `:id/validate` · `:id/reject` | ADMIN |
 | Upload | `POST /upload/sign` · `POST /upload/local` (dev) | autenticado / público(dev) |
 | Import | `GET /import/template` · `POST /import/activities/preview` · `/commit` · `GET /import/sheet/status` · `POST /import/sheet/preview` · `/commit` | ADMIN |

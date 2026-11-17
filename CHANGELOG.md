@@ -3,7 +3,43 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado [SemVer](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [1.15.0] — 2026-11-09
+
+**Esta versión trae una migración** (`add_activity_rejection_history`, la primera desde la 1.4.0; solo
+agrega). **No se despliega sin un respaldo verificado con `OK` (`node scripts/db-backup.mjs`, runbook §5.1).**
+Para volver a la 1.14.0 se redespliegan API y web 1.14.0 conservando el esquema (la 1.14.0 ignora la tabla y
+la columna nuevas); al volver a la 1.15.0 se corre el relleno de recuperación (runbook §4). Sin variables
+ni dependencias nuevas.
+
+### Agregado
+
+- **Migración** `add_activity_rejection_history` (primera desde la 1.4.0; solo agrega): tabla
+  `ActivityRejection` (motivo, admin que rechazó y hora; borra en cascada con la actividad y pone en
+  nulo al admin si se elimina), índice `(activityId, rejectedAt)`, columna `DailyActivity.resubmissionCount`
+  y un relleno idempotente que crea una entrada por cada actividad rechazada con motivo
+  (`backend/prisma/sql/backfill-activity-rejections.sql`). **Antes de desplegar, respaldo verificado con
+  `OK` (runbook §5.1).** Para volver a la 1.14.0 se redespliegan API y web sin tocar el esquema; al volver a
+  la nueva se corre el relleno de recuperación con `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql`
+  (runbook §4).
+- API: `PUT /api/activities/:id/resubmission` (solo el dueño de una actividad rechazada de un reto activo):
+  corrige y reenvía la misma actividad (mismo id y fecha, vuelve a pendiente, conserva las fotos que siguen,
+  las fotos nuevas deben ser subidas propias y las quitadas se liberan al terminar) con las reglas vigentes
+  del reto. Las actividades traen `resubmissionCount` y `rejections` (motivo y hora, sin el admin).
+- Web: en Mis actividades, la fila rechazada de un reto activo ofrece **Corregir y reenviar** (primero) y
+  **Retirar**. El formulario de subida tiene un modo de reenvío (`/dashboard/upload?reenviar=<id>`) con la
+  fecha fija, los datos y las fotos guardadas precargadas (quitar, reemplazar, usar como captura de FC o como
+  foto de la actividad, y "Otras fotos"), y usa el reto de la actividad aunque el selector muestre otro. Al
+  reenviar, el panel muestra "Actividad reenviada. Queda pendiente de validación." y la fila guarda
+  "Rechazos anteriores (n)". En Validar, la tarjeta lleva la marca "Reenviada" (o "Reenviada ×n") y los
+  motivos anteriores. Guía: paso 4.6.
+
+### Cambiado
+
+- `POST /activities/:id/reject` solo acepta actividades pendientes: una rechazada o validada responde 409
+  "Solo se pueden rechazar actividades pendientes" (una validación equivocada se corrige eliminando la
+  actividad). Validar, rechazar, retirar y reenviar bloquean la fila de la actividad: una carrera entre
+  ellos queda decidida en orden, validar una actividad retirada a la vez responde 404 y no 500, y una fila
+  retenida más de 5 s responde 409 "La actividad se está modificando; vuelve a intentarlo en unos segundos".
 
 ## [1.14.0] — 2026-11-07
 

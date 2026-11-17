@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.14.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.15.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: 2 Web Services (API NestJS, web Next.js) + PostgreSQL administrado; Cloudinary para fotos |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
 | **Duración estimada** | Primer despliegue: 60–90 min. Versión nueva: 15–20 min |
@@ -186,7 +186,7 @@ espera que `PATCH /api/users/me/password` responda 200 con tokens. Avisa a los p
 es el primer despliegue, sigue el paso 3 de §1.5.
 
 **Migraciones:** se aplican solas en el arranque de la API (`prisma migrate deploy`). Son
-solo hacia adelante. Si la versión trae alguna, corre el respaldo verificado de §5.1 y despliega solo con `OK`, antes del paso 3.
+solo hacia adelante. Si la versión trae alguna, corre el respaldo verificado de §5.1 y despliega solo con `OK`, antes del paso 3. **La 1.15.0 trae una migración** (historial de rechazos, ver §4): sin respaldo verificado con `OK` no se despliega.
 
 ---
 
@@ -262,6 +262,8 @@ La 1.12.0 (con «Mi cuenta») tampoco trae migraciones: para volver a la 1.11.0 
 La 1.12.1 (endurece la renovación y la inscripción en bloque) tampoco trae migraciones ni variables: para volver a la 1.12.0 se despliegan API y web juntas; no cambia ningún contrato.
 La 1.13.0 (chequeo de sesión efectivo, «Mi avance», pagos en lote y reinicio de contraseña por el admin) tampoco trae migraciones ni variables: para volver a la 1.12.1 se despliegan API y web juntas. Las sesiones sobreviven a la reversión (los refresh tokens ya llevaban `pwv` desde la 1.12.0); una contraseña temporal emitida mientras tanto sigue siendo un hash normal, y la web de la 1.12.1 no tiene la página Usuarios ni las casillas de pago.
 La 1.14.0 (revocación instantánea de access tokens, filtros de la cola de validación, respaldo verificado, modal de cierre y login sin filtración por latencia) tampoco trae migraciones ni variables: para volver a la 1.13.0 se despliegan API y web juntas. Los access tokens emitidos con la 1.14.0 llevan `pwv` y la 1.13.0 los ignora, así que las sesiones sobreviven a la reversión.
+
+**La 1.15.0 (reenviar una actividad rechazada) trae una migración** (`add_activity_rejection_history`: la tabla `ActivityRejection` y la columna `DailyActivity.resubmissionCount`, solo agrega y trae un relleno idempotente de los rechazos existentes). No se despliega sin un respaldo verificado de §5.1 con `OK`. Para volver a la 1.14.0 **no hace falta restaurar el respaldo**: se redespliegan API y web 1.14.0 y el esquema se queda como está. El cliente de Prisma de la 1.14.0 selecciona columnas explícitas (ignora `resubmissionCount`), nunca lee la tabla nueva, y sus borrados de actividades se propagan por la llave foránea con `ON DELETE CASCADE`. Mientras corre la 1.14.0 los rechazos no se anotan en el historial (y la 1.14.0 aún puede rechazar de nuevo una actividad rechazada y sobrescribir su motivo); el contador de reenvíos no crece; nada se rompe. **Al volver a desplegar la 1.15.0** `migrate deploy` ve la migración ya aplicada y no la repite, así que los rechazos hechos durante la reversión no tienen entrada: en cuanto la API esté arriba, y después del respaldo de §5.1, corre desde `backend/` con la `DATABASE_URL` de producción el relleno de recuperación `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql` (solo agrega los pares `(actividad, motivo vigente)` que faltan; si no falta ninguno, no inserta nada, y puedes repetirlo). Los motivos que la 1.14.0 sobrescribió con un nuevo rechazo no se recuperan. Quitar el esquema por completo es opcional y solo después de volver al código anterior: `DROP TABLE "ActivityRejection"; ALTER TABLE "DailyActivity" DROP COLUMN "resubmissionCount";` y borrar la fila de la migración en `_prisma_migrations`; restaurar el respaldo no es parte de una reversión y perdería lo escrito desde entonces.
 
 ---
 

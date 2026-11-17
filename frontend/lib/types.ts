@@ -98,6 +98,12 @@ export interface ActivityPhoto {
   uploadedAt: string;
 }
 
+/** Un rechazo del historial de la actividad (sin la identidad del admin) */
+export interface ActivityRejection {
+  reason: string;
+  rejectedAt: string;
+}
+
 export interface DailyActivity {
   id: string;
   challengeId: string;
@@ -120,6 +126,10 @@ export interface DailyActivity {
   validatedAt: string | null;
   createdAt: string;
   photos: ActivityPhoto[];
+  /** Historial de rechazos, el más antiguo primero (cambio resubmit-rejected-activity-2) */
+  rejections?: ActivityRejection[];
+  /** Cuántas veces el dueño corrigió y reenvió la actividad */
+  resubmissionCount?: number;
   user?: { id: string; name: string; email: string };
   /** Reto de la actividad (la cola de validación muestra el nombre y marca los cerrados) */
   challenge?: { name: string; status: ChallengeStatus; minHeartRateMinutes: number };

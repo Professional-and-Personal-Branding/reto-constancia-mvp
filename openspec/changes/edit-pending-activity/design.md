@@ -89,7 +89,7 @@ reuse it.
 
 ### D3. Row lock: edit and review are serialized
 
-`lockOpenActivity` becomes: `lockChallenge(tx, challengeId)` (share, unchanged), then
+`lockOpenActivity` (delivered by increment 2, archived; `update` only reuses it) is: `lockChallenge(tx, challengeId)` (share, unchanged), then
 `SELECT id FROM "DailyActivity" WHERE id = $1 FOR UPDATE`, then the existing `findUnique`. Every
 caller (`validate`, `reject`, `remove`, `update`) takes the locks in the same order (challenge,
 then activity), and the close only takes the challenge in `FOR UPDATE`, so no deadlock cycle is
@@ -110,7 +110,9 @@ The SQL uses the table name `"DailyActivity"` (no `@@map`), like `challenge-lock
 ### D4. What the admin sees
 
 A card in "Validar" whose `updatedAt` differs from `createdAt` shows the badge "Modificada" (tooltip
-"Los datos cambiaron después del registro"). For a `PENDING` activity this means an edit or an
+"Los datos cambiaron después del registro"), except when `resubmissionCount > 0` (increment 2, archived
+`2026-11-09-resubmit-rejected-activity-2`): every resubmitted activity also satisfies the timestamp test, so
+the card shows "Reenviada" instead and "Modificada" only otherwise. For a `PENDING` activity this means an edit or an
 import "update"; the neutral word covers both. If the admin was looking at a card while the
 participant edited it, the photos, which are the evidence, did not change, and the validation
 re-checks the heart-rate rule on the stored values (D3); the page refreshes after each action and

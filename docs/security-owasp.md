@@ -53,6 +53,11 @@ Resumen de los controles implementados, mapeados a principios de OWASP
     200 ids por petición y nadie puede inscribirse a sí mismo. La renovación copia solo una lista
     explícita de reglas (nunca pagos, comprobantes, actividades ni premios) y su unicidad por mes y año
     evita duplicados aun con dos peticiones simultáneas.
+- Reenvío de actividades rechazadas (`PUT /activities/:id/resubmission`): solo su dueño, con el cuerpo
+  cerrado por `forbidNonWhitelisted` (sin fecha, reto ni estado); las fotos nuevas deben ser subidas
+  propias del participante a ese reto (`assertOwnedAsset`), las conservadas se comparan por id y url, y el
+  historial de rechazos se entrega sin la identidad del admin (`rejectedById` queda interno). Las
+  decisiones se toman con la fila de la actividad bloqueada (`FOR UPDATE`) tras el lock del reto.
 - Usuarios deshabilitados no pueden autenticar (`active === false` -> 401)
   en `auth.service.ts` (login y refresh).
 - Validación estricta de entrada (anti mass-assignment / payloads no esperados):
