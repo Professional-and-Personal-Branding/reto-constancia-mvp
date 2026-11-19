@@ -46,7 +46,7 @@ Behaviour (pure logic in `scripts/lib/supervisor.mjs`, the entry point only wire
 1. Run `npx prisma migrate deploy` in `backend/`. Non-zero exit → log and exit with that code;
    nothing else starts (same contract as today's `migrate deploy && node dist/main.js`).
 2. Start the API: `node --max-old-space-size=$API_MAX_OLD_SPACE_MB backend/dist/main.js` with
-   `PORT=$API_PORT` (default 3001), `HOST=127.0.0.1`, `TRUST_PROXY` defaulted (D5).
+   `PORT=$API_PORT` (default 3001), `HOST=127.0.0.1`, `TRUST_PROXY` defaulted to 1 (D5).
 3. Poll `http://127.0.0.1:$API_PORT/api/health` every 500 ms up to 60 s. Timeout → stop the API,
    exit 1. Starting Next only after the API is up avoids two cold starts competing for 0.2 CPU and
    avoids a window where `/` answers but `/api/*` gives 502.
@@ -134,24 +134,35 @@ prints the URL.
 
 ### D5 — `TRUST_PROXY` with the real proxy chain
 
-Chain in this mode: client → Seenode edge (appends the client address to `X-Forwarded-For`) → Next
-rewrite proxy (connects from 127.0.0.1 and appends the address it saw, the edge's, to
-`X-Forwarded-For`) → API. Express walks from the socket address leftwards through `trust proxy`
-hops, so the client is **2 hops** away: `TRUST_PROXY=2`.
+Revised during PR 1 (task 3.2) after the local smoke test: the first draft assumed that Next's
+rewrite proxy appends its own hop to `X-Forwarded-For`, which would have made the client **2** hops
+away. Next 15.5.28 does not: `proxyRequest` builds `http-proxy` without `xfwd`, and the only
+`X-Forwarded-For` logic (`base-server.js`: `req.headers['x-forwarded-for'] ??= socket.remoteAddress`)
+sets the header only when it is absent. The API therefore sees the header exactly as the platform edge
+delivered it, and a connection from 127.0.0.1 (Next).
 
-- The supervisor sets `TRUST_PROXY=2` for the API child **only when the variable is unset**; a panel
-  value wins. The production default of `resolveTrustProxy` (1) stays for the two-service layout.
-- Too few hops → every user shares the edge's address (platform-wide `429`); too many → the client
-  controls the leftmost `X-Forwarded-For` and evades the limiter. Both are detectable:
+Chain in this mode: client → Seenode edge (puts the client address at the right end of
+`X-Forwarded-For`) → Next (forwards the header untouched) → API. Express walks from the socket
+address leftwards through `trust proxy` hops: the socket (Next, loopback) is hop 1 and the right-most
+`X-Forwarded-For` entry is the client: `TRUST_PROXY=1`, the same as the production default of
+`resolveTrustProxy`, so single-service and two-service layouts behave alike.
+
+- The supervisor sets `TRUST_PROXY=1` for the API child **only when the variable is unset**
+  (explicit, independent of `NODE_ENV`); a panel value wins.
+- Too few hops (`0`/`false`) → every user shares the loopback address (platform-wide `429`); too
+  many (`2` or more) → the client controls the entry the limiter reads and evades it. Both are
+  detectable:
   - **Locally** (deterministic, proves Next's part): `scripts/single-service-smoke.mjs` talks to Next
     directly, so its own `X-Forwarded-For: 203.0.113.1` plays the edge. Six logins with that header
     → the sixth is `429`; a seventh with `203.0.113.2` is not; a request with
     `X-Forwarded-For: 198.51.100.9, 203.0.113.1` counts against `203.0.113.1` (`429`), proving a
-    forged left entry is ignored. If Next did not append its hop, the forged case would pass and the
-    test fails: then the value is 1 and D5 is revised before merge.
+    forged left entry is ignored. Measured on the container (Next 15.5.28): `TRUST_PROXY=1` passes,
+    `2` fails the forged-header check, `0` fails the two-clients check.
   - **On Seenode** (proves the edge's part, runbook phase 5 row 6): two clients on different networks
     (for example a phone on mobile data) — one gets `429` on the sixth attempt, the other does not;
-    and the first client sending a forged `X-Forwarded-For` still gets `429`.
+    and the first client sending a forged `X-Forwarded-For` still gets `429`. If the edge **replaces**
+    the header instead of appending, `1` is still right; if the platform puts a second proxy in
+    front of the edge, the panel value is the number of hops (no code change).
 
 Alternative: trust `loopback` plus the edge's subnet — unknown and undocumented on Seenode.
 
@@ -226,7 +237,7 @@ results change here:
 | No PostgreSQL 16 / no external DB access (rules 1–2) | Platform goes to plan B; D1, D2, D6, D8, D10 stay useful (VPS runs `Dockerfile.single-service`) |
 | Build or runtime does not fit 0.5 GB / 750 MB       | Retune D4 variables; if still short, standalone output (follow-up) or Standard (reopens decision) |
 | Seenode needs a Dockerfile or ignores the root `package.json` | Point the service at `Dockerfile.single-service` instead of D3's commands             |
-| More than one Seenode proxy hop                     | Panel `TRUST_PROXY` = 3 (D5); no code change                                                |
+| More than one Seenode proxy hop                     | Panel `TRUST_PROXY` = number of hops (D5); no code change                                   |
 | Health check path not configurable                  | Seenode probes `/`; still covers Next; D7 note in the runbook                                |
 
 PR 1 is safe to merge before phase 1 (opt-in, no effect on dev/CI); PR 2 waits for phase 1 so the
@@ -261,8 +272,9 @@ Defaults below apply unless the owner says otherwise.
 - **P2 [NO BLOQUEANTE] — Supervisor language.** `.mjs` (D1) instead of the `.sh` named in the
   decision checklist. **Recommendation: `.mjs`**; the decision document's checklist line is updated
   in PR 2.
-- **P3 [NO BLOQUEANTE] — `TRUST_PROXY` default.** Supervisor defaults it to 2 when unset (D5) vs.
-  making it mandatory in the panel. **Recommendation: default 2** plus the phase 5 check.
+- **P3 [NO BLOQUEANTE] — `TRUST_PROXY` default.** Supervisor defaults it when unset (D5) vs. making it
+  mandatory in the panel. **Recommendation: default** plus the phase 5 check. *Outcome: the owner
+  approved the default; the measured value is 1, not the 2 first drafted (see D5).*
 - **P4 [NO BLOQUEANTE] — Production default layout.** Single service as the documented default, two
   services as an appendix (D9). **Recommendation: yes.**
 - **P5 [NO BLOQUEANTE] — HSTS max-age.** 180 days without `preload` (D6) vs. one year.

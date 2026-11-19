@@ -9,6 +9,7 @@
  *      ui        Playwright, recorridos de e2e/tests
  *      guide     Playwright, suite de capturas de la guía (escribe en .qa-results/shots)
  *      sessions  scripts/parallel-session-test.mjs contra la API compilada
+ *      repo      node:test de los scripts de la raíz (scripts/lib/*.test.mjs)
  * 2. Cruza cada caso con las pruebas que lo validan y le asigna un estado.
  * 3. Genera docs/qa/test-cases.md, docs/qa/test-cases.csv y docs/qa/validation-report.md.
  *
@@ -41,6 +42,7 @@ const SUITES = {
   ui: { label: 'Recorridos de UI (Playwright)', where: 'e2e/tests/*.spec.ts' },
   guide: { label: 'Capturas de la guía (Playwright)', where: 'e2e/guide/capture.spec.ts' },
   sessions: { label: 'Sesiones paralelas (script)', where: 'scripts/parallel-session-test.mjs' },
+  repo: { label: 'Scripts de la raíz (node:test)', where: 'scripts/lib/*.test.mjs' },
 };
 
 const argv = process.argv.slice(2);
@@ -98,6 +100,13 @@ async function runSuite(kind) {
       sh(`node --experimental-strip-types --no-warnings --test --test-reporter=junit --test-reporter-destination="${join(OUT, `web-${f}.xml`)}" lib/${f}`, FRONTEND),
     );
     run = { code: runs.some((r) => r.code !== 0) ? 1 : 0, out: runs.map((r) => r.out).join('\n'), ms: runs.reduce((a, r) => a + r.ms, 0) };
+  } else if (kind === 'repo') {
+    for (const old of readdirSync(OUT).filter((f) => /^repo-.*\.xml$/.test(f))) rmSync(join(OUT, old));
+    const files = readdirSync(join(ROOT, 'scripts', 'lib')).filter((f) => f.endsWith('.test.mjs'));
+    const runs = files.map((f) =>
+      sh(`node --test --test-reporter=junit --test-reporter-destination="${join(OUT, `repo-${f}.xml`)}" scripts/lib/${f}`, ROOT),
+    );
+    run = { code: runs.some((r) => r.code !== 0) ? 1 : 0, out: runs.map((r) => r.out).join('\n'), ms: runs.reduce((a, r) => a + r.ms, 0) };
   } else if (kind === 'api') {
     run = sh(`npx jest --config ./test/jest-e2e.json --runInBand --json --outputFile="${file}"`, BACKEND);
   } else if (kind === 'ui') {
@@ -117,7 +126,7 @@ async function runSuite(kind) {
     writeFileSync(join(OUT, 'sessions.log'), run.out);
   }
   writeFileSync(join(OUT, `${kind}.meta.json`), JSON.stringify({ code: run.code, ms: run.ms, at: new Date().toISOString() }));
-  if (!existsSync(file) && kind !== 'sessions' && kind !== 'web') writeFileSync(join(OUT, `${kind}.log`), run.out);
+  if (!existsSync(file) && kind !== 'sessions' && kind !== 'web' && kind !== 'repo') writeFileSync(join(OUT, `${kind}.log`), run.out);
   return run;
 }
 
@@ -138,12 +147,12 @@ function readResults(kind) {
         tests.push({ kind, file: basename(suite.name), title: '(la suite no cargó)', status: 'failed', ms: 0, error: suite.message });
       }
     }
-  } else if (kind === 'web') {
-    const xmls = existsSync(OUT) ? readdirSync(OUT).filter((f) => /^web-.*\.xml$/.test(f)) : [];
+  } else if (kind === 'web' || kind === 'repo') {
+    const xmls = existsSync(OUT) ? readdirSync(OUT).filter((f) => f.startsWith(`${kind}-`) && f.endsWith('.xml')) : [];
     if (!xmls.length) return null;
     const unescape = (t) => t.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
     for (const xml of xmls) {
-      const file = xml.replace(/^web-/, '').replace(/\.xml$/, '');
+      const file = xml.slice(kind.length + 1).replace(/\.xml$/, '');
       const body = readFileSync(join(OUT, xml), 'utf8');
       // <testcase name="..." time="..."/> o <testcase ...>…<failure …/>…</testcase>
       for (const m of body.matchAll(/<testcase name="([^"]*)" time="([\d.]+)"[^>]*?(\/>|>([\s\S]*?)<\/testcase>)/g)) {
@@ -229,7 +238,7 @@ function evaluate(cases, results) {
 
 const ICON = { passed: '✅', failed: '❌', missing: '⚠️', 'no-run': '⏸️', skipped: '⏭️' };
 const STATUS_ICON = { Aprobado: '✅', 'Aprobado (manual)': '✅', Fallido: '❌', 'Enlace roto': '⚠️', 'Sin ejecutar': '⏸️', 'Limitación conocida': '🟡', 'Pendiente (manual)': '⏸️' };
-const KIND_LABEL = { unit: 'Unitaria', web: 'Web (unitaria)', api: 'API e2e', ui: 'UI', guide: 'Guía', sessions: 'Sesiones' };
+const KIND_LABEL = { unit: 'Unitaria', web: 'Web (unitaria)', repo: 'Scripts (node:test)', api: 'API e2e', ui: 'UI', guide: 'Guía', sessions: 'Sesiones' };
 const mdEscape = (s) => String(s).replace(/\|/g, '\\|');
 const fmtMs = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`);
 

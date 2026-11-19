@@ -27,6 +27,20 @@ Versionado [SemVer](https://semver.org/lang/es/).
   "Rechazos anteriores (n)". En Validar, la tarjeta lleva la marca "Reenviada" (o "Reenviada ×n") y los
   motivos anteriores. Guía: paso 4.6.
 
+- Servicio único (API y web en un contenedor, para un Web Service de Seenode; no hay migración ni
+  dependencias nuevas y el despliegue en dos servicios sigue funcionando igual): `scripts/start-prod.mjs`
+  (supervisor: migra, arranca la API en loopback, espera `/api/health`, arranca la web y termina todo si un
+  proceso muere), `scripts/build-prod.mjs` (build secuencial con memoria acotada), `package.json` en la
+  raíz (solo `build` y `start`, sin dependencias), `Dockerfile.single-service` y `.dockerignore` para
+  reproducirlo en local, y `scripts/single-service-smoke.mjs <url>` (prueba de humo). La web reenvía
+  `/api/*` a la API cuando se compila con `API_INTERNAL_URL` y envía cabeceras de seguridad (HSTS, anti-
+  framing, nosniff, Referrer-Policy y una CSP limitada a `frame-ancestors`/`base-uri`/`object-src`/
+  `form-action`) sin `X-Powered-By`. Variables nuevas, todas opcionales: `HOST` (interfaz de la API),
+  `API_INTERNAL_URL` (web, al compilar), `API_PORT`, `API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`
+  y `BUILD_MAX_OLD_SPACE_MB`. El supervisor usa `TRUST_PROXY=1` si no está definida (el proxy de Next no añade su salto a `X-Forwarded-For`) y avisa si
+  `DATABASE_URL` no trae `connection_limit`. La batería pasa a 14 pasos (pruebas de `scripts/lib/`). Casos
+  TC-HEALTH-07/08 y TC-SEC-15/16. Las guías de despliegue se actualizan en un PR aparte.
+
 ### Cambiado
 
 - `POST /activities/:id/reject` solo acepta actividades pendientes: una rechazada o validada responde 409

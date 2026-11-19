@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+#
+# Reproduce en local el servicio único de producción (API + web en un contenedor): ejecuta los
+# mismos comandos que el panel de Seenode (npm run build / npm start en la raíz).
+#
+#   docker build -f Dockerfile.single-service -t reto-single .
+#   docker run --rm --memory=512m --cpus=0.2 -p 3000:3000 \
+#     -e NODE_ENV=production -e CORS_ORIGIN=http://localhost:3000 \
+#     -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5433/reto_constancia?schema=public&connection_limit=5" \ # secret-scan:allow credenciales de la base local de desarrollo
+#     -e JWT_SECRET=<descartable> -e JWT_REFRESH_SECRET=<descartable> reto-single
+#   node scripts/single-service-smoke.mjs http://localhost:3000
+#
+# Solo para pruebas locales y plan B (VPS). Usa secretos descartables, nunca reales.
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY . .
+RUN npm run build
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+CMD ["node", "scripts/start-prod.mjs"]

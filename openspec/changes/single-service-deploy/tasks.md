@@ -1,8 +1,8 @@
 ## 0. Approval and phase 1
 
-- [ ] 0.1 The owner approves these artifacts (proposal, design D1–D10 and the defaults of Open Questions P1–P7); no code before that
+- [x] 0.1 The owner approves these artifacts (proposal, design D1–D10 and the defaults of Open Questions P1–P7); no code before that
 - [ ] 0.2 The owner runs phase 1 of `docs/despliegue/RUNBOOK-DESPLIEGUE.md` with his Seenode trial account (PostgreSQL 16, external database access with origin control and `db-backup.mjs` `OK`, build and runtime resources, redeploy of a previous commit) and records it in its "Registro de la fase 1"; any finding in the design's "Phase 1 dependency" table updates this change before PR 2
-- [ ] 0.3 Branch `feature/single-service-deploy` from `develop` for PR 1 (per P1, it may start before 0.2 ends)
+- [x] 0.3 Branch `feature/single-service-deploy` from `develop` for PR 1 (per P1, it may start before 0.2 ends)
 
 ## 1. PR 1 — Tests first
 
@@ -24,7 +24,7 @@
 ## 3. PR 1 — Verification (local only; record each run)
 
 - [ ] 3.1 `docker build -f Dockerfile.single-service -t reto-single .` and `docker run --memory=512m --cpus=0.2` against the local Postgres (port 5433 via `host.docker.internal`, `connection_limit=5`, throwaway JWT secrets): `node scripts/single-service-smoke.mjs http://localhost:3000` → `OK`; record build time, peak memory (`docker stats`) and `du -sh` of `backend/` and `frontend/` inside the container
-- [ ] 3.2 Same container with `TRUST_PROXY=1` and with `TRUST_PROXY=3`: the smoke fails the expected check (spec scenario "Wrong proxy configuration detected"); if the default 2 does not pass, revise D5 before merging
+- [ ] 3.2 Same container with `TRUST_PROXY=0` and with `TRUST_PROXY=2`: the smoke fails the expected check (spec scenario "Wrong proxy configuration detected"); if the default does not pass, revise D5 before merging (done: the default is 1, not 2, because Next does not append its hop)
 - [ ] 3.3 `docker kill --signal=SIGTERM` → logs show "Conexión a la base cerrada" and the container exits 0; `docker exec … kill <api pid>` → the container exits non-zero within 10 s
 - [ ] 3.4 Without `API_INTERNAL_URL`: `cd frontend && npm run build` behaves as before (no `/api` rewrite); `next dev` and the battery ports (3002/3005) unchanged
 - [ ] 3.5 Wait 60 s between login-limit runs (5 per minute per IP) so the battery's login steps do not get 429

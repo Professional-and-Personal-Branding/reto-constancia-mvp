@@ -12,6 +12,7 @@
  *   W(archivo, título)  recorrido de UI con Playwright (e2e/tests)
  *   G(título)           suite de capturas de la guía (e2e/guide/capture.spec.ts)
  *   S(prefijo)          chequeo de scripts/parallel-session-test.mjs ('*' = todos)
+ *   R(archivo, título)  prueba node:test de los scripts de la raíz (scripts/lib/*.test.mjs)
  * El título debe coincidir exactamente con el de la prueba; el de S es un prefijo.
  *
  * Casos sin automatización llevan `manual` con la última ejecución registrada.
@@ -23,6 +24,7 @@ const A = (file, title) => ({ kind: 'api', file, title });
 const W = (file, title) => ({ kind: 'ui', file, title });
 const G = (title) => ({ kind: 'guide', file: 'capture.spec.ts', title });
 const S = (title) => ({ kind: 'sessions', file: 'parallel-session-test.mjs', title });
+const R = (file, title) => ({ kind: 'repo', file, title });
 
 /** Datos compartidos por los casos (seed de desarrollo, ver backend/prisma/seed.ts). */
 export const SEED = {
@@ -578,6 +580,38 @@ export const CASES = [
       A('session-checks.e2e-spec.ts', 'ADMINS: dos admins que se degradan a la vez dejan exactamente un admin activo'),
       A('session-checks.e2e-spec.ts', 'ADMINS: dos admins que se desactivan a la vez dejan exactamente un admin activo'),
     ],
+  },
+
+  {
+    id: 'TC-SEC-15', title: 'La web envía cabeceras de seguridad', priority: 'Alta', type: 'Seguridad', guide: '8.4',
+    pre: ['Web compilada y en marcha (next start).'],
+    data: 'GET / y una ruta de página; GET /api/health a través de la web con el servicio único',
+    steps: ['Pedir la página con curl -sI.', 'Pedir /api/health a través de la web y revisar que las cabeceras no se repiten.'],
+    expected: [
+      'La página lleva Strict-Transport-Security (max-age=15552000; includeSubDomains), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin y una CSP con frame-ancestors, base-uri, object-src y form-action.',
+      'No lleva X-Powered-By.',
+      'Las respuestas de /api conservan las cabeceras de la API, sin duplicados.',
+    ],
+    auto: [
+      F('deploy-config.test.ts', 'las cabeceras de seguridad son las cinco del diseño y excluyen /api'),
+      F('deploy-config.test.ts', 'la regla de cabeceras alcanza a las páginas y no a /api'),
+    ],
+  },
+  {
+    id: 'TC-SEC-16', title: 'El límite de login distingue clientes detrás de la cadena de proxies', priority: 'Alta', type: 'Seguridad', guide: '8.4',
+    pre: ['Imagen del servicio único (Dockerfile.single-service) corriendo con --memory=512m --cpus=0.2 contra la base local.'],
+    data: 'node scripts/single-service-smoke.mjs con TRUST_PROXY sin definir (1), 0 y 2; cuenta inexistente; X-Forwarded-For de documentación (RFC 5737)',
+    steps: [
+      'Con TRUST_PROXY sin definir, correr el script de humo contra http://localhost:3000.',
+      'Repetir con TRUST_PROXY=0.',
+      'Repetir con TRUST_PROXY=2.',
+    ],
+    expected: [
+      'Sin definir (1 salto): el sexto login de un cliente da 429, otro cliente no, y una entrada falsa a la izquierda de X-Forwarded-For no evade el límite; el script termina con OK.',
+      'Con 0: falla la comprobación "otro cliente no comparte el límite" y termina con código 1.',
+      'Con 2: falla la comprobación de la entrada falsa y termina con código 1.',
+    ],
+    manual: { date: '2026-11-18', result: 'Aprobado', evidence: "contenedor Dockerfile.single-service con --memory=512m --cpus=0.2 contra la base local (Next 15.5.28): sin TRUST_PROXY (default 1) OK exit 0; TRUST_PROXY=1 OK; TRUST_PROXY=2 FALLO en la entrada falsa de X-Forwarded-For (401 en vez de 429); TRUST_PROXY=0 FALLO en 'otro cliente no comparte el límite' (429). Next no añade su salto a X-Forwarded-For, por eso el valor es 1 y no 2 (design D5)" },
   },
 
   // ───────────────────────────── CHAL ─────────────────────────────
@@ -2754,6 +2788,60 @@ export const CASES = [
       'No queda ninguna base reto_restore_check_*.',
     ],
     manual: { date: '2026-11-06', result: 'Aprobado', evidence: 'base de origen temporal (3 tablas, 52 filas): OK exit 0 x2; destino example.com exit 2 sin archivos; mismo origen y destino exit 2; --file OK exit 0; volcado truncado FALLO exit 1; sin bases reto_restore_check_* al final' },
+  },
+
+  {
+    id: 'TC-HEALTH-07', title: 'El servicio único arranca, responde y se detiene en orden', priority: 'Alta', type: 'Funcional', guide: '8.1',
+    pre: ['Imagen del servicio único construida y base local en marcha (prueba manual); node >= 20 (pruebas automáticas).'],
+    data: 'scripts/start-prod.mjs con hijos falsos; contenedor con --memory=512m --cpus=0.2; docker kill --signal=SIGTERM',
+    steps: [
+      'Arrancar el supervisor: migra, arranca la API en loopback, espera /api/health y arranca la web.',
+      'Con el contenedor real, pedir / y /api/health por el puerto público.',
+      'Enviar SIGTERM al contenedor y leer sus logs.',
+    ],
+    expected: [
+      'La migración corre antes que las aplicaciones; si falla sale con su código y no arranca nada; si la API no responde 200 en 60 s sale con 1 sin arrancar la web.',
+      'La web recibe un entorno sin DATABASE_URL, JWT_*, CLOUDINARY_API_SECRET ni SEED_*; los heaps van acotados (224 y 160 MB).',
+      'SIGTERM llega a ambos procesos, los logs muestran "Conexión a la base cerrada" y el contenedor sale con 0; un proceso que ignora SIGTERM recibe SIGKILL pasado el plazo.',
+      'Sin la variable HOST la API escucha en todas las interfaces; con HOST=127.0.0.1 solo en loopback.',
+      'Falta connection_limit en producción: aviso sin la URL ni las credenciales.',
+    ],
+    auto: [
+      U('http.spec.ts', 'sin HOST o vacío escucha en todas las interfaces (undefined)'),
+      U('http.spec.ts', 'con HOST usa esa interfaz, sin espacios'),
+      R('supervisor.test.mjs', 'migra, espera /api/health 200 y solo entonces arranca la web'),
+      R('supervisor.test.mjs', 'si la migración falla sale con su código y no arranca ni la API ni la web'),
+      R('supervisor.test.mjs', 'si la API no responde 200 a tiempo sale con 1, detiene la API y no arranca la web'),
+      R('supervisor.test.mjs', 'SIGTERM se reenvía a ambos hijos, sale 0 dentro del plazo y una segunda señal se ignora'),
+      R('supervisor.test.mjs', 'SIGINT también se reenvía'),
+      R('supervisor.test.mjs', 'si un hijo ignora SIGTERM pasado el plazo se envía SIGKILL y sale 1'),
+      R('supervisor.test.mjs', 'el entorno de la web no lleva DATABASE_URL, JWT_*, CLOUDINARY_API_SECRET ni SEED_*'),
+      R('supervisor.test.mjs', 'un proceso web real arrancado por el supervisor no recibe los secretos'),
+      R('supervisor.test.mjs', 'TRUST_PROXY vale 1 solo si no está definido; un valor del panel gana'),
+      R('supervisor.test.mjs', 'la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap'),
+      R('supervisor.test.mjs', 'en producción sin connection_limit hay un aviso que no contiene la URL, el usuario ni la clave'),
+      R('supervisor.test.mjs', 'sin aviso con connection_limit, fuera de producción o sin DATABASE_URL'),
+      F('deploy-config.test.ts', 'sin API_INTERNAL_URL no hay reescritura de /api'),
+      F('deploy-config.test.ts', 'con API_INTERNAL_URL hay una sola regla /api/:path* hacia la API'),
+      F('deploy-config.test.ts', 'apiBaseUrl en el navegador usa NEXT_PUBLIC_API_URL tal cual (puede ser relativa)'),
+      F('deploy-config.test.ts', 'apiBaseUrl en el servidor nunca devuelve una URL relativa'),
+    ],
+  },
+  {
+    id: 'TC-HEALTH-08', title: 'Si un proceso del servicio único muere, el contenedor termina', priority: 'Alta', type: 'Funcional', guide: '8.1',
+    pre: ['Imagen del servicio único corriendo (prueba manual).'],
+    data: 'hijos falsos que salen con 0, 1 o por señal; docker exec ... kill <pid de la API>',
+    steps: ['Con ambos procesos arriba, terminar la API (o la web) con cualquier código.', 'Observar el contenedor.'],
+    expected: [
+      'El supervisor registra qué proceso terminó y con qué código, detiene al otro y sale distinto de cero en menos de 10 s, para que la plataforma reinicie el servicio.',
+    ],
+    auto: [
+      R('supervisor.test.mjs', 'la API sale con 0: detiene al otro y sale distinto de cero'),
+      R('supervisor.test.mjs', 'la API sale con 1: detiene al otro y sale distinto de cero'),
+      R('supervisor.test.mjs', 'la web sale con 0: detiene al otro y sale distinto de cero'),
+      R('supervisor.test.mjs', 'la web sale con 3: detiene al otro y sale distinto de cero'),
+      R('supervisor.test.mjs', 'la web muere por una señal: detiene al otro y sale distinto de cero'),
+    ],
   },
 
   // ───────────────────────────── PAR ─────────────────────────────

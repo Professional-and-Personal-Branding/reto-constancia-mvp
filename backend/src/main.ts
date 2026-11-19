@@ -7,7 +7,7 @@ import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { corsWarning, resolveCorsOrigin } from './common/cors';
-import { resolveSwaggerEnabled, resolveTrustProxy } from './common/http';
+import { resolveListenHost, resolveSwaggerEnabled, resolveTrustProxy } from './common/http';
 import { applyRequestContext } from './common/request-context';
 
 async function bootstrap() {
@@ -77,7 +77,10 @@ async function bootstrap() {
   }
 
   const port = config.get<number>('PORT', 3000);
-  await app.listen(port);
+  // HOST (servicio único: 127.0.0.1); sin él, todas las interfaces como antes
+  const host = resolveListenHost({ HOST: config.get<string>('HOST') });
+  if (host) await app.listen(port, host);
+  else await app.listen(port);
   logger.log(`ðŸš€ API en http://localhost:${port}/${apiPrefix}`);
   if (swaggerEnabled) logger.log(`ðŸ“š Swagger en http://localhost:${port}/${apiPrefix}/docs`);
 }
