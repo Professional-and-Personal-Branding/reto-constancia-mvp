@@ -57,7 +57,7 @@ export function resolveUploadSignLimit(env: { UPLOAD_SIGN_LIMIT?: string }): num
 }
 
 /**
- * Interfaz en la que escucha la API. HOST (p. ej. 127.0.0.1 en el servicio único, donde la web
+ * Interfaz en la que escucha la API. HOST (p. ej. 127.0.0.1 en el servicio Ãºnico, donde la web
  * la alcanza por loopback). Sin configurar devuelve undefined: Nest escucha en todas las
  * interfaces, como siempre.
  */

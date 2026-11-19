@@ -77,7 +77,7 @@ async function bootstrap() {
   }
 
   const port = config.get<number>('PORT', 3000);
-  // HOST (servicio único: 127.0.0.1); sin él, todas las interfaces como antes
+  // HOST (servicio Ãºnico: 127.0.0.1); sin Ã©l, todas las interfaces como antes
   const host = resolveListenHost({ HOST: config.get<string>('HOST') });
   if (host) await app.listen(port, host);
   else await app.listen(port);

@@ -59,7 +59,7 @@ describe('resolveUploadSignLimit', () => {
 });
 
 describe('resolveListenHost', () => {
-  it('sin HOST o vacío escucha en todas las interfaces (undefined)', () => {
+  it('sin HOST o vacÃ­o escucha en todas las interfaces (undefined)', () => {
     expect(resolveListenHost({})).toBeUndefined();
     expect(resolveListenHost({ HOST: '' })).toBeUndefined();
     expect(resolveListenHost({ HOST: '   ' })).toBeUndefined();
