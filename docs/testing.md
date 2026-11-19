@@ -135,7 +135,7 @@ La validación de OpenSpec (`openspec validate --all --strict`) se corre con la 
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 86 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 173 casos de `docs/qa/` están enlazados a 955 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 173 casos de `docs/qa/` están enlazados a 960 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -158,20 +158,25 @@ migraciones. La batería pasa de 13 a 14 pasos (nuevo: `repo:scripts`, `node --t
 **Batería** (`node scripts/run-tests.mjs`): **14 de 14 pasos en verde**.
 
 **Catálogo** (`node scripts/validate-test-cases.mjs`): **173 de 173 casos aprobados** (170 automatizados,
-3 manuales) con 955 pruebas y 0 fallidas: unitarias del backend 442, unitarias de la web 92, e2e de API
-221, recorridos de UI 86, capturas de la guía 27, sesiones paralelas 70 y scripts de la raíz 17 (suite
+3 manuales) con 960 pruebas y 0 fallidas: unitarias del backend 442, unitarias de la web 92, e2e de API
+221, recorridos de UI 86, capturas de la guía 27, sesiones paralelas 70 y scripts de la raíz 22 (suite
 nueva `repo` del validador); "Pruebas sin caso: 0". La primera corrida del validador falló `07-theme.spec.ts`
 (TC-UI-09, fondo en modo claro), el intermitente ya anotado, y un enlace roto por un título con codificación
 mala (corregido); la segunda quedó en verde. `openspec validate single-service-deploy --strict`: válido;
-`openspec validate --all --strict` con la CLI 2.0.0: 4 de 19 (los 15 restantes fallan por requisitos largos
-de specs ajenos, sin relación con este cambio).
+`openspec validate --all --strict` con la CLI 1.14.0 fijada (`npx --yes @fission-ai/openspec@1.14.0 validate --all --strict`):
+19 de 19, comprobado tras fusionar `origin/develop` (la CLI 2.0.0 daba 4 de 19 por requisitos largos de specs ajenos).
 
 **Contenedor** (`docker build -f Dockerfile.single-service -t reto-single .`, `docker run --memory=512m
 --cpus=0.2` contra la base local por `host.docker.internal:5433` con `connection_limit=5` y secretos
 descartables; el puerto 3000 del host lo ocupa otro proyecto, así que se publicó el 3010):
-- Build: 231 s en esta máquina. Disco dentro de la imagen: `backend/` 171 MB y `frontend/` 579 MB
-  (`node_modules` 501 MB, de los que 273 MB son `@next`: Next instala los binarios SWC de glibc y de
-  musl, 137 MB cada uno) más `.next` 78 MB: **750 MB entre los dos, justo el límite del plan**; ver el informe.
+- Build: 231 s en esta máquina. Disco dentro de la imagen, primera medición (`du -sh`): `backend/` 171 MB y
+  `frontend/` 579 MB (`node_modules` 501 MB, de los que 273 MB son `@next`: Next instala los binarios SWC de
+  glibc y de musl, 137 MB cada uno) más `.next` 78 MB: **750 MB entre los dos, justo el límite del plan**.
+  Tras la revisión, `build-prod.mjs` borra los SWC de la otra libc y `frontend/.next/cache`: `backend/` 171 MB y
+  `frontend/` 369 MB (`node_modules` 365 MB, `.next` 3,7 MB), **540 MB entre los dos** (el script informa 140 MB y
+  337 MB por tamaño de archivos, sin bloques). La imagen corre como usuario `node`, el healthcheck queda
+  `healthy`, sin reinicios, 118 MiB de memoria y sin referencias a `@next/swc` en los logs; la prueba de humo
+  sigue en `OK`.
 - Memoria: pico de arranque 130 MiB y 125 a 132 MiB tras la prueba de humo, de 512 MiB; sin reinicios.
 - `node scripts/single-service-smoke.mjs http://localhost:3010`: sin `TRUST_PROXY` (default 1) y con 1,
   `OK`; con `TRUST_PROXY=2` falla "una entrada falsa a la izquierda de X-Forwarded-For no evade el límite";
