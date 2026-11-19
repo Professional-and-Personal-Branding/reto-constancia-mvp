@@ -11,10 +11,11 @@ A participant SHALL be able to delete their own activity only while it is `PENDI
 and its challenge is not `COMPLETED`. Deleting another participant's activity, or one's own
 `VALIDATED` activity, MUST be rejected with 403; for one's own `VALIDATED` activity the message
 SHALL be "Solo se pueden eliminar actividades pendientes o rechazadas". The ownership and status
-checks SHALL use the activity as re-read under the challenge lock. An admin MAY delete any activity
-of a challenge that is not `COMPLETED`. Deleting any activity of a `COMPLETED` challenge, by anyone,
-MUST be rejected with 400 "El reto está cerrado; sus actividades son definitivas"; this check takes
-precedence over the ownership checks. Once deleted, the day SHALL be free for a new registration of
+checks SHALL use the activity as re-read under the challenge lock and the activity row lock. An
+admin MAY delete any activity of a challenge that is not `COMPLETED`. Deleting any activity of a
+`COMPLETED` challenge, by anyone, MUST be rejected with 400 "El reto está cerrado; sus actividades
+son definitivas"; this check takes precedence over the ownership checks. Deleting an activity SHALL
+also delete its rejection history. Once deleted, the day SHALL be free for a new registration of
 that participant in that challenge, which `POST /activities` SHALL accept or reject with all of its
 usual rules; withdrawing SHALL NOT allow two activities of the same participant, day and challenge
 to exist at the same time. No limit SHALL apply to how many times a day is withdrawn and registered
@@ -26,14 +27,14 @@ again while the challenge is open.
 - **THEN** the activity is removed and the response is 204
 
 #### Scenario: Own rejected activity
-- **GIVEN** a participant has a `REJECTED` activity with a rejection reason in an `ACTIVE` challenge
+- **GIVEN** a participant has a `REJECTED` activity with a rejection reason and rejection history in an `ACTIVE` challenge
 - **WHEN** they delete it
-- **THEN** the activity and its rejection reason are removed and the response is 204
+- **THEN** the activity, its rejection reason and its rejection history are removed and the response is 204
 
 #### Scenario: Registering the day again after withdrawing a rejected activity
 - **GIVEN** a participant withdrew their `REJECTED` activity of a valid day of an `ACTIVE` challenge
 - **WHEN** they register a compliant activity for the same date
-- **THEN** the response is 201 and the new activity is `PENDING`
+- **THEN** the response is 201, the new activity is `PENDING`, its `resubmissionCount` is 0 and it has no rejection history
 
 #### Scenario: Day no longer valid
 - **GIVEN** a participant's `REJECTED` activity on a Saturday
@@ -82,15 +83,16 @@ again while the challenge is open.
 ### Requirement: The web offers withdrawing pending and rejected activities
 "Mis actividades" SHALL show a "Retirar" action on each of the participant's `PENDING` and
 `REJECTED` activities and no action on validated ones. A rejected activity SHALL show its rejection
-reason and the hint "Puedes retirarla y registrar ese día de nuevo.". Withdrawing MUST ask for an
-in-page confirmation before deleting: "¿Retirar esta actividad?" for a pending activity and
-"¿Retirar esta actividad rechazada? Se borrará con sus fotos y podrás registrar ese día de nuevo."
-for a rejected one, with "Sí, retirar" and "No". The list, the pending count, the calendar and the
-day's upload button MUST update after the activity is removed. After withdrawing a rejected
+reason, the hint "Puedes corregirla y reenviarla, o retirarla y registrar ese día de nuevo." and,
+when the challenge is `ACTIVE`, the "Corregir y reenviar" action before "Retirar". Withdrawing MUST
+ask for an in-page confirmation before deleting: "¿Retirar esta actividad?" for a pending activity
+and "¿Retirar esta actividad rechazada? Se borrará con sus fotos y podrás registrar ese día de
+nuevo." for a rejected one, with "Sí, retirar" and "No". The list, the pending count, the calendar
+and the day's upload button MUST update after the activity is removed. After withdrawing a rejected
 activity, the web SHALL show "Actividad retirada." and, when that day's calendar entry is `valid`
 and the challenge is `ACTIVE`, a "Registrar ese día" link to the upload form prefilled with that
 date. A rejected day in "Mi mes" SHALL keep linking to its row in "Mis actividades", where the
-action is offered. When the API refuses the withdrawal, its message SHALL be shown and the list
+actions are offered. When the API refuses the withdrawal, its message SHALL be shown and the list
 refreshed.
 
 #### Scenario: Withdraw with confirmation
@@ -113,10 +115,14 @@ refreshed.
 - **THEN** the activity disappears, "Actividad retirada." is shown with a "Registrar ese día" link
 - **AND** the link opens the upload form with that date selected and no "Ya registraste una actividad para ese día" hint
 
+#### Scenario: Rejected row offers both paths
+- **GIVEN** a participant sees a rejected activity of an `ACTIVE` challenge
+- **THEN** the row shows the reason, the hint "Puedes corregirla y reenviarla, o retirarla y registrar ese día de nuevo.", "Corregir y reenviar" and "Retirar"
+
 #### Scenario: From "Mi mes"
 - **GIVEN** a rejected day in "Mi mes"
 - **WHEN** the participant activates it
-- **THEN** the page moves to that activity's row, which shows the reason, the hint and "Retirar"
+- **THEN** the page moves to that activity's row, which shows the reason, the hint, "Corregir y reenviar" and "Retirar"
 - **AND** after withdrawing, the day shows "Sin registro" and links to the upload form with that date
 
 #### Scenario: Validated activity

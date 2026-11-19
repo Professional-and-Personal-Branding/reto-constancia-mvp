@@ -91,7 +91,7 @@ photos as read-only, apply the same client checks as the upload form and keep "G
 while the form is invalid or unchanged. After saving it SHALL show "Actividad corregida." and the
 new values; on an API error it SHALL show the API message and refresh the list. `VALIDATED` and
 `REJECTED` rows SHALL NOT offer "Editar". In the admin "Validar" page, a pending card whose data
-changed after it was registered SHALL show the badge "Modificada".
+changed after it was registered SHALL show the badge "Modificada", except a resubmitted one (`resubmissionCount > 0`), which SHALL show "Reenviada" instead.
 
 #### Scenario: Participant corrects a typo from the phone
 - **GIVEN** a participant with a pending activity of 45 minutes on a phone-sized screen
@@ -111,3 +111,8 @@ changed after it was registered SHALL show the badge "Modificada".
 - **GIVEN** a pending activity edited by its owner
 - **WHEN** the admin opens "Validar"
 - **THEN** its card shows "Modificada" and the edited values
+
+#### Scenario: Resubmitted activity keeps its own badge
+- **GIVEN** a pending activity that was rejected and resubmitted (`resubmissionCount > 0`)
+- **WHEN** the admin opens "Validar"
+- **THEN** its card shows "Reenviada" and not "Modificada"

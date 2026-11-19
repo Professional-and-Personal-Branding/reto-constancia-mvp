@@ -38,7 +38,7 @@ below without date or photos.
 - **Web, "Mis actividades":** pending rows get "Editar", an inline form prefilled with the current
   values and the same client checks as the upload form; "Guardar" / "Cancelar"; after saving,
   "Actividad corregida." **Web, "Validar":** a pending card modified after it was registered shows
-  the badge "Modificada".
+  the badge "Modificada" (or "Reenviada" if it was resubmitted, `resubmissionCount > 0`).
 - **No schema change, no migration, no new dependency, no new environment variable.**
 
 ## Non-goals
