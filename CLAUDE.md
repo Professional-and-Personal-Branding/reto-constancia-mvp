@@ -69,8 +69,8 @@ visibles al usuario, la documentación y la guía, en español.
 
 ## Verificación y entorno de pruebas
 
-- **Batería completa:** `node scripts/run-tests.mjs` debe dar **13/13** (escaneo de secretos, formato
-  de archivos nuevos, lint, unitarias, build, migraciones, e2e de API, tipos, pruebas de la web, lint y
+- **Batería completa:** `node scripts/run-tests.mjs` debe dar **14/14** (escaneo de secretos, formato
+  de archivos nuevos, pruebas de los scripts de la raíz, lint, unitarias, build, migraciones, e2e de API, tipos, pruebas de la web, lint y
   build de la web, sesiones paralelas y recorridos de Playwright). Después, `node
   scripts/validate-test-cases.mjs` (catálogo de QA: debe terminar con "Pruebas sin caso: 0") y
   `npx --yes @fission-ai/openspec@1.14.0 validate --all --strict`. **Reinicia la base entre la batería y

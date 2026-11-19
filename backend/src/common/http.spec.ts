@@ -1,4 +1,10 @@
-import { resolveSwaggerEnabled, resolveThrottle, resolveTrustProxy, resolveUploadSignLimit } from './http';
+import {
+  resolveListenHost,
+  resolveSwaggerEnabled,
+  resolveThrottle,
+  resolveTrustProxy,
+  resolveUploadSignLimit,
+} from './http';
 
 describe('resolveTrustProxy', () => {
   it('en producción sin configurar confía en un proxy delante', () => {
@@ -49,5 +55,18 @@ describe('resolveUploadSignLimit', () => {
     expect(resolveUploadSignLimit({ UPLOAD_SIGN_LIMIT: 'abc' })).toBe(30);
     expect(resolveUploadSignLimit({ UPLOAD_SIGN_LIMIT: '0' })).toBe(30);
     expect(resolveUploadSignLimit({ UPLOAD_SIGN_LIMIT: '500' })).toBe(500);
+  });
+});
+
+describe('resolveListenHost', () => {
+  it('sin HOST o vacío escucha en todas las interfaces (undefined)', () => {
+    expect(resolveListenHost({})).toBeUndefined();
+    expect(resolveListenHost({ HOST: '' })).toBeUndefined();
+    expect(resolveListenHost({ HOST: '   ' })).toBeUndefined();
+  });
+
+  it('con HOST usa esa interfaz, sin espacios', () => {
+    expect(resolveListenHost({ HOST: '127.0.0.1' })).toBe('127.0.0.1');
+    expect(resolveListenHost({ HOST: ' 127.0.0.1 ' })).toBe('127.0.0.1');
   });
 });

@@ -12,6 +12,7 @@ export interface HttpEnv {
   THROTTLE_LIMIT?: string;
   THROTTLE_TTL_MS?: string;
   SWAGGER_ENABLED?: string;
+  HOST?: string;
 }
 
 /**
@@ -53,4 +54,14 @@ export function resolveSwaggerEnabled(env: HttpEnv): boolean {
 export function resolveUploadSignLimit(env: { UPLOAD_SIGN_LIMIT?: string }): number {
   const limit = Number(env.UPLOAD_SIGN_LIMIT);
   return Number.isInteger(limit) && limit > 0 ? limit : 30;
+}
+
+/**
+ * Interfaz en la que escucha la API. HOST (p. ej. 127.0.0.1 en el servicio único, donde la web
+ * la alcanza por loopback). Sin configurar devuelve undefined: Nest escucha en todas las
+ * interfaces, como siempre.
+ */
+export function resolveListenHost(env: { HOST?: string }): string | undefined {
+  const host = env.HOST?.trim();
+  return host ? host : undefined;
 }

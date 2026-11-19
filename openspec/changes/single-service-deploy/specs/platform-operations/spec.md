@@ -81,8 +81,9 @@ relative public base and SHALL use `API_INTERNAL_URL`.
 - **THEN** `GET /api/health` on the web is not proxied (404 from the web) and the browser uses the absolute `NEXT_PUBLIC_API_URL` as before
 
 ### Requirement: The API identifies the client behind the single-service proxy chain
-In the single-service runtime the supervisor SHALL start the API with `TRUST_PROXY=2` (platform edge
-and web proxy) unless `TRUST_PROXY` is already set, in which case that value wins. Requests from
+In the single-service runtime the supervisor SHALL start the API with `TRUST_PROXY=1` (the platform
+edge; the web proxy forwards `X-Forwarded-For` without adding a hop) unless `TRUST_PROXY` is already
+set, in which case that value wins. Requests from
 different clients MUST be counted separately by the rate limiters, and a client-supplied
 `X-Forwarded-For` entry to the left of the addresses appended by the trusted proxies MUST NOT change
 the client identity.
@@ -160,5 +161,5 @@ login-limit scenarios with forwarding headers, and ends with `OK` (exit 0) or th
 - **THEN** the smoke script prints `OK` and exits with code 0 and the container did not restart
 
 #### Scenario: Wrong proxy configuration detected
-- **WHEN** the container runs with `TRUST_PROXY=1` (too few hops) or `TRUST_PROXY=3` (too many)
-- **THEN** the smoke script fails the two-clients check (with 1) or the forged-forwarding-header check (with 3) and exits with code 1
+- **WHEN** the container runs with `TRUST_PROXY=0` (too few hops) or `TRUST_PROXY=2` (too many)
+- **THEN** the smoke script fails the two-clients check (with 0) or the forged-forwarding-header check (with 2) and exits with code 1

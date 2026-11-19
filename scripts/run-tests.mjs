@@ -15,7 +15,7 @@
  * Ver docs/testing.md para el detalle de cada suite.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,10 +31,16 @@ const SKIP_E2E = args.has('--skip-e2e') || QUICK;
 const SKIP_BUILD = args.has('--skip-build');
 const SKIP_UI = args.has('--skip-ui') || QUICK;
 
+// Los globs de `node --test` solo existen desde Node 21 y el repositorio acepta Node >= 20: se listan los archivos
+const REPO_TESTS = readdirSync(join(ROOT, 'scripts', 'lib'))
+  .filter((f) => f.endsWith('.test.mjs'))
+  .map((f) => `scripts/lib/${f}`);
+
 /** needs: 'db' → requiere Postgres · 'api' → requiere la API corriendo */
 const STEPS = [
   { id: 'repo:secrets', label: 'Repositorio · escaneo de secretos', cwd: ROOT, cmd: 'node scripts/scan-secrets.mjs' },
   { id: 'repo:format', label: 'Repositorio · formato de los archivos nuevos (Prettier)', cwd: ROOT, cmd: 'node scripts/format.mjs' },
+  { id: 'repo:scripts', label: 'Repositorio · scripts de la raíz (node:test)', cwd: ROOT, cmd: `node --test ${REPO_TESTS.join(' ')}` },
   { id: 'backend:lint', label: 'Backend · lint (ESLint)', cwd: BACKEND, cmd: 'npm run lint' },
   { id: 'backend:unit', label: 'Backend · pruebas unitarias (Jest)', cwd: BACKEND, cmd: 'npx jest --silent' },
   { id: 'backend:build', label: 'Backend · build (nest build)', cwd: BACKEND, cmd: 'npm run build', skip: SKIP_BUILD },

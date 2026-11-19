@@ -1,0 +1,12 @@
+{
+  "name": "reto-constancia",
+  "private": true,
+  "description": "Raíz del repositorio: solo comandos de build y arranque del servicio único (API + web). Sin dependencias.",
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "scripts": {
+    "build": "node scripts/build-prod.mjs",
+    "start": "node scripts/start-prod.mjs"
+  }
+}

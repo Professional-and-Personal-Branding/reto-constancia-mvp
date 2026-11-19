@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+#
+# Reproduce en local el servicio único de producción (API + web en un contenedor): ejecuta los
+# mismos comandos que el panel de Seenode (npm run build / npm start en la raíz).
+#
+#   docker build -f Dockerfile.single-service -t reto-single .
+#   docker run --rm --memory=512m --cpus=0.2 -p 3000:3000 \
+#     -e NODE_ENV=production -e CORS_ORIGIN=http://localhost:3000 \
+#     -e DATABASE_URL="postgresql://postgres:<clave-local>@host.docker.internal:5433/reto_constancia?schema=public&connection_limit=5" \
+#     -e JWT_SECRET=<descartable> -e JWT_REFRESH_SECRET=<descartable> reto-single
+#   node scripts/single-service-smoke.mjs http://localhost:3000
+#
+# <clave-local> es la contraseña de la base de desarrollo (docker-compose.yml).
+# Solo para pruebas locales y plan B (VPS). Usa secretos descartables, nunca reales.
+FROM node:20-bookworm-slim
+
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# /app es de node: el build y la ejecución corren sin root, sin duplicar 750 MB en una capa de chown
+RUN mkdir /app && chown node:node /app
+WORKDIR /app
+USER node
+COPY --chown=node:node . .
+RUN npm run build
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+
+CMD ["node", "scripts/start-prod.mjs"]

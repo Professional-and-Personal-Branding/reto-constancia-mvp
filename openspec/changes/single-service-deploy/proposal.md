@@ -15,10 +15,10 @@ The current code cannot run that way:
 - The web calls the API through an absolute `NEXT_PUBLIC_API_URL`. With one public port (3000,
   owned by Next) the browser must reach the API under the same origin: Next has to proxy `/api/*`
   to the API on loopback.
-- With Next in front, the API sees **two** proxies (Seenode's edge and Next). With the current
-  production default (`TRUST_PROXY` = 1 hop) the login limiter (5 per minute per IP) would either
-  key every user on the same proxy address (platform-wide `429`) or trust a client-forged
-  `X-Forwarded-For`.
+- With Next in front, the API's peer is Next on loopback and the client address arrives in
+  `X-Forwarded-For`. The proxy-hop count of the login limiter (5 per minute per IP) has to match that
+  chain, or every user is keyed on the same address (platform-wide `429`) or a client-forged
+  `X-Forwarded-For` evades it; the smoke test measures which value is right (see design D5).
 - Next sends no security headers today (no HSTS, no anti-framing): phase 5 of the deployment
   runbook stops on that (cut rule 6).
 - 0.5 GB must hold the build of both apps and, at run time, two Node heaps; PostgreSQL Basic
@@ -45,7 +45,7 @@ the owner with his own Seenode trial account**. Its results can change this desi
   `/api/:path*` to it; always send security headers on web routes (HSTS, `X-Frame-Options`,
   `X-Content-Type-Options`, `Referrer-Policy`, a CSP limited to `frame-ancestors`/`base-uri`/
   `object-src`/`form-action`) and drop `X-Powered-By`.
-- **Client IP:** the supervisor gives the API `TRUST_PROXY=2` when the variable is unset; the
+- **Client IP:** the supervisor gives the API `TRUST_PROXY=1` when the variable is unset; the
   proxy chain is proven locally by a smoke script and on Seenode by the runbook.
 - **`connection_limit`:** documented as `connection_limit=5` in `DATABASE_URL`; the supervisor warns
   (without printing the URL) when it is missing in production.

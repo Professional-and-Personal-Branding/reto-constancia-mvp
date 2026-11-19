@@ -1,7 +1,7 @@
 # Pruebas automatizadas — Reto de Constancia
 
 Qué cubre la batería, cómo correrla y qué hacer cuando algo falla. Los casos de prueba están
-catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (169 casos, cada uno con las
+catalogados y validados en [`qa/test-cases.md`](./qa/test-cases.md) (173 casos, cada uno con las
 pruebas que lo validan); la preparación del entorno y los recorridos manuales, en
 [`test-cases.md`](./test-cases.md).
 
@@ -11,7 +11,8 @@ pruebas que lo validan); la preparación del entorno y los recorridos manuales, 
 node scripts/run-tests.mjs
 ```
 
-Corre, en orden: lint del backend, pruebas unitarias, build, migraciones, pruebas e2e,
+Corre, en orden: escaneo de secretos, formato de los archivos nuevos, pruebas de los scripts de la raíz
+(`scripts/lib/*.test.mjs`), lint del backend, pruebas unitarias, build, migraciones, pruebas e2e,
 tipos del frontend, lint, build, la prueba de sesiones paralelas y los recorridos de UI con
 Playwright. Imprime un resumen y devuelve código distinto de cero si algo falla.
 
@@ -44,6 +45,7 @@ La primera vez, instala también el navegador de Playwright:
 | Unitarias backend | `cd backend && npx jest` | Reglas puras y servicios con Prisma simulado: auth, ciclo de vida de retos, regla de FC, importación, finanzas, puntaje, CORS, modo de subida | — |
 | E2E backend | `cd backend && npm run test:e2e` | Contratos HTTP reales contra Postgres: flujo principal, ciclo de vida, regla de FC, finanzas, puntaje, importación desde Sheets | Postgres |
 | Unitarias web | `cd frontend && npm test` | Helpers de fechas (días calendario, fin de reto inclusivo) y tema: resolución, script previo a la hidratación y contraste de las paletas de `globals.css` | — |
+| Scripts de la raíz | `node --test "scripts/lib/*.test.mjs"` | El supervisor del servicio único (`scripts/lib/supervisor.mjs`) con hijos falsos: orden de arranque, fallo de migración, espera de la API, apagado por señales, aislamiento de secretos, `TRUST_PROXY` y el aviso de `connection_limit` | — |
 | Tipos y lint | `npx tsc --noEmit -p .` / `npm run lint` | Tipos del frontend, reglas de estilo de ambos proyectos | — |
 | Builds | `npm run build` (en cada proyecto) | Que compile lo que se despliega | — |
 | Sesiones paralelas | `node scripts/parallel-session-test.mjs` | Recorrido funcional de punta a punta con dos sesiones simultáneas (admin y participante) sobre datos del seed | API + seed |
@@ -133,7 +135,7 @@ La validación de OpenSpec (`openspec validate --all --strict`) se corre con la 
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 86 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 169 casos de `docs/qa/` están enlazados a 930 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 173 casos de `docs/qa/` están enlazados a 960 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -146,6 +148,45 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
+
+### 2026-11-18 · rama `feature/single-service-deploy` (servicio único, PR 1 de código)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Docker 29.9.3. Base reiniciada con
+`npx prisma migrate reset --force` antes de la batería y antes de cada corrida del validador. Sin
+migraciones. La batería pasa de 13 a 14 pasos (nuevo: `repo:scripts`, `node --test "scripts/lib/*.test.mjs"`).
+
+**Batería** (`node scripts/run-tests.mjs`): **14 de 14 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **173 de 173 casos aprobados** (170 automatizados,
+3 manuales) con 960 pruebas y 0 fallidas: unitarias del backend 442, unitarias de la web 92, e2e de API
+221, recorridos de UI 86, capturas de la guía 27, sesiones paralelas 70 y scripts de la raíz 22 (suite
+nueva `repo` del validador); "Pruebas sin caso: 0". La primera corrida del validador falló `07-theme.spec.ts`
+(TC-UI-09, fondo en modo claro), el intermitente ya anotado, y un enlace roto por un título con codificación
+mala (corregido); la segunda quedó en verde. `openspec validate single-service-deploy --strict`: válido;
+`openspec validate --all --strict` con la CLI 1.14.0 fijada (`npx --yes @fission-ai/openspec@1.14.0 validate --all --strict`):
+19 de 19, comprobado tras fusionar `origin/develop` (la CLI 2.0.0 daba 4 de 19 por requisitos largos de specs ajenos).
+
+**Contenedor** (`docker build -f Dockerfile.single-service -t reto-single .`, `docker run --memory=512m
+--cpus=0.2` contra la base local por `host.docker.internal:5433` con `connection_limit=5` y secretos
+descartables; el puerto 3000 del host lo ocupa otro proyecto, así que se publicó el 3010):
+- Build: 231 s en esta máquina. Disco dentro de la imagen, primera medición (`du -sh`): `backend/` 171 MB y
+  `frontend/` 579 MB (`node_modules` 501 MB, de los que 273 MB son `@next`: Next instala los binarios SWC de
+  glibc y de musl, 137 MB cada uno) más `.next` 78 MB: **750 MB entre los dos, justo el límite del plan**.
+  Tras la revisión, `build-prod.mjs` borra los SWC de la otra libc y `frontend/.next/cache`: `backend/` 171 MB y
+  `frontend/` 369 MB (`node_modules` 365 MB, `.next` 3,7 MB), **540 MB entre los dos** (el script informa 140 MB y
+  337 MB por tamaño de archivos, sin bloques). La imagen corre como usuario `node`, el healthcheck queda
+  `healthy`, sin reinicios, 118 MiB de memoria y sin referencias a `@next/swc` en los logs; la prueba de humo
+  sigue en `OK`.
+- Memoria: pico de arranque 130 MiB y 125 a 132 MiB tras la prueba de humo, de 512 MiB; sin reinicios.
+- `node scripts/single-service-smoke.mjs http://localhost:3010`: sin `TRUST_PROXY` (default 1) y con 1,
+  `OK`; con `TRUST_PROXY=2` falla "una entrada falsa a la izquierda de X-Forwarded-For no evade el límite";
+  con `0`, "otro cliente no comparte el límite". La primera versión del diseño decía 2 y la prueba de humo lo
+  refutó: Next 15.5.28 reenvía `X-Forwarded-For` sin añadir su salto (D5 revisado a 1).
+- `docker kill --signal=SIGTERM`: logs con "Conexión a la base cerrada" y "cierre ordenado", código 0.
+  Un `SIGKILL` a la API dentro del contenedor: el supervisor registra "el proceso api terminó (señal SIGKILL)" y el
+  contenedor sale con 1 en menos de 2 s.
+- Sin `API_INTERNAL_URL` el build de la web (paso de la batería) no añade la reescritura de `/api`, y los
+  puertos 3002/3005 quedaron igual.
 
 ### 2026-11-09 · v1.15.0 (rama `release/1.15.0`)
 
