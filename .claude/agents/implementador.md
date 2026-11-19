@@ -58,7 +58,7 @@ Plataforma (desde la raíz):
   validador** (si no, quedan datos de la batería y fallan TC-SEC-06 y TC-UP-09); el reporte se marca
   "con cambios sin commit" si el árbol no está limpio, así que descarta antes lo ajeno al cambio
   (por ejemplo `git checkout -- docs/guia-capturas` con las capturas regeneradas).
-- `openspec validate --all --strict`.
+- `npx --yes @fission-ai/openspec@1.14.0 validate --all --strict` (versión fijada; ver CLAUDE.md).
 - El repo solo versiona `.env.example`; el escáner rechaza cualquier otro `.env`, claves privadas,
   tokens y URLs de base de datos con contraseña en servidores remotos.
 - Registra la corrida en `docs/testing.md` (§6) y actualiza los conteos de README, `docs/test-cases.md`

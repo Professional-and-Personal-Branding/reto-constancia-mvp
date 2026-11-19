@@ -73,7 +73,9 @@ visibles al usuario, la documentación y la guía, en español.
   de archivos nuevos, lint, unitarias, build, migraciones, e2e de API, tipos, pruebas de la web, lint y
   build de la web, sesiones paralelas y recorridos de Playwright). Después, `node
   scripts/validate-test-cases.mjs` (catálogo de QA: debe terminar con "Pruebas sin caso: 0") y
-  `openspec validate --all --strict`. **Reinicia la base entre la batería y el validador.**
+  `npx --yes @fission-ai/openspec@1.14.0 validate --all --strict`. **Reinicia la base entre la batería y
+  el validador.** La CLI de OpenSpec se fija en la **1.14.0** (la última que da 18/18): desde la 1.14.1 el
+  modo estricto cuenta como fallo el aviso "Requirement text is very long (>500 characters)".
 - **Base de datos:** Postgres 16 (`docker compose up -d postgres`; en local escucha en el puerto 5433,
   base `reto_constancia`; en la CI es un servicio en el 5432). Reinicio de datos:
   `cd backend && out=$(npx prisma migrate reset --force 2>&1)` y solo contra una base local. Los
