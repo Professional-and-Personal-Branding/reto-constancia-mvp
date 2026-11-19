@@ -43,6 +43,10 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- La CLI de OpenSpec se fija en la 1.14.0 (`npx --yes @fission-ai/openspec@1.14.0 validate --all --strict`)
+  en CLAUDE.md y en la guía del implementador: desde la 1.14.1 el modo estricto cuenta como fallo el aviso
+  "Requirement text is very long (>500 characters)" y 15 de los 18 elementos fallaban sin que cambiara
+  ningún spec. Sin cambios de código.
 - `POST /activities/:id/reject` solo acepta actividades pendientes: una rechazada o validada responde 409
   "Solo se pueden rechazar actividades pendientes" (una validación equivocada se corrige eliminando la
   actividad). Validar, rechazar, retirar y reenviar bloquean la fila de la actividad: una carrera entre

@@ -113,6 +113,9 @@ GitHub al asignar el runner, no del código. Se relanza con "Re-run failed jobs"
 `gh run rerun <id> --failed`, y no se fusiona hasta que los tres estén en verde. Pasó una vez en
 el PR #52: el relanzamiento quedó en verde.
 
+La validación de OpenSpec (`openspec validate --all --strict`) se corre con la CLI fijada en la 1.14.0:
+`npx --yes @fission-ai/openspec@1.14.0 validate --all --strict` (la CI no la invoca).
+
 ## 4. Cuando algo falla
 
 | Síntoma | Causa habitual | Salida |
