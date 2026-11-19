@@ -1,7 +1,7 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-19** · rama `feature/single-service-deploy` · commit `6100d6f`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-19** · rama `feature/single-service-deploy` · commit `d2f1dab` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
 **173 casos** · 173 aprobados · 0 fallidos · 0 con limitación conocida · 170 automatizados.
 
@@ -6419,6 +6419,8 @@
 - SIGTERM llega a ambos procesos, los logs muestran "Conexión a la base cerrada" y el contenedor sale con 0; un proceso que ignora SIGTERM recibe SIGKILL pasado el plazo.
 - Sin la variable HOST la API escucha en todas las interfaces; con HOST=127.0.0.1 solo en loopback.
 - Falta connection_limit en producción: aviso sin la URL ni las credenciales.
+- La web recibe API_INTERNAL_URL con el puerto de la API, así que el proxy de /api usa el plazo de 60 s.
+- El build borra los binarios SWC de la otra libc y frontend/.next/cache para que el disco quede por debajo del plan.
 
 **Validación automatizada**
 
@@ -6435,6 +6437,11 @@
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | el entorno de la web no lleva DATABASE_URL, JWT_*, CLOUDINARY_API_SECRET ni SEED_* |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | un proceso web real arrancado por el supervisor no recibe los secretos |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | TRUST_PROXY vale 1 solo si no está definido; un valor del panel gana |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la web recibe API_INTERNAL_URL con el puerto de la API y con él el proxyTimeout de 60 s |
+| ✅ | Scripts (node:test) | `prune.test.mjs` | con glibc borra solo los binarios SWC de musl |
+| ✅ | Scripts (node:test) | `prune.test.mjs` | con musl borra solo los binarios SWC de gnu |
+| ✅ | Scripts (node:test) | `prune.test.mjs` | no toca otros paquetes ni plataformas y no falla si no hay binarios |
+| ✅ | Scripts (node:test) | `prune.test.mjs` | el runtime se detecta como un booleano |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | en producción sin connection_limit hay un aviso que no contiene la URL, el usuario ni la clave |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | sin aviso con connection_limit, fuera de producción o sin DATABASE_URL |

@@ -1,7 +1,7 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-11-19 01:51 (UTC)
-- **Código:** rama `feature/single-service-deploy`, commit `6100d6f`
+- **Fecha:** 2026-11-19 04:49 (UTC)
+- **Código:** rama `feature/single-service-deploy`, commit `d2f1dab` (con cambios sin commit)
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs`
 
@@ -9,19 +9,19 @@
 
 **173 de 173 casos aprobados**; 0 fallidos, 0 con enlace roto, 0 sin ejecutar y 0 con limitación conocida.
 
-Se ejecutaron **955 pruebas** automatizadas: 955 pasaron y 0 fallaron.
+Se ejecutaron **960 pruebas** automatizadas: 960 pasaron y 0 fallaron.
 
 ## Suites ejecutadas
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 442 | 442 | 0 | 17.4 s | 2026-11-19 01:48 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 92 | 92 | 0 | 3.8 s | 2026-11-19 01:49 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 221 | 221 | 0 | 46.3 s | 2026-11-19 01:49 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 86 | 86 | 0 | 82.7 s | 2026-11-19 01:51 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 27 | 27 | 0 | 33.5 s | 2026-11-19 01:51 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.2 s | 2026-11-19 01:51 |
-| Scripts de la raíz (node:test) | `scripts/lib/*.test.mjs` | 17 | 17 | 0 | 4.6 s | 2026-11-19 01:51 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 442 | 442 | 0 | 23.9 s | 2026-11-19 04:46 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 92 | 92 | 0 | 4.3 s | 2026-11-19 04:46 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 221 | 221 | 0 | 45.9 s | 2026-11-19 04:46 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 86 | 86 | 0 | 94.7 s | 2026-11-19 04:48 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 27 | 27 | 0 | 34.5 s | 2026-11-19 04:49 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.4 s | 2026-11-19 04:49 |
+| Scripts de la raíz (node:test) | `scripts/lib/*.test.mjs` | 22 | 22 | 0 | 4.4 s | 2026-11-19 04:49 |
 
 ## Casos por prioridad
 
