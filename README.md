@@ -154,15 +154,18 @@ comandos de build/start y las variables de entorno desde el panel. La app debe
 escuchar en `0.0.0.0` y el puerto que definas en el panel (define `PORT` con ese
 mismo valor). Healthcheck recomendado: `/api/health`.
 
-Arquitectura: dos Web Services (API y frontend) + un PostgreSQL administrado, y
-Cloudinary como servicio complementario para imágenes.
+Arquitectura: **un Web Service** (API y frontend en el mismo contenedor, con `npm run build` y
+`npm start` en la raíz del repo) + un PostgreSQL administrado, y Cloudinary como servicio
+complementario para imágenes. El esquema de dos Web Services (API y frontend por separado) queda como
+alternativa en [`docs/deploy-seenode.md`](docs/deploy-seenode.md) §6 y en el apéndice A del
+[runbook](docs/runbook-despliegue.md).
 
 ```mermaid
 flowchart LR
-  user[Navegador] -->|HTTPS| feWeb[Seenode Web: Next.js]
-  feWeb -->|"NEXT_PUBLIC_API_URL /api"| beWeb[Seenode Web: NestJS API]
-  beWeb -->|red privada| pg[(Seenode PostgreSQL)]
-  beWeb -->|uploads firmados| cloud[Cloudinary]
+  user[Navegador] -->|HTTPS| web[Seenode Web Service: Next.js :3000]
+  web -->|"/api/* reenviado"| api["NestJS API 127.0.0.1:3001"]
+  api -->|red privada| pg[(Seenode PostgreSQL)]
+  api -->|uploads firmados| cloud[Cloudinary]
 ```
 
 Pasos:
@@ -170,23 +173,19 @@ Pasos:
 1. **GitHub** → push del repo.
 2. **Cloudinary** → crear cuenta, copiar credenciales.
 3. **Seenode → PostgreSQL**: crear base administrada; copiar la connection
-   string (red privada) para `DATABASE_URL`.
-4. **Seenode → Web Service (API)**, root `backend`:
-   - Build: `npm install && npx prisma generate && npm run build`
-   - Start: `npx prisma migrate deploy && node dist/main.js`
-   - Port: `3000` (y `PORT=3000` en env).
+   string (red privada) para `DATABASE_URL` y agregarle `&connection_limit=5`.
+4. **Seenode → Web Service**, root = la raíz del repositorio:
+   - Build: `npm run build`
+   - Start: `npm start` (supervisor: migra, arranca la API en loopback y la web en el puerto del panel).
+   - Port: `3000` (y `PORT=3000` en env). Health check: `/api/health`.
    - Env vars: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`,
      `JWT_ACCESS_EXPIRES_IN=15m`, `JWT_REFRESH_EXPIRES_IN=7d`,
-     `CORS_ORIGIN`(=URL del frontend), `API_PREFIX=api`, `CLOUDINARY_*`,
-     `SEED_ADMIN_*`; opcionales `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` y
+     `CORS_ORIGIN`(=URL del servicio), `API_PREFIX=api`, `CLOUDINARY_*`,
+     `SEED_ADMIN_*`, y `NEXT_PUBLIC_API_URL=/api` como variable de build; opcionales `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` y
      `GOOGLE_SHEETS_DEFAULT_RANGE` para importar directo desde Google Sheets (ver
      `docs/import-template.md`). Genera los JWT secrets con `openssl rand -base64 64`.
-   - Primera vez / staging: ejecutar `npx prisma db seed` (evita passwords de demo en prod).
-5. **Seenode → Web Service (Frontend)**, root `frontend`:
-   - Build: `npm install && npm run build`
-   - Start: `npm run start` (Next escucha en el puerto configurado).
-   - Env: `NEXT_PUBLIC_API_URL=https://<api-en-seenode>/api`.
-6. Actualiza `CORS_ORIGIN` de la API con la URL final del frontend y redeploy.
+   - Primera vez / staging: ejecutar `cd backend && npx prisma db seed` (evita passwords de demo en prod).
+5. Actualiza `CORS_ORIGIN` con la URL final del servicio y redeploy.
 
 ### Alternativas
 

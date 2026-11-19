@@ -23,6 +23,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- Runbooks de despliegue en servicio único: `docs/runbook-despliegue.md` (§1 a §4 y §7), `docs/deploy-seenode.md`,
+  `docs/despliegue/RUNBOOK-DESPLIEGUE.md` y `docs/despliegue/DECISION-DESPLIEGUE.md` describen un solo Web Service
+  de Seenode como camino por omisión (Build `npm run build`, Start `npm start`, `connection_limit=5`,
+  `TRUST_PROXY=1`, comprobación de dos redes y cabecera falsificada, plan B con proxy inverso obligatorio) y
+  dejan el esquema de dos servicios como apéndice. Los valores que dependen de la fase 1 de Seenode figuran como
+  pendientes de medir. Solo documentación: sin migraciones ni cambios de código.
 - La CLI de OpenSpec se fija en la 1.14.0 (`npx --yes @fission-ai/openspec@1.14.0 validate --all --strict`)
   en CLAUDE.md y en la guía del implementador: desde la 1.14.1 el modo estricto cuenta como fallo el aviso
   "Requirement text is very long (>500 characters)" y 15 de los 18 elementos fallaban sin que cambiara
