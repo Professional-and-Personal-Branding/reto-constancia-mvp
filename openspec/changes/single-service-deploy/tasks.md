@@ -6,35 +6,35 @@
 
 ## 1. PR 1 — Tests first
 
-- [ ] 1.1 `backend/src/common/http.spec.ts`: `resolveListenHost` (unset/empty → `undefined`, `127.0.0.1` kept, whitespace trimmed); run it and see it fail
-- [ ] 1.2 `scripts/lib/supervisor.test.mjs` (`node:test`, fake children built with `process.execPath -e`): migration failure exits with its code and starts nothing; API health timeout exits 1 without starting the web; web starts only after health 200; a child exiting (code 0, 1 and by signal) stops the other and exits non-zero; SIGTERM forwarded to both, exit 0 within the grace period and 1 after SIGKILL; second signal ignored; web env has no `DATABASE_URL`/`JWT_*`/`CLOUDINARY_API_SECRET`/`SEED_*`; `TRUST_PROXY` defaulted to 2 only when unset; `connection_limit` warning present in production without it and never containing the URL, user or password
-- [ ] 1.3 `frontend/lib/deploy-config.test.ts` (existing `node:test` runner): `apiRewrites` empty without `API_INTERNAL_URL` and one `/api/:path*` rule with it; `securityHeaders` returns the five headers of D6 for `/((?!api/).*)`; `apiBaseUrl({ server: true })` never returns a relative URL
-- [ ] 1.4 Battery: new step `repo:scripts` (`node --test scripts/lib/`) in `scripts/run-tests.mjs`; the count goes from 13 to 14
+- [x] 1.1 `backend/src/common/http.spec.ts`: `resolveListenHost` (unset/empty → `undefined`, `127.0.0.1` kept, whitespace trimmed); run it and see it fail
+- [x] 1.2 `scripts/lib/supervisor.test.mjs` (`node:test`, fake children built with `process.execPath -e`): migration failure exits with its code and starts nothing; API health timeout exits 1 without starting the web; web starts only after health 200; a child exiting (code 0, 1 and by signal) stops the other and exits non-zero; SIGTERM forwarded to both, exit 0 within the grace period and 1 after SIGKILL; second signal ignored; web env has no `DATABASE_URL`/`JWT_*`/`CLOUDINARY_API_SECRET`/`SEED_*`; `TRUST_PROXY` defaulted to 2 only when unset; `connection_limit` warning present in production without it and never containing the URL, user or password
+- [x] 1.3 `frontend/lib/deploy-config.test.ts` (existing `node:test` runner): `apiRewrites` empty without `API_INTERNAL_URL` and one `/api/:path*` rule with it; `securityHeaders` returns the five headers of D6 for `/((?!api/).*)`; `apiBaseUrl({ server: true })` never returns a relative URL
+- [x] 1.4 Battery: new step `repo:scripts` (`node --test scripts/lib/`) in `scripts/run-tests.mjs`; the count goes from 13 to 14
 
 ## 2. PR 1 — Implementation
 
-- [ ] 2.1 `backend/src/common/http.ts` `resolveListenHost`; `backend/src/main.ts` `app.listen(port, host)` only when defined (D8); `backend/.env.example` documents `HOST` (commented)
-- [ ] 2.2 `scripts/lib/supervisor.mjs` + `scripts/start-prod.mjs` (D1, D4 warning, D5 default) with a usage header in the style of `scripts/db-backup.mjs`
-- [ ] 2.3 `scripts/build-prod.mjs` (D3) and the minimal root `package.json` (`private`, `engines`, `build`, `start`; no dependencies)
-- [ ] 2.4 `frontend/lib/deploy-config.mjs` and `frontend/next.config.mjs`: rewrites and `experimental.proxyTimeout` only with `API_INTERNAL_URL`, `headers()` of D6, `poweredByHeader: false`; `frontend/.env.example` documents `API_INTERNAL_URL` (commented) and the `/api` value for this mode
-- [ ] 2.5 `Dockerfile.single-service` and root `.dockerignore` (D10)
-- [ ] 2.6 `scripts/single-service-smoke.mjs <base-url>` (D10, D5 cases with `X-Forwarded-For`)
-- [ ] 2.7 New files formatted with `node scripts/format.mjs`; existing files are not reformatted
+- [x] 2.1 `backend/src/common/http.ts` `resolveListenHost`; `backend/src/main.ts` `app.listen(port, host)` only when defined (D8); `backend/.env.example` documents `HOST` (commented)
+- [x] 2.2 `scripts/lib/supervisor.mjs` + `scripts/start-prod.mjs` (D1, D4 warning, D5 default) with a usage header in the style of `scripts/db-backup.mjs`
+- [x] 2.3 `scripts/build-prod.mjs` (D3) and the minimal root `package.json` (`private`, `engines`, `build`, `start`; no dependencies)
+- [x] 2.4 `frontend/lib/deploy-config.mjs` and `frontend/next.config.mjs`: rewrites and `experimental.proxyTimeout` only with `API_INTERNAL_URL`, `headers()` of D6, `poweredByHeader: false`; `frontend/.env.example` documents `API_INTERNAL_URL` (commented) and the `/api` value for this mode
+- [x] 2.5 `Dockerfile.single-service` and root `.dockerignore` (D10)
+- [x] 2.6 `scripts/single-service-smoke.mjs <base-url>` (D10, D5 cases with `X-Forwarded-For`)
+- [x] 2.7 New files formatted with `node scripts/format.mjs`; existing files are not reformatted
 
 ## 3. PR 1 — Verification (local only; record each run)
 
-- [ ] 3.1 `docker build -f Dockerfile.single-service -t reto-single .` and `docker run --memory=512m --cpus=0.2` against the local Postgres (port 5433 via `host.docker.internal`, `connection_limit=5`, throwaway JWT secrets): `node scripts/single-service-smoke.mjs http://localhost:3000` → `OK`; record build time, peak memory (`docker stats`) and `du -sh` of `backend/` and `frontend/` inside the container
-- [ ] 3.2 Same container with `TRUST_PROXY=0` and with `TRUST_PROXY=2`: the smoke fails the expected check (spec scenario "Wrong proxy configuration detected"); if the default does not pass, revise D5 before merging (done: the default is 1, not 2, because Next does not append its hop)
-- [ ] 3.3 `docker kill --signal=SIGTERM` → logs show "Conexión a la base cerrada" and the container exits 0; `docker exec … kill <api pid>` → the container exits non-zero within 10 s
-- [ ] 3.4 Without `API_INTERNAL_URL`: `cd frontend && npm run build` behaves as before (no `/api` rewrite); `next dev` and the battery ports (3002/3005) unchanged
-- [ ] 3.5 Wait 60 s between login-limit runs (5 per minute per IP) so the battery's login steps do not get 429
+- [x] 3.1 `docker build -f Dockerfile.single-service -t reto-single .` and `docker run --memory=512m --cpus=0.2` against the local Postgres (port 5433 via `host.docker.internal`, `connection_limit=5`, throwaway JWT secrets): `node scripts/single-service-smoke.mjs http://localhost:3000` → `OK`; record build time, peak memory (`docker stats`) and `du -sh` of `backend/` and `frontend/` inside the container
+- [x] 3.2 Same container with `TRUST_PROXY=0` and with `TRUST_PROXY=2`: the smoke fails the expected check (spec scenario "Wrong proxy configuration detected"); if the default does not pass, revise D5 before merging (done: the default is 1, not 2, because Next does not append its hop)
+- [x] 3.3 `docker kill --signal=SIGTERM` → logs show "Conexión a la base cerrada" and the container exits 0; `docker exec … kill <api pid>` → the container exits non-zero within 10 s
+- [x] 3.4 Without `API_INTERNAL_URL`: `cd frontend && npm run build` behaves as before (no `/api` rewrite); `next dev` and the battery ports (3002/3005) unchanged
+- [x] 3.5 Wait 60 s between login-limit runs (5 per minute per IP) so the battery's login steps do not get 429
 
 ## 4. PR 1 — QA catalog, docs of the change and PR
 
-- [ ] 4.1 `docs/qa/catalog.mjs`: `TC-HEALTH-07` "El servicio único arranca, responde y se detiene en orden" (auto: `supervisor.test.mjs` cases; manual: 3.1 and 3.3); `TC-HEALTH-08` "Si un proceso del servicio único muere, el contenedor termina" (auto + manual 3.3); `TC-SEC-15` "La web envía cabeceras de seguridad" (auto: `deploy-config.test.ts`; manual: `curl -sI`); `TC-SEC-16` "El límite de login distingue clientes detrás de la cadena de proxies" (manual: 3.1 and 3.2). If `scripts/validate-test-cases.mjs` does not collect `scripts/lib/*.test.mjs`, extend it so "Pruebas sin caso: 0" covers them
-- [ ] 4.2 `CLAUDE.md` and `docs/testing.md`: battery 14/14 and the new step; `docs/testing.md` §6 with the runs of section 3
-- [ ] 4.3 `CHANGELOG.md` `[Sin publicar]`: new optional variables (`HOST`, `API_INTERNAL_URL`, `API_PORT`, `API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`, `BUILD_MAX_OLD_SPACE_MB`), new root files, no migration
-- [ ] 4.4 `node scripts/run-tests.mjs` 14/14, reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict`
+- [x] 4.1 `docs/qa/catalog.mjs`: `TC-HEALTH-07` "El servicio único arranca, responde y se detiene en orden" (auto: `supervisor.test.mjs` cases; manual: 3.1 and 3.3); `TC-HEALTH-08` "Si un proceso del servicio único muere, el contenedor termina" (auto + manual 3.3); `TC-SEC-15` "La web envía cabeceras de seguridad" (auto: `deploy-config.test.ts`; manual: `curl -sI`); `TC-SEC-16` "El límite de login distingue clientes detrás de la cadena de proxies" (manual: 3.1 and 3.2). If `scripts/validate-test-cases.mjs` does not collect `scripts/lib/*.test.mjs`, extend it so "Pruebas sin caso: 0" covers them
+- [x] 4.2 `CLAUDE.md` and `docs/testing.md`: battery 14/14 and the new step; `docs/testing.md` §6 with the runs of section 3
+- [x] 4.3 `CHANGELOG.md` `[Sin publicar]`: new optional variables (`HOST`, `API_INTERNAL_URL`, `API_PORT`, `API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`, `BUILD_MAX_OLD_SPACE_MB`), new root files, no migration
+- [ ] 4.4 `node scripts/run-tests.mjs` 14/14, reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict` (battery 14/14 and validator 173/173 done; `openspec validate --all --strict` fails 15 of 19 specs with CLI 2.0.0 for long requirements of other specs, this change validates strict)
 - [ ] 4.5 PR 1 to `develop` in Spanish; the owner merges after the 3 CI jobs are green
 
 ## 5. PR 2 — Operational docs (after phase 1 and PR 1)

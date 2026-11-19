@@ -1,9 +1,9 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-08** · rama `feature/resubmit-rejected-activity-2-web` · commit `79f79d8` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-19** · rama `feature/single-service-deploy` · commit `6100d6f`. Detalle en [validation-report.md](validation-report.md).
 
-**169 casos** · 169 aprobados · 0 fallidos · 0 con limitación conocida · 167 automatizados.
+**173 casos** · 173 aprobados · 0 fallidos · 0 con limitación conocida · 170 automatizados.
 
 ## Cómo leer cada caso
 
@@ -18,7 +18,7 @@
 | Módulo | Casos | Aprobados | Otros |
 |---|---:|---:|---:|
 | [Autenticación y sesión](#auth) | 24 | 24 | 0 |
-| [Seguridad y configuración](#sec) | 14 | 14 | 0 |
+| [Seguridad y configuración](#sec) | 16 | 16 | 0 |
 | [Gestión de retos](#chal) | 26 | 26 | 0 |
 | [Participantes y pagos](#part) | 11 | 11 | 0 |
 | [Actividades y validación](#act) | 29 | 29 | 0 |
@@ -28,7 +28,7 @@
 | [Carga de archivos](#up) | 9 | 9 | 0 |
 | [Importación masiva](#imp) | 12 | 12 | 0 |
 | [Interfaz y navegación](#ui) | 14 | 14 | 0 |
-| [Salud del servicio](#health) | 6 | 6 | 0 |
+| [Salud del servicio](#health) | 8 | 8 | 0 |
 | [Sesiones concurrentes](#par) | 1 | 1 | 0 |
 
 <a id="auth"></a>
@@ -895,6 +895,8 @@
 | [TC-SEC-12](#tc-sec-12) | Un error inesperado responde un 500 genérico con el código y sin detalles internos | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-13](#tc-sec-13) | Swagger apagado en producción salvo que se active | Alta | Seguridad | ✅ Aprobado |
 | [TC-SEC-14](#tc-sec-14) | Siempre queda un administrador activo y nadie se desactiva a sí mismo | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-15](#tc-sec-15) | La web envía cabeceras de seguridad | Alta | Seguridad | ✅ Aprobado |
+| [TC-SEC-16](#tc-sec-16) | El límite de login distingue clientes detrás de la cadena de proxies | Alta | Seguridad | ✅ Aprobado (manual) |
 
 <a id="tc-sec-01"></a>
 
@@ -1381,6 +1383,66 @@
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: con dos admins activos se puede degradar a uno |
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: dos admins que se degradan a la vez dejan exactamente un admin activo |
 | ✅ | API e2e | `session-checks.e2e-spec.ts` | ADMINS: dos admins que se desactivan a la vez dejan exactamente un admin activo |
+
+<a id="tc-sec-15"></a>
+
+### TC-SEC-15 · La web envía cabeceras de seguridad
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.4 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Web compilada y en marcha (next start).
+
+**Datos de prueba:** GET / y una ruta de página; GET /api/health a través de la web con el servicio único
+
+**Pasos**
+
+1. Pedir la página con curl -sI.
+2. Pedir /api/health a través de la web y revisar que las cabeceras no se repiten.
+
+**Resultado esperado**
+
+- La página lleva Strict-Transport-Security (max-age=15552000; includeSubDomains), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin y una CSP con frame-ancestors, base-uri, object-src y form-action.
+- No lleva X-Powered-By.
+- Las respuestas de /api conservan las cabeceras de la API, sin duplicados.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Web (unitaria) | `deploy-config.test.ts` | las cabeceras de seguridad son las cinco del diseño y excluyen /api |
+| ✅ | Web (unitaria) | `deploy-config.test.ts` | la regla de cabeceras alcanza a las páginas y no a /api |
+
+<a id="tc-sec-16"></a>
+
+### TC-SEC-16 · El límite de login distingue clientes detrás de la cadena de proxies
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Seguridad y configuración | Alta | Seguridad | 8.4 | ✅ Aprobado (manual) |
+
+**Precondiciones**
+
+- Imagen del servicio único (Dockerfile.single-service) corriendo con --memory=512m --cpus=0.2 contra la base local.
+
+**Datos de prueba:** node scripts/single-service-smoke.mjs con TRUST_PROXY sin definir (1), 0 y 2; cuenta inexistente; X-Forwarded-For de documentación (RFC 5737)
+
+**Pasos**
+
+1. Con TRUST_PROXY sin definir, correr el script de humo contra http://localhost:3000.
+2. Repetir con TRUST_PROXY=0.
+3. Repetir con TRUST_PROXY=2.
+
+**Resultado esperado**
+
+- Sin definir (1 salto): el sexto login de un cliente da 429, otro cliente no, y una entrada falsa a la izquierda de X-Forwarded-For no evade el límite; el script termina con OK.
+- Con 0: falla la comprobación "otro cliente no comparte el límite" y termina con código 1.
+- Con 2: falla la comprobación de la entrada falsa y termina con código 1.
+
+**Verificación manual:** Aprobado el 2026-11-18. Evidencia: contenedor Dockerfile.single-service con --memory=512m --cpus=0.2 contra la base local (Next 15.5.28): sin TRUST_PROXY (default 1) OK exit 0; TRUST_PROXY=1 OK; TRUST_PROXY=2 FALLO en la entrada falsa de X-Forwarded-For (401 en vez de 429); TRUST_PROXY=0 FALLO en 'otro cliente no comparte el límite' (429). Next no añade su salto a X-Forwarded-For, por eso el valor es 1 y no 2 (design D5).
 
 <a id="chal"></a>
 
@@ -6133,6 +6195,8 @@
 | [TC-HEALTH-04](#tc-health-04) | Toda respuesta lleva un X-Request-Id y una línea de acceso segura | Alta | Funcional | ✅ Aprobado |
 | [TC-HEALTH-05](#tc-health-05) | Apagado ordenado | Media | Funcional | ✅ Aprobado |
 | [TC-HEALTH-06](#tc-health-06) | El respaldo de la base se verifica restaurándolo | Alta | Funcional | ✅ Aprobado (manual) |
+| [TC-HEALTH-07](#tc-health-07) | El servicio único arranca, responde y se detiene en orden | Alta | Funcional | ✅ Aprobado |
+| [TC-HEALTH-08](#tc-health-08) | Si un proceso del servicio único muere, el contenedor termina | Alta | Funcional | ✅ Aprobado |
 
 <a id="tc-health-01"></a>
 
@@ -6327,6 +6391,90 @@
 - No queda ninguna base reto_restore_check_*.
 
 **Verificación manual:** Aprobado el 2026-11-06. Evidencia: base de origen temporal (3 tablas, 52 filas): OK exit 0 x2; destino example.com exit 2 sin archivos; mismo origen y destino exit 2; --file OK exit 0; volcado truncado FALLO exit 1; sin bases reto_restore_check_* al final.
+
+<a id="tc-health-07"></a>
+
+### TC-HEALTH-07 · El servicio único arranca, responde y se detiene en orden
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Imagen del servicio único construida y base local en marcha (prueba manual); node >= 20 (pruebas automáticas).
+
+**Datos de prueba:** scripts/start-prod.mjs con hijos falsos; contenedor con --memory=512m --cpus=0.2; docker kill --signal=SIGTERM
+
+**Pasos**
+
+1. Arrancar el supervisor: migra, arranca la API en loopback, espera /api/health y arranca la web.
+2. Con el contenedor real, pedir / y /api/health por el puerto público.
+3. Enviar SIGTERM al contenedor y leer sus logs.
+
+**Resultado esperado**
+
+- La migración corre antes que las aplicaciones; si falla sale con su código y no arranca nada; si la API no responde 200 en 60 s sale con 1 sin arrancar la web.
+- La web recibe un entorno sin DATABASE_URL, JWT_*, CLOUDINARY_API_SECRET ni SEED_*; los heaps van acotados (224 y 160 MB).
+- SIGTERM llega a ambos procesos, los logs muestran "Conexión a la base cerrada" y el contenedor sale con 0; un proceso que ignora SIGTERM recibe SIGKILL pasado el plazo.
+- Sin la variable HOST la API escucha en todas las interfaces; con HOST=127.0.0.1 solo en loopback.
+- Falta connection_limit en producción: aviso sin la URL ni las credenciales.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Unitaria | `http.spec.ts` | sin HOST o vacío escucha en todas las interfaces (undefined) |
+| ✅ | Unitaria | `http.spec.ts` | con HOST usa esa interfaz, sin espacios |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | migra, espera /api/health 200 y solo entonces arranca la web |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | si la migración falla sale con su código y no arranca ni la API ni la web |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | si la API no responde 200 a tiempo sale con 1, detiene la API y no arranca la web |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | SIGTERM se reenvía a ambos hijos, sale 0 dentro del plazo y una segunda señal se ignora |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | SIGINT también se reenvía |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | si un hijo ignora SIGTERM pasado el plazo se envía SIGKILL y sale 1 |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | el entorno de la web no lleva DATABASE_URL, JWT_*, CLOUDINARY_API_SECRET ni SEED_* |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | un proceso web real arrancado por el supervisor no recibe los secretos |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | TRUST_PROXY vale 1 solo si no está definido; un valor del panel gana |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | en producción sin connection_limit hay un aviso que no contiene la URL, el usuario ni la clave |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | sin aviso con connection_limit, fuera de producción o sin DATABASE_URL |
+| ✅ | Web (unitaria) | `deploy-config.test.ts` | sin API_INTERNAL_URL no hay reescritura de /api |
+| ✅ | Web (unitaria) | `deploy-config.test.ts` | con API_INTERNAL_URL hay una sola regla /api/:path* hacia la API |
+| ✅ | Web (unitaria) | `deploy-config.test.ts` | apiBaseUrl en el navegador usa NEXT_PUBLIC_API_URL tal cual (puede ser relativa) |
+| ✅ | Web (unitaria) | `deploy-config.test.ts` | apiBaseUrl en el servidor nunca devuelve una URL relativa |
+
+<a id="tc-health-08"></a>
+
+### TC-HEALTH-08 · Si un proceso del servicio único muere, el contenedor termina
+
+| Módulo | Prioridad | Tipo | Paso de la guía | Estado |
+|---|---|---|---|---|
+| Salud del servicio | Alta | Funcional | 8.1 | ✅ Aprobado |
+
+**Precondiciones**
+
+- Imagen del servicio único corriendo (prueba manual).
+
+**Datos de prueba:** hijos falsos que salen con 0, 1 o por señal; docker exec ... kill <pid de la API>
+
+**Pasos**
+
+1. Con ambos procesos arriba, terminar la API (o la web) con cualquier código.
+2. Observar el contenedor.
+
+**Resultado esperado**
+
+- El supervisor registra qué proceso terminó y con qué código, detiene al otro y sale distinto de cero en menos de 10 s, para que la plataforma reinicie el servicio.
+
+**Validación automatizada**
+
+| | Suite | Archivo | Prueba |
+|---|---|---|---|
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la API sale con 0: detiene al otro y sale distinto de cero |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la API sale con 1: detiene al otro y sale distinto de cero |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la web sale con 0: detiene al otro y sale distinto de cero |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la web sale con 3: detiene al otro y sale distinto de cero |
+| ✅ | Scripts (node:test) | `supervisor.test.mjs` | la web muere por una señal: detiene al otro y sale distinto de cero |
 
 <a id="par"></a>
 
