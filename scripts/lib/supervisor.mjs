@@ -90,7 +90,9 @@ export function buildConfig(env, root) {
         String(webPort),
       ],
       cwd: frontend,
-      env: { ...webEnvironment(env), PORT: String(webPort) },
+      // API_INTERNAL_URL no es secreto: next.config.mjs la lee al cargarse (también en `next start`)
+      // para fijar proxyTimeout en 60 s; sin ella rige el plazo de 30 s de Next.
+      env: { ...webEnvironment(env), PORT: String(webPort), API_INTERNAL_URL: `http://127.0.0.1:${apiPort}` },
     },
   };
 }

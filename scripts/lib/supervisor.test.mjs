@@ -7,6 +7,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { after, describe, it } from 'node:test';
 import { buildConfig, connectionLimitWarning, startSupervisor, webEnvironment } from './supervisor.mjs';
 
@@ -263,6 +264,26 @@ describe('entorno y configuración', () => {
     assert.equal(buildConfig({ TRUST_PROXY: '' }, '/app').api.env.TRUST_PROXY, '1');
     assert.equal(buildConfig({ TRUST_PROXY: '2' }, '/app').api.env.TRUST_PROXY, '2');
     assert.equal(buildConfig({ TRUST_PROXY: 'false' }, '/app').api.env.TRUST_PROXY, 'false');
+  });
+
+  it('la web recibe API_INTERNAL_URL con el puerto de la API y con él el proxyTimeout de 60 s', async () => {
+    const web = buildConfig({ API_PORT: '4001' }, '/app').web.env;
+    assert.equal(web.API_INTERNAL_URL, 'http://127.0.0.1:4001');
+    assert.equal(buildConfig({}, '/app').web.env.API_INTERNAL_URL, 'http://127.0.0.1:3001');
+    // next.config.mjs calcula el plazo al cargarse, con el entorno del proceso web
+    const config = pathToFileURL(join(import.meta.dirname, '..', '..', 'frontend', 'next.config.mjs'));
+    const previous = process.env.API_INTERNAL_URL;
+    try {
+      process.env.API_INTERNAL_URL = web.API_INTERNAL_URL;
+      const loaded = (await import(`${config.href}?con-api-${Date.now()}`)).default;
+      assert.equal(loaded.experimental.proxyTimeout, 60_000);
+      delete process.env.API_INTERNAL_URL;
+      const plain = (await import(`${config.href}?sin-api-${Date.now()}`)).default;
+      assert.equal(plain.experimental, undefined);
+    } finally {
+      if (previous === undefined) delete process.env.API_INTERNAL_URL;
+      else process.env.API_INTERNAL_URL = previous;
+    }
   });
 
   it('la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap', () => {
