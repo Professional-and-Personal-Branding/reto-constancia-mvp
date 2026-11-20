@@ -1,7 +1,7 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-19** · rama `feature/single-service-deploy` · commit `d2f1dab` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-20** · rama `fix/deploy-smoke-build` · commit `7c1ea77`. Detalle en [validation-report.md](validation-report.md).
 
 **173 casos** · 173 aprobados · 0 fallidos · 0 con limitación conocida · 170 automatizados.
 
@@ -6421,6 +6421,7 @@
 - Falta connection_limit en producción: aviso sin la URL ni las credenciales.
 - La web recibe API_INTERNAL_URL con el puerto de la API, así que el proxy de /api usa el plazo de 60 s.
 - El build borra los binarios SWC de la otra libc y frontend/.next/cache para que el disco quede por debajo del plan.
+- El build instala con npm ci --include=dev (también con NODE_ENV=production) y poda a producción después; la prueba de humo con --skip-limit omite el límite de login e indica que no se verificó.
 
 **Validación automatizada**
 
@@ -6442,6 +6443,13 @@
 | ✅ | Scripts (node:test) | `prune.test.mjs` | con musl borra solo los binarios SWC de gnu |
 | ✅ | Scripts (node:test) | `prune.test.mjs` | no toca otros paquetes ni plataformas y no falla si no hay binarios |
 | ✅ | Scripts (node:test) | `prune.test.mjs` | el runtime se detecta como un booleano |
+| ✅ | Scripts (node:test) | `build-steps.test.mjs` | los dos npm ci instalan las devDependencies aunque NODE_ENV=production |
+| ✅ | Scripts (node:test) | `build-steps.test.mjs` | cada npm ci va antes de su compilación y el prune --omit=dev después |
+| ✅ | Scripts (node:test) | `build-steps.test.mjs` | el next build recibe las variables de la web y los demás pasos no |
+| ✅ | Scripts (node:test) | `smoke-options.test.mjs` | sin flags conserva el comportamiento por omisión: URL sin barra final y límite verificado |
+| ✅ | Scripts (node:test) | `smoke-options.test.mjs` | --skip-limit omite el límite de login antes o después de la URL |
+| ✅ | Scripts (node:test) | `smoke-options.test.mjs` | una URL inválida, ausente o un flag desconocido dan error de uso |
+| ✅ | Scripts (node:test) | `smoke-options.test.mjs` | el resumen de omitidos dice cuántos fueron y que el límite NO se verificó; sin omitir no dice nada |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | en producción sin connection_limit hay un aviso que no contiene la URL, el usuario ni la clave |
 | ✅ | Scripts (node:test) | `supervisor.test.mjs` | sin aviso con connection_limit, fuera de producción o sin DATABASE_URL |
