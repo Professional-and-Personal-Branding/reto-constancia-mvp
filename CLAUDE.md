@@ -25,7 +25,8 @@ que se repite.
 - **Agrupar:** las llamadas independientes (lecturas, búsquedas, ediciones a archivos distintos) van en
   el mismo turno. Los comandos largos se lanzan una vez en segundo plano y se espera su aviso, sin
   sondear con `sleep`.
-- **Salida acotada:** `| tail`, `--quiet` o `rtk`; nunca volcar logs completos al contexto.
+- **Salida acotada:** `rtk` o `--quiet`; `| tail` solo si el comando no tiene filtro de `rtk`, porque
+  las tuberías impiden la reescritura. Nunca volcar logs completos al contexto.
 - **Reutilizar agentes:** continuar uno ya lanzado con `SendMessage` en vez de crear otro con el mismo
   contexto repetido; no delegar lo que se resuelve con una lectura o una búsqueda directa.
 - **Sin pasadas no pedidas:** nada de documentación extra, formateo de archivos antiguos, refactors ni
@@ -85,8 +86,9 @@ visibles al usuario, la documentación y la guía, en español.
   la batería recompila, pero si corres Playwright a mano, compila API y web antes. No compiles el
   frontend mientras corre `next dev`.
 - **Login limitado a 5 intentos por minuto por IP:** no repitas scripts de login seguidos (429).
-- **Local con `rtk`:** el tipado va con `rtk proxy npx tsc --noEmit -p .` (sin `rtk proxy` da un TS2882
-  falso) y los comandos no se redirigen a `/dev/null`. En otros entornos basta `npx tsc --noEmit -p .`.
+- **Local con `rtk`:** el tipado va con `npx tsc --noEmit -p .`; `rtk tsc` usa el TypeScript global (7.x)
+  en vez del 5.9 del repo y da un TS2882 falso, por eso `tsc` está excluido del hook. Los comandos no se
+  redirigen a `/dev/null`.
 - **Formato:** `node scripts/format.mjs` exige Prettier solo a los archivos **nuevos**; el código
   existente nunca se formateó y no se reformatea. Los archivos mezclan CRLF y LF: al parchar, normaliza
   los saltos de línea antes de comparar.
