@@ -59,7 +59,8 @@ Notas de plataforma (importantes):
    ```
    Instala (`npm ci`), compila la API y después la web, en secuencia y con el heap acotado
    (`BUILD_MAX_OLD_SPACE_MB`, 400 por omisión), y elimina las dependencias de desarrollo.
-   Imprime el tamaño de `backend/` y `frontend/` (límite de disco del plan: 750 MB).
+   Imprime el tamaño de `backend/` y `frontend/` por suma de archivos (sirve de aviso; el disco real,
+   contra el límite del plan de 750 MB, se mide con `du`).
 4. **Start Command** (el supervisor: migra, arranca la API, espera su `/api/health`, arranca la web y
    termina el contenedor si cualquiera de los dos procesos muere):
    ```
@@ -106,7 +107,7 @@ Notas de plataforma (importantes):
 2. Pon `CORS_ORIGIN` = URL pública del servicio (sin slash final), redeploy.
 3. Primer seed del admin (solo una vez): abre una shell del servicio y corre:
    ```
-   cd backend && npx prisma db seed
+   cd backend && npm run seed:prod
    ```
    Con `NODE_ENV=production` el seed **solo crea el admin** de `SEED_ADMIN_*` y falla si
    `SEED_ADMIN_PASSWORD` no está definido. Los datos de demo (participantes con contraseña
@@ -171,7 +172,7 @@ flowchart LR
    (sin `API_INTERNAL_URL`: no hay reenvío).
 
 **Cerrar el círculo:** en la API, `CORS_ORIGIN` = URL pública de la web (sin slash final) y redeploy; el
-primer seed se corre desde la shell del servicio API con `npx prisma db seed` (sin `cd backend`).
+primer seed se corre desde la shell del servicio API con `npx prisma db seed` (sin `cd backend`; en este esquema `npm install` conserva `ts-node`).
 Despliega la API primero y la web después; para volver atrás, redespliega ambos.
 
 ## Generar secretos fuertes

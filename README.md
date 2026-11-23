@@ -184,7 +184,7 @@ Pasos:
      `SEED_ADMIN_*`, y `NEXT_PUBLIC_API_URL=/api` como variable de build; opcionales `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` y
      `GOOGLE_SHEETS_DEFAULT_RANGE` para importar directo desde Google Sheets (ver
      `docs/import-template.md`). Genera los JWT secrets con `openssl rand -base64 64`.
-   - Primera vez / staging: ejecutar `cd backend && npx prisma db seed` (evita passwords de demo en prod).
+   - Primera vez / staging: ejecutar `cd backend && npm run seed:prod` (evita passwords de demo en prod; `npx prisma db seed` queda para desarrollo local).
 5. Actualiza `CORS_ORIGIN` con la URL final del servicio y redeploy.
 
 ### Alternativas

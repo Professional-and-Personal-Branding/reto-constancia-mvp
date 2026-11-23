@@ -130,18 +130,20 @@ Variables (ver la referencia completa en §7):
    Si la cargaste después de crear el servicio, redeploy.
 2. Shell del servicio → crear el administrador:
    ```bash
-   cd backend && npx prisma db seed
+   cd backend && npm run seed:prod
    ```
    En producción el seed **solo** crea el administrador y falla si falta
-   `SEED_ADMIN_PASSWORD`. Nunca uses `SEED_DEMO=true` en producción.
+   `SEED_ADMIN_PASSWORD`. Nunca uses `SEED_DEMO=true` en producción. `seed:prod` es el seed
+   compilado a JavaScript y corre con `node`: `npx prisma db seed` no sirve en el servicio único
+   porque `ts-node` es una dependencia de desarrollo y el build la elimina (`npm prune --omit=dev`).
 3. Entra a la web con `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, abre **Mi cuenta** y cambia la
    contraseña por una nueva, guardada en el gestor de secretos del equipo. Después **borra
    `SEED_ADMIN_PASSWORD` del servicio** (no hace falta redesplegar). Motivo: el seed
-   sobrescribe la contraseña de un administrador que ya existe, así que un `npx prisma db seed`
+   sobrescribe la contraseña de un administrador que ya existe, así que un `npm run seed:prod`
    posterior por descuido revertiría la rotación; sin la variable, el seed falla en producción.
 4. **Si pierdes la contraseña del administrador** (no hay recuperación por correo): define una
-   `SEED_ADMIN_PASSWORD` temporal en el servicio, ejecuta `npx prisma db seed` desde su shell
-   (en `backend/`), entra con ella, rótala en **Mi cuenta** y borra la variable otra vez. El seed cambia el hash,
+   `SEED_ADMIN_PASSWORD` temporal en el servicio, ejecuta `cd backend && npm run seed:prod` desde su shell,
+   entra con ella, rótala en **Mi cuenta** y borra la variable otra vez. El seed cambia el hash,
    así que también cierra las sesiones anteriores del administrador. Si otro administrador sigue
    pudiendo entrar, puede entregarte una contraseña temporal desde **Usuarios** (o, hasta entonces, con
    `POST /api/users/:id/reset-password` desde `curl`); la ruta del seed queda para cuando ningún
@@ -163,7 +165,7 @@ Haz la prueba de humo de §3 completa y además:
       administrador.
 - [ ] La contraseña del administrador ya no es `SEED_ADMIN_PASSWORD`: **Mi cuenta** muestra al
       administrador, entrar con la contraseña vieja del seed responde "Credenciales inválidas" y
-      `SEED_ADMIN_PASSWORD` ya no está definida en el servicio API.
+      `SEED_ADMIN_PASSWORD` ya no está definida en el servicio.
 - [ ] Ningún usuario de demo en la base: `SELECT email FROM "User";` no trae `@reto.local`.
 - [ ] Subir una foto desde "Subir actividad": si Cloudinary falta, la subida queda
       deshabilitada a propósito.
@@ -264,9 +266,13 @@ actividad, validar) y no se corrige en minutos.
    PR que revierta el merge en `main` (`git revert -m 1 <merge>`) y fusiónalo.
    **Antes de la primera versión con servicio único (1.16.0, objetivo) el repositorio no tiene el
    `package.json` de la raíz ni el supervisor:** `npm run build` y `npm start` no existen en esos
-   commits. Para volver a una versión anterior, cambia primero los comandos del panel a los del
-   [Apéndice A](#apéndice-a-despliegue-en-dos-servicios-alternativa) (dos servicios) o, si el
-   servicio único ya corre una versión con supervisor, vuelve a un tag que también lo tenga.
+   commits. Cambiar los comandos del panel no basta para volver a una versión anterior al supervisor (1.15.0 o
+   anterior): el [Apéndice A](#apéndice-a-despliegue-en-dos-servicios-alternativa) son **dos** Web
+   Services (un segundo servicio para la web, `NEXT_PUBLIC_API_URL` absoluta y `CORS_ORIGIN` con la URL
+   de la web, 12 USD/mes), y con un solo Web Service no se puede correr la 1.15.0 ni la 1.14.0. Para
+   volver a ellas hay que crear el segundo servicio y cambiar `CORS_ORIGIN` y la URL de la API (con su
+   tiempo y costo adicional) o bien arreglar hacia adelante con un PR de corrección. Si el servicio
+   único ya corre una versión con supervisor, vuelve a un tag que también lo tenga.
 2. **Si la versión aplicó migraciones:** el código anterior puede no funcionar con el esquema
    nuevo. Opciones, en este orden:
    1. Si la migración solo **agrega** columnas o tablas, el código anterior suele funcionar:
@@ -303,7 +309,7 @@ La 1.12.1 (endurece la renovación y la inscripción en bloque) tampoco trae mig
 La 1.13.0 (chequeo de sesión efectivo, «Mi avance», pagos en lote y reinicio de contraseña por el admin) tampoco trae migraciones ni variables: para volver a la 1.12.1 se despliegan API y web juntas. Las sesiones sobreviven a la reversión (los refresh tokens ya llevaban `pwv` desde la 1.12.0); una contraseña temporal emitida mientras tanto sigue siendo un hash normal, y la web de la 1.12.1 no tiene la página Usuarios ni las casillas de pago.
 La 1.14.0 (revocación instantánea de access tokens, filtros de la cola de validación, respaldo verificado, modal de cierre y login sin filtración por latencia) tampoco trae migraciones ni variables: para volver a la 1.13.0 se despliegan API y web juntas. Los access tokens emitidos con la 1.14.0 llevan `pwv` y la 1.13.0 los ignora, así que las sesiones sobreviven a la reversión.
 
-**La 1.15.0 (reenviar una actividad rechazada) trae una migración** (`add_activity_rejection_history`: la tabla `ActivityRejection` y la columna `DailyActivity.resubmissionCount`, solo agrega y trae un relleno idempotente de los rechazos existentes). No se despliega sin un respaldo verificado de §5.1 con `OK`. Para volver a la 1.14.0 **no hace falta restaurar el respaldo**: se redespliega la 1.14.0 (un solo servicio; API y web juntas de forma automática, con los comandos del Apéndice A si es anterior al supervisor) y el esquema se queda como está. El cliente de Prisma de la 1.14.0 selecciona columnas explícitas (ignora `resubmissionCount`), nunca lee la tabla nueva, y sus borrados de actividades se propagan por la llave foránea con `ON DELETE CASCADE`. Mientras corre la 1.14.0 los rechazos no se anotan en el historial (y la 1.14.0 aún puede rechazar de nuevo una actividad rechazada y sobrescribir su motivo); el contador de reenvíos no crece; nada se rompe. **Al volver a desplegar la 1.15.0** `migrate deploy` ve la migración ya aplicada y no la repite, así que los rechazos hechos durante la reversión no tienen entrada: en cuanto la API esté arriba, y después del respaldo de §5.1, corre desde `backend/` con la `DATABASE_URL` de producción el relleno de recuperación `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql` (solo agrega los pares `(actividad, motivo vigente)` que faltan; si no falta ninguno, no inserta nada, y puedes repetirlo). Los motivos que la 1.14.0 sobrescribió con un nuevo rechazo no se recuperan. Quitar el esquema por completo es opcional y solo después de volver al código anterior: `DROP TABLE "ActivityRejection"; ALTER TABLE "DailyActivity" DROP COLUMN "resubmissionCount";` y borrar la fila de la migración en `_prisma_migrations`; restaurar el respaldo no es parte de una reversión y perdería lo escrito desde entonces.
+**La 1.15.0 (reenviar una actividad rechazada) trae una migración** (`add_activity_rejection_history`: la tabla `ActivityRejection` y la columna `DailyActivity.resubmissionCount`, solo agrega y trae un relleno idempotente de los rechazos existentes). No se despliega sin un respaldo verificado de §5.1 con `OK`. Para volver a la 1.14.0 **no hace falta restaurar el respaldo**: se redespliega la 1.14.0 y el esquema se queda como está. Ojo: la 1.14.0 es anterior al supervisor, así que desde el servicio único eso exige crear el segundo servicio del Apéndice A y cambiar `CORS_ORIGIN` y la URL de la API (ver §4, paso 1), o arreglar hacia adelante; en el esquema de dos servicios se despliegan API y web juntas. El cliente de Prisma de la 1.14.0 selecciona columnas explícitas (ignora `resubmissionCount`), nunca lee la tabla nueva, y sus borrados de actividades se propagan por la llave foránea con `ON DELETE CASCADE`. Mientras corre la 1.14.0 los rechazos no se anotan en el historial (y la 1.14.0 aún puede rechazar de nuevo una actividad rechazada y sobrescribir su motivo); el contador de reenvíos no crece; nada se rompe. **Al volver a desplegar la 1.15.0** `migrate deploy` ve la migración ya aplicada y no la repite, así que los rechazos hechos durante la reversión no tienen entrada: en cuanto la API esté arriba, y después del respaldo de §5.1, corre desde `backend/` con la `DATABASE_URL` de producción el relleno de recuperación `npx prisma db execute --file prisma/sql/backfill-activity-rejections.sql` (solo agrega los pares `(actividad, motivo vigente)` que faltan; si no falta ninguno, no inserta nada, y puedes repetirlo). Los motivos que la 1.14.0 sobrescribió con un nuevo rechazo no se recuperan. Quitar el esquema por completo es opcional y solo después de volver al código anterior: `DROP TABLE "ActivityRejection"; ALTER TABLE "DailyActivity" DROP COLUMN "resubmissionCount";` y borrar la fila de la migración en `_prisma_migrations`; restaurar el respaldo no es parte de una reversión y perdería lo escrito desde entonces.
 
 ---
 
@@ -537,7 +543,7 @@ redesplegar, los Logs muestren "Conexión a la base cerrada".
 | Variable de BUILD | `NEXT_PUBLIC_API_URL=https://<api>/api` (sin `API_INTERNAL_URL`: no hay reenvío) |
 
 Si cambia `NEXT_PUBLIC_API_URL` hay que volver a compilar. El seed se ejecuta desde la shell del
-servicio API (`npx prisma db seed`, sin `cd backend`).
+servicio API (`npx prisma db seed`, sin `cd backend`; ahí `npm install` conserva `ts-node`).
 
 ### A.3 Diferencias de operación
 

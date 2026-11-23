@@ -2,7 +2,7 @@
   "proyecto": {
     "nombre": "reto-constancia-mvp",
     "descripcion": "Plataforma de retos mensuales de constancia: API NestJS 11 + Prisma 5/PostgreSQL 16, web Next.js 15 con render en servidor, fotos en Cloudinary",
-    "tipo": "dos servicios web (API y web) + PostgreSQL; un solo servicio en compose (postgres) solo para desarrollo local",
+    "tipo": "un Web Service (API y web en el mismo contenedor) + PostgreSQL; un solo servicio en compose (postgres) solo para desarrollo local",
     "version": "1.15.0 (release/1.15.0 pendiente de fusión a main); última etiqueta v1.14.0"
   },
   "stack": {
@@ -29,7 +29,7 @@
   },
   "estadoActual": {
     "desplegado": false,
-    "plataformaPlaneada": "Seenode (2 Web Services + PostgreSQL administrado) + Cloudinary",
+    "plataformaPlaneada": "Seenode (1 Web Service + PostgreSQL administrado) + Cloudinary",
     "documentos": ["docs/runbook-despliegue.md", "docs/deploy-seenode.md"],
     "nota": "No hay registro de un despliegue en producción: el runbook §8 es una plantilla de registro y las cuentas del owner están pendientes. El plan vigente (Seenode) entra como candidato «quedarse»."
   },
@@ -66,7 +66,7 @@
     },
     {
       "pregunta": 13,
-      "hecho": "CI con 3 jobs obligatorios (Backend, Frontend, E2E de UI); batería local 13/13",
+      "hecho": "CI con 3 jobs obligatorios (Backend, Frontend, E2E de UI); batería local 14/14",
       "evidencia": ".github/workflows/ci.yml; docs/testing.md §6"
     },
     {

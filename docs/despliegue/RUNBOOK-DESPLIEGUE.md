@@ -71,14 +71,15 @@ El trial de 7 días de Seenode no pide tarjeta. Crear la cuenta, autorizar GitHu
 | 2   | Activar el acceso público a la base y ver si admite lista de IP o SSL obligatorio                                                                           | Control de origen disponible                                             | Regla de corte 2                                            |
 | 3   | Desde tu máquina, con la cadena pública de la base **cargada en tu entorno, no en un archivo**: `node scripts/db-backup.mjs` (el script usa `DATABASE_URL`) | Termina en `OK` con restauración verificada                              | Regla de corte 2                                            |
 | 4   | Cerrar el acceso público (o dejar solo tu IP) cuando termine                                                                                                | Sin acceso abierto a internet                                            | Dejar la base sin acceso público                            |
-| 5   | Medir el build y el arranque del servicio Basic con la variante de un servicio (Build `npm run build`, Start `npm start`; anotar tiempo de build, disco que imprime el build y pico de memoria) | Compila sin quedarse sin memoria; el arranque no pasa de 750 MB de disco. Referencia **local** (Docker, no es Seenode): disco 540 MB (backend 171 + frontend 369), pico 118 MiB de 512 | Regla de corte 3                                            |
+| 5   | Medir el build y el arranque del servicio Basic con la variante de un servicio (Build `npm run build`, Start `npm start`; anotar tiempo de build, disco medido con `du` y pico de memoria) | Compila sin quedarse sin memoria; el arranque no pasa de 750 MB de disco. Referencia **local** (Docker, no es Seenode): disco 540 MB (backend 171 + frontend 369), pico de 130 a 132 MiB de 512 | Regla de corte 3                                            |
 | 6   | Medir un login y la carga del panel con 0,2 CPU (argon2); medir también los saltos de proxy de Seenode (`TRUST_PROXY`, fase 5 fila 6)                       | Respuestas de segundos, sin reinicios                                    | Regla de corte 3 (CPU); saltos distintos de 1: ajustar `TRUST_PROXY` en el panel |
 | 7   | Ver en el panel cómo se redespliega un commit anterior                                                                                                      | Existe «redeploy» de un commit concreto                                  | Documentar la alternativa (PR de revert a `main`); no corta |
 | 8   | Confirmar en la página de precios y en el panel que el trial no pide tarjeta y qué pasa al terminar                                                         | Sin tarjeta hasta cargar créditos                                        | Regla de corte 4                                            |
+| 9   | Correr `npm run seed:prod` en la shell del servicio de Seenode (con la `DATABASE_URL` interna) | Crea el administrador sin `ts-node` y el login funciona | Si falla, corregir el seed antes de abrir la URL |
 
 Los supuestos que solo esta fase puede cerrar: PostgreSQL 16 (fila 1), acceso externo con control de origen (2 y 3), 0,5 GB de RAM y 0,2 CPU (5 y 6) y reversión por redespliegue (7, con alternativa).
 
-**Terminada cuando:** las filas 1 a 8 están resueltas y registradas en el Registro de la fase 1 (al final del documento), cada una con fecha y resultado.
+**Terminada cuando:** las filas 1 a 9 están resueltas y registradas en el Registro de la fase 1 (al final del documento), cada una con fecha y resultado.
 
 ## Fase 2: código de la variante de un servicio (Claude, tras la aprobación del owner)
 
@@ -211,7 +212,7 @@ Al agotarse los créditos, Seenode **detiene el servicio** (no hay plan gratuito
 | Recurso                      | Límite           | Acción                                                                                    |
 | ---------------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
 | RAM / CPU del servicio Basic | 0,5 GB / 0,2 CPU | Si hay reinicios por memoria, pasar a Standard (7 USD): total 11 USD, reabrir la decisión. Topes de heap por omisión: API 224 MB, web 160 MB, build 400 MB (`API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`, `BUILD_MAX_OLD_SPACE_MB`) |
-| Disco del servicio           | 750 MB           | El build imprime el tamaño de `backend/` y `frontend/`; vigilarlo                         |
+| Disco del servicio           | 750 MB           | El build imprime tamaños por suma de archivos (140 + 337 MB); el disco real se mide con `du` (540 MB)                         |
 | Conexiones a la base         | 20               | `connection_limit=5` en `DATABASE_URL`                                                    |
 
 Mediciones del servicio único (cada una se anota en el Registro de la fase 1):
@@ -219,13 +220,14 @@ Mediciones del servicio único (cada una se anota en el Registro de la fase 1):
 | Medición                         | Referencia local (Docker `--memory=512m --cpus=0.2`, 2026-11-18; **no es Seenode**) | En Seenode |
 | -------------------------------- | ------------------------------------------------------------------------------------ | ---------- |
 | Disco (`backend/` + `frontend/`) | 540 MB: backend 171 + frontend 369                                                   | pendiente de medir en la fase 1 |
-| Memoria en uso                   | pico de 118 MiB de 512 (130 MiB en el arranque)                                      | pendiente de medir en la fase 1 |
+| Memoria en uso                   | pico de 130 a 132 MiB de 512 (118 MiB en reposo)                                      | pendiente de medir en la fase 1 |
 | Tiempo de build                  | 231 s en la máquina del owner (no comparable con el builder de Seenode)              | pendiente de medir en la fase 1 |
 | Login y panel con 0,2 CPU        | sin reinicios en la prueba de humo                                                   | pendiente de medir en la fase 1 |
 | Saltos de proxy de Seenode       | 1 en local, con el script haciendo de borde                                          | pendiente de medir en la fase 1 |
 | PostgreSQL 16                    | Postgres 16 local                                                                    | pendiente de medir en la fase 1 |
 | Acceso externo a la base y `db-backup.mjs` `OK` | no aplica                                                             | pendiente de medir en la fase 1 |
 | Redeploy de un commit anterior   | no aplica                                                                            | pendiente de medir en la fase 1 |
+| `npm run seed:prod` en la shell del servicio | no aplica                                                                            | pendiente de medir en la fase 1 |
 | Almacenamiento de la base    | 1 GB             | Revisar cada mes; Standard de base: 12 USD                                                |
 | Saldo de créditos            | el que cargues   | Cargar con margen y revisar mensualmente                                                  |
 
