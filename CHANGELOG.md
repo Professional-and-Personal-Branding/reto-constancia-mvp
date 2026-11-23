@@ -28,6 +28,10 @@ Versionado [SemVer](https://semver.org/lang/es/).
   "Requirement text is very long (>500 characters)" y 15 de los 18 elementos fallaban sin que cambiara
   ningún spec. Sin cambios de código.
 
+### Corregido
+
+- El seed del administrador en el servicio único: `npx prisma db seed` fallaba en producción con "ts-node: not found" porque el build poda las devDependencies. Ahora el build compila el seed a `backend/dist-seed/` antes de la poda y se ejecuta con `cd backend && npm run seed:prod` (mismo comportamiento y variables `SEED_*` que el seed local, idempotente; `prisma.seed` sigue con ts-node para desarrollo). Sin migraciones.
+
 ## [1.15.0] — 2026-11-09
 
 **Esta versión trae una migración** (`add_activity_rejection_history`, la primera desde la 1.4.0; solo

@@ -128,6 +128,10 @@ package's disk size. It SHALL default the web's `NEXT_PUBLIC_API_URL` to `/api` 
 - **WHEN** `npm run build` runs at the repository root on a clean checkout
 - **THEN** `backend/dist/main.js` and the web build exist, development dependencies are absent, and the sizes are printed
 
+#### Scenario: Production seed available after pruning
+- **WHEN** the build finishes and development dependencies are removed
+- **THEN** `cd backend && npm run seed:prod` creates the administrator with `node` alone (compiled in `backend/dist-seed/`, without `ts-node`) and is idempotent
+
 #### Scenario: Failing step
 - **WHEN** any install or build step fails
 - **THEN** the script stops there and exits with a non-zero code
