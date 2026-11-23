@@ -2833,6 +2833,7 @@ export const CASES = [
       R('smoke-options.test.mjs', '--skip-limit omite el límite de login antes o después de la URL'),
       R('smoke-options.test.mjs', 'una URL inválida, ausente o un flag desconocido dan error de uso'),
       R('smoke-options.test.mjs', 'el resumen de omitidos dice cuántos fueron y que el límite NO se verificó; sin omitir no dice nada'),
+      R('smoke-limit-cases.test.mjs', 'el conteo de omitidos que informa el resumen sale de las comprobaciones reales del límite'),
       R('supervisor.test.mjs', 'la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap'),
       R('supervisor.test.mjs', 'en producción sin connection_limit hay un aviso que no contiene la URL, el usuario ni la clave'),
       R('supervisor.test.mjs', 'sin aviso con connection_limit, fuera de producción o sin DATABASE_URL'),

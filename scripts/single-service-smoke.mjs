@@ -21,6 +21,7 @@
  * Sale con 0 e imprime OK, o con 1 y la lista de comprobaciones fallidas. Cada corrida usa
  * direcciones de documentación (RFC 5737) al azar para no chocar con la anterior.
  */
+import { buildLimitCases } from './lib/smoke-limit-cases.mjs';
 import { parseSmokeArgs, skippedSummary } from './lib/smoke-options.mjs';
 
 const parsed = parseSmokeArgs(process.argv.slice(2));
@@ -29,7 +30,6 @@ if ('error' in parsed) {
   process.exit(2);
 }
 const { base, skipLimit } = parsed;
-const LIMIT_CASES = 3;
 
 const failures = [];
 function check(name, ok, detail = '') {
@@ -54,6 +54,7 @@ const clientA = `203.0.113.${octet()}`;
 let clientB = `203.0.113.${octet()}`;
 while (clientB === clientA) clientB = `203.0.113.${octet()}`;
 const forged = `198.51.100.${octet()}`;
+const limitCases = buildLimitCases({ login, clientA, clientB, forged });
 
 console.log(`Servicio único · prueba de humo · ${base}`);
 
@@ -93,23 +94,9 @@ try {
   check('la respuesta de la API conserva su X-Request-Id', !!ah.get('x-request-id'));
 
   // Límite de login por cliente. El sexto intento del mismo cliente da 429.
-  if (skipLimit) console.log(`  SKIP  ${LIMIT_CASES} comprobaciones del límite de login (--skip-limit)`);
+  if (skipLimit) console.log(`  SKIP  ${limitCases.length} comprobaciones del límite de login (--skip-limit)`);
   else {
-  const statuses = [];
-  for (let i = 0; i < 6; i++) statuses.push((await login(clientA)).status);
-  check(
-    'el login de un cliente da 401 cinco veces y 429 la sexta',
-    statuses.slice(0, 5).every((s) => s === 401) && statuses[5] === 429,
-    statuses.join(','),
-  );
-  const other = (await login(clientB)).status;
-  check('otro cliente no comparte el límite (no da 429)', other !== 429, `status ${other}`);
-  const spoofed = (await login(`${forged}, ${clientA}`)).status;
-  check(
-    'una entrada falsa a la izquierda de X-Forwarded-For no evade el límite (429)',
-    spoofed === 429,
-    `status ${spoofed}`,
-  );
+  for (const c of limitCases) await c.run(check);
   }
 } catch (err) {
   check('el servicio responde', false, err instanceof Error ? err.message : String(err));
@@ -120,4 +107,4 @@ if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log(skipLimit ? `\nOK. ${skippedSummary(LIMIT_CASES)}` : '\nOK');
+console.log(skipLimit ? `\nOK. ${skippedSummary(limitCases.length)}` : '\nOK');
