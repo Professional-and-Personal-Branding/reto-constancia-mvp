@@ -135,7 +135,7 @@ La validación de OpenSpec (`openspec validate --all --strict`) se corre con la 
 | Contratos HTTP y RBAC | Cubiertos por e2e |
 | Recorrido funcional completo | Cubierto por `parallel-session-test.mjs` |
 | Interfaz web | Cubierta por Playwright (`e2e/`): 86 recorridos (incluidos el modo claro/oscuro, los retos cerrados, el encabezado en escritorio y móvil, editar retos, retirar actividades, pagos parciales, el presupuesto automático y la privacidad de emails y pagos el código de soporte en los errores , los formatos de subida, el cierre asistido y la cola de comprobantes con el estado de pago propio, y la tarjeta de hoy con los avisos de fecha de la subida) y 26 pruebas de la suite de capturas, sobre navegador real |
-| Trazabilidad | Los 173 casos de `docs/qa/` están enlazados a 968 pruebas; ninguna prueba queda sin caso |
+| Trazabilidad | Los 173 casos de `docs/qa/` están enlazados a 971 pruebas; ninguna prueba queda sin caso |
 | Componentes del frontend aislados | **Sin pruebas unitarias**: la UI se verifica de punta a punta, no por componente |
 | Subida de archivos | Cubierta de punta a punta contra el simulador local; **la subida real a Cloudinary** requiere credenciales y se verifica manualmente |
 | Lectura real de Google Sheets | **Sin cobertura automatizada**: e2e usa un cliente falso; el camino real requiere una cuenta de servicio |
@@ -157,7 +157,11 @@ Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Docker 2
 **Batería** (`node scripts/run-tests.mjs`): **14 de 14 pasos en verde**.
 
 **Catálogo** (`node scripts/validate-test-cases.mjs`): **173 de 173 casos aprobados** (170 automatizados,
-MEDIDAS_PENDIENTES
+3 manuales) con 971 pruebas y 0 fallidas: unitarias del backend 442, unitarias de la web 92, e2e de API 221,
+recorridos de UI 86, capturas de la guía 27, sesiones paralelas 70 y scripts de la raíz 33 (8 nuevas respecto de
+develop: `build-steps`, `smoke-options` y `smoke-limit-cases`, enlazadas a TC-HEALTH-07); "Pruebas sin caso: 0".
+La primera corrida del validador falló `07-theme.spec.ts` (TC-UI-09, el intermitente ya anotado); la segunda,
+tras reiniciar la base, quedó en verde. `openspec validate --all --strict` (CLI 1.14.0 fijada): 19 de 19.
 
 **Contenedor** (`docker build -f Dockerfile.single-service -t reto-single .`, `docker run --memory=512m
 --cpus=0.2`, puerto 3010): `du -sh` dentro de la imagen: `backend/` 171 MB y `frontend/` 369 MB, igual que antes
