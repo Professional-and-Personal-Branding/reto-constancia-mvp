@@ -18,7 +18,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "build:seed": "tsc -p tsconfig.seed.json",
+    "seed:prod": "node dist-seed/prisma/seed.js"
   },
   "jest": {
     "moduleFileExtensions": [

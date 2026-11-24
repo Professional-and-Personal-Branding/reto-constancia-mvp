@@ -30,6 +30,7 @@ Versionado [SemVer](https://semver.org/lang/es/).
 - `scripts/build-prod.mjs` instala con `npm ci --include=dev` en backend y frontend: si el panel aplica
   `NODE_ENV=production` también al build, npm omitía las devDependencies y fallaban `nest build` y
   Tailwind. El `npm prune --omit=dev` posterior sigue dejando solo producción. Sin migraciones.
+- El seed del administrador en el servicio único: `npx prisma db seed` fallaba en producción con "ts-node: not found" porque el build poda las devDependencies. Ahora el build compila el seed a `backend/dist-seed/` antes de la poda y se ejecuta con `cd backend && npm run seed:prod` (mismo comportamiento y variables `SEED_*` que el seed local, idempotente; `prisma.seed` sigue con ts-node para desarrollo). Sin migraciones.
 
 ### Cambiado
 
@@ -37,6 +38,11 @@ Versionado [SemVer](https://semver.org/lang/es/).
   en CLAUDE.md y en la guía del implementador: desde la 1.14.1 el modo estricto cuenta como fallo el aviso
   "Requirement text is very long (>500 characters)" y 15 de los 18 elementos fallaban sin que cambiara
   ningún spec. Sin cambios de código.
+
+### Seguridad
+
+- `next` sube a 15.5.29 en `frontend/`: corrige GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2 y GHSA-pc58-hwjq-p385
+  (`npm audit --omit=dev` vuelve a 0 avisos y el job Frontend de la CI deja de fallar). Sin cambios de código.
 
 ## [1.15.0] — 2026-11-09
 

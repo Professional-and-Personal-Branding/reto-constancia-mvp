@@ -5,7 +5,8 @@
  *   node scripts/build-prod.mjs        # también: npm run build en la raíz del repositorio
  *
  * 1. backend: npm ci --include=dev (con NODE_ENV=production npm omitiría las devDependencies que
- *    necesitan nest build y Tailwind), prisma generate, nest build, npm prune --omit=dev
+ *    necesitan nest build y Tailwind), prisma generate, nest build, build:seed (seed a JS en dist-seed/,
+ *    antes de la poda porque tsc es devDependency), npm prune --omit=dev
  *    (prisma y @prisma/client son dependencias de ejecución: migrate deploy sigue funcionando)
  * 2. frontend: npm ci, next build con NEXT_PUBLIC_API_URL=/api y
  *    API_INTERNAL_URL=http://127.0.0.1:API_PORT (salvo que ya estén definidas), npm prune --omit=dev

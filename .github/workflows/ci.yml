@@ -62,7 +62,7 @@ jobs:
       - run: npm run build
       - run: npm test
       # Scripts de la raíz (supervisor del servicio único, poda de SWC); no usan dependencias del backend
-      - run: node --test ../scripts/lib/supervisor.test.mjs ../scripts/lib/prune.test.mjs ../scripts/lib/build-steps.test.mjs ../scripts/lib/smoke-options.test.mjs
+      - run: node --test ../scripts/lib/supervisor.test.mjs ../scripts/lib/prune.test.mjs ../scripts/lib/build-steps.test.mjs ../scripts/lib/smoke-options.test.mjs ../scripts/lib/smoke-limit-cases.test.mjs
       # Sin avisos abiertos: cualquier alerta moderada o mayor hace fallar el PR (ver docs/security-owasp.md)
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run test:e2e

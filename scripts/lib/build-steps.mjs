@@ -6,6 +6,10 @@
  * también al build, npm omitiría las devDependencies y fallarían `nest build` y Tailwind. El
  * `npm prune --omit=dev` posterior deja solo las dependencias de ejecución.
  *
+ * El seed se compila a JS (`build:seed`) antes de la poda del backend porque tsc es una
+ * devDependency: tras `npm prune --omit=dev` ya no existe ts-node ni tsc, y `npm run seed:prod`
+ * solo necesita node y las dependencias de producción.
+ *
  * @param {Record<string, string>} webEnv variables del `next build`
  * @returns {{ label: string, dir: 'backend' | 'frontend', cmd: string, env?: Record<string, string> }[]}
  */
@@ -14,6 +18,7 @@ export function buildSteps(webEnv) {
     { label: 'backend · npm ci', dir: 'backend', cmd: 'npm ci --include=dev --no-audit --no-fund' },
     { label: 'backend · prisma generate', dir: 'backend', cmd: 'npx prisma generate' },
     { label: 'backend · nest build', dir: 'backend', cmd: 'npm run build' },
+    { label: 'backend · compilar el seed (npm run build:seed)', dir: 'backend', cmd: 'npm run build:seed' },
     { label: 'backend · npm prune --omit=dev', dir: 'backend', cmd: 'npm prune --omit=dev --no-audit --no-fund' },
     { label: 'frontend · npm ci', dir: 'frontend', cmd: 'npm ci --include=dev --no-audit --no-fund' },
     {

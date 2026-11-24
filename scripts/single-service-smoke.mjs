@@ -96,7 +96,7 @@ try {
   // Límite de login por cliente. El sexto intento del mismo cliente da 429.
   if (skipLimit) console.log(`  SKIP  ${limitCases.length} comprobaciones del límite de login (--skip-limit)`);
   else {
-  for (const c of limitCases) await c.run(check);
+    for (const c of limitCases) await c.run(check);
   }
 } catch (err) {
   check('el servicio responde', false, err instanceof Error ? err.message : String(err));
