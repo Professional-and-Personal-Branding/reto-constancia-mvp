@@ -1,14 +1,32 @@
 /**
- * Pasos del build de producción del backend, en el orden en que corren (los usa scripts/build-prod.mjs).
- * El seed se compila a JS antes de la poda porque tsc es una devDependency: tras `npm prune --omit=dev`
- * ya no existe ts-node ni tsc, y `npm run seed:prod` solo necesita node y las dependencias de producción.
+ * Pasos del build de producción del servicio único (scripts/build-prod.mjs) antes de la poda de SWC.
+ * Función pura, probada en build-steps.test.mjs.
+ *
+ * Los `npm ci` llevan `--include=dev`: si el panel de la plataforma aplica NODE_ENV=production
+ * también al build, npm omitiría las devDependencies y fallarían `nest build` y Tailwind. El
+ * `npm prune --omit=dev` posterior deja solo las dependencias de ejecución.
+ *
+ * El seed se compila a JS (`build:seed`) antes de la poda del backend porque tsc es una
+ * devDependency: tras `npm prune --omit=dev` ya no existe ts-node ni tsc, y `npm run seed:prod`
+ * solo necesita node y las dependencias de producción.
+ *
+ * @param {Record<string, string>} webEnv variables del `next build`
+ * @returns {{ label: string, dir: 'backend' | 'frontend', cmd: string, env?: Record<string, string> }[]}
  */
-export function backendSteps() {
+export function buildSteps(webEnv) {
   return [
-    { label: 'backend · npm ci', cmd: 'npm ci --no-audit --no-fund' },
-    { label: 'backend · prisma generate', cmd: 'npx prisma generate' },
-    { label: 'backend · nest build', cmd: 'npm run build' },
-    { label: 'backend · compilar el seed (npm run build:seed)', cmd: 'npm run build:seed' },
-    { label: 'backend · npm prune --omit=dev', cmd: 'npm prune --omit=dev --no-audit --no-fund' },
+    { label: 'backend · npm ci', dir: 'backend', cmd: 'npm ci --include=dev --no-audit --no-fund' },
+    { label: 'backend · prisma generate', dir: 'backend', cmd: 'npx prisma generate' },
+    { label: 'backend · nest build', dir: 'backend', cmd: 'npm run build' },
+    { label: 'backend · compilar el seed (npm run build:seed)', dir: 'backend', cmd: 'npm run build:seed' },
+    { label: 'backend · npm prune --omit=dev', dir: 'backend', cmd: 'npm prune --omit=dev --no-audit --no-fund' },
+    { label: 'frontend · npm ci', dir: 'frontend', cmd: 'npm ci --include=dev --no-audit --no-fund' },
+    {
+      label: `frontend · next build (NEXT_PUBLIC_API_URL=${webEnv.NEXT_PUBLIC_API_URL})`,
+      dir: 'frontend',
+      cmd: 'npx next build',
+      env: webEnv,
+    },
+    { label: 'frontend · npm prune --omit=dev', dir: 'frontend', cmd: 'npm prune --omit=dev --no-audit --no-fund' },
   ];
 }

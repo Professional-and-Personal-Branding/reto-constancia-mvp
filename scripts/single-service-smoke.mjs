@@ -3,7 +3,7 @@
  * Prueba de humo del servicio único contra una URL ya desplegada (local en Docker o Seenode).
  *
  *   node scripts/single-service-smoke.mjs http://localhost:3000
- *   node scripts/single-service-smoke.mjs https://<servicio>.seenode.app
+ *   node scripts/single-service-smoke.mjs https://<servicio>.seenode.app --skip-limit
  *
  * Comprueba: la página (/), /api/health y /api/health/db, Swagger apagado (404), una ruta
  * protegida sin sesión (401), las cabeceras de seguridad de la web y los límites de login por
@@ -14,14 +14,22 @@
  *     TRUST_PROXY=2 el límite se evade).
  * Usa solo una cuenta inexistente; nunca toca cuentas reales. Contra Seenode el borde ya añade la
  * IP real, así que los casos de límite se prueban con dos redes distintas (ver el runbook).
+ * Opción --skip-limit: omite los tres casos del límite de login (los que envían logins repetidos y
+ * dependen de un X-Forwarded-For falsificado). Úsala detrás del borde real de Seenode: allí todas las
+ * peticiones salen de la misma IP, el caso "otro cliente" falla y la IP queda en 429 un minuto. El
+ * resumen indica cuántas comprobaciones se omitieron y que el límite NO se verificó.
  * Sale con 0 e imprime OK, o con 1 y la lista de comprobaciones fallidas. Cada corrida usa
  * direcciones de documentación (RFC 5737) al azar para no chocar con la anterior.
  */
-const base = process.argv[2]?.replace(/\/+$/, '');
-if (!base || !/^https?:\/\//.test(base)) {
-  console.error('Uso: node scripts/single-service-smoke.mjs <url-base>   (ej.: http://localhost:3000)');
+import { buildLimitCases } from './lib/smoke-limit-cases.mjs';
+import { parseSmokeArgs, skippedSummary } from './lib/smoke-options.mjs';
+
+const parsed = parseSmokeArgs(process.argv.slice(2));
+if ('error' in parsed) {
+  console.error(parsed.error);
   process.exit(2);
 }
+const { base, skipLimit } = parsed;
 
 const failures = [];
 function check(name, ok, detail = '') {
@@ -46,6 +54,7 @@ const clientA = `203.0.113.${octet()}`;
 let clientB = `203.0.113.${octet()}`;
 while (clientB === clientA) clientB = `203.0.113.${octet()}`;
 const forged = `198.51.100.${octet()}`;
+const limitCases = buildLimitCases({ login, clientA, clientB, forged });
 
 console.log(`Servicio único · prueba de humo · ${base}`);
 
@@ -85,21 +94,10 @@ try {
   check('la respuesta de la API conserva su X-Request-Id', !!ah.get('x-request-id'));
 
   // Límite de login por cliente. El sexto intento del mismo cliente da 429.
-  const statuses = [];
-  for (let i = 0; i < 6; i++) statuses.push((await login(clientA)).status);
-  check(
-    'el login de un cliente da 401 cinco veces y 429 la sexta',
-    statuses.slice(0, 5).every((s) => s === 401) && statuses[5] === 429,
-    statuses.join(','),
-  );
-  const other = (await login(clientB)).status;
-  check('otro cliente no comparte el límite (no da 429)', other !== 429, `status ${other}`);
-  const spoofed = (await login(`${forged}, ${clientA}`)).status;
-  check(
-    'una entrada falsa a la izquierda de X-Forwarded-For no evade el límite (429)',
-    spoofed === 429,
-    `status ${spoofed}`,
-  );
+  if (skipLimit) console.log(`  SKIP  ${limitCases.length} comprobaciones del límite de login (--skip-limit)`);
+  else {
+    for (const c of limitCases) await c.run(check);
+  }
 } catch (err) {
   check('el servicio responde', false, err instanceof Error ? err.message : String(err));
 }
@@ -109,4 +107,4 @@ if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log('\nOK');
+console.log(skipLimit ? `\nOK. ${skippedSummary(limitCases.length)}` : '\nOK');
