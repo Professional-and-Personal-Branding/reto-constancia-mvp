@@ -45,7 +45,7 @@
 - [x] 5.3 `docs/deploy-seenode.md`: diagram and steps for one Web Service; two-service layout as an alternative section
 - [x] 5.4 `docs/despliegue/RUNBOOK-DESPLIEGUE.md`: phase 2 points to this change, phase 5 row 6 adds the two-network and forged-header check; `docs/despliegue/DECISION-DESPLIEGUE.md` checklist marks the code items done and names `start-prod.mjs`; also document that plan B without a proxy that sets X-Forwarded-For lets a client evade the login limit (review finding 12)
 - [ ] 5.5 Values measured in phase 1 (memory, disk, build time, proxy hops) recorded in the runbook's limits table and in D4 defaults if they changed
-- [ ] 5.6 `openspec validate --all --strict`; PR 2 to `develop` in Spanish; the owner merges
+- [x] 5.6 `openspec validate --all --strict`; PR 2 to `develop` in Spanish; the owner merges
 
 ## 6. Release (1.16.0)
 

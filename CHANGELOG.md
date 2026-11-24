@@ -34,6 +34,7 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ### Cambiado
 
+- Documentación interna: el agente `implementador` usa `npx tsc --noEmit -p .` como `CLAUDE.md` (no `rtk tsc`) y el runbook (§1.6) indica correr la prueba de humo en Seenode con `--skip-limit`.
 - Runbooks de despliegue en servicio único: `docs/runbook-despliegue.md` (§1 a §4 y §7), `docs/deploy-seenode.md`,
   `docs/despliegue/RUNBOOK-DESPLIEGUE.md` y `docs/despliegue/DECISION-DESPLIEGUE.md` describen un solo Web Service
   de Seenode como camino por omisión (Build `npm run build`, Start `npm start`, `connection_limit=5`,
