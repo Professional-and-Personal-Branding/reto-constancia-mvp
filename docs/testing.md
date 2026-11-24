@@ -149,6 +149,30 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-11-24 · v1.16.0 (rama `release/1.16.0`, desde `origin/develop` con #121)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Docker Desktop. Base reiniciada con
+`npx prisma migrate reset --force` antes de la batería y antes del validador. Sin migraciones.
+`npm audit --omit=dev` en `backend/`, `frontend/` y `e2e/`: 0 avisos en los tres.
+
+**Batería** (`node scripts/run-tests.mjs`): **14 de 14 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **173 de 173 casos aprobados** (170 automatizados,
+3 manuales) con 971 pruebas y 0 fallidas: unitarias del backend 442, unitarias de la web 92, e2e de API 221,
+recorridos de UI 86, capturas de la guía 27, sesiones paralelas 70 y scripts de la raíz 33; "Pruebas sin
+caso: 0". La primera corrida del validador falló `07-theme.spec.ts` (TC-UI-09, el intermitente ya anotado); la
+segunda, tras reiniciar la base, quedó en verde. `openspec validate --all --strict` (CLI 1.14.0 fijada): 19 de 19.
+
+**Build de producción y contenedor** (primera verificación tras fusionar #117 y #120): `NODE_ENV=production node
+scripts/build-prod.mjs`: `Build OK` (genera `backend/dist-seed/`; el script informa `backend/` 220 MB y
+`frontend/` 324 MB por tamaño de archivos). `docker build -f Dockerfile.single-service` en 1 min 26 s;
+`docker run --memory=512m --cpus=0.2` (puerto 3010, base local por `host.docker.internal:5433`, secretos
+descartables): `du -sh` dentro de la imagen `backend/` 171 MB y `frontend/` 369 MB (540 MB entre los dos, de los
+750 MB del plan); healthcheck `healthy`, 0 reinicios, 146 MiB de 512 MiB tras la prueba de humo.
+`single-service-smoke.mjs http://localhost:3010 --skip-limit`: `OK` con 3 comprobaciones omitidas (el límite de
+login no se verificó). `npm run seed:prod` dentro del contenedor: crea el administrador y omite los datos de demo.
+Contenedor e imagen eliminados al terminar.
+
 ### 2026-11-23 · rama `fix/deploy-smoke-build` (`--skip-limit` y `npm ci --include=dev`)
 
 Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Docker 29.9.3. Base reiniciada con

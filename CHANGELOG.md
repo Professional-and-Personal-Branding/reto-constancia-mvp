@@ -5,6 +5,12 @@ Versionado [SemVer](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+## [1.16.0] — 2026-11-24
+
+**Esta versión no trae migraciones** (el esquema es el de la 1.15.0; no hay respaldo previo obligatorio más allá del habitual). Es la primera con servicio único (API y web en un contenedor). Para volver a la 1.15.0 se redespliega la 1.15.0 conservando el esquema (no hay nada que revertir). **Desde el servicio único, volver a la 1.15.0 o anterior exige crear el segundo servicio (la web) del Apéndice A de `docs/runbook-despliegue.md`**, porque esas versiones no tienen el supervisor (`npm run build` / `npm start`); la alternativa es corregir hacia adelante con un PR.
+
+**Pendiente fuera de esta release:** el cambio de OpenSpec `single-service-deploy` NO se archiva aquí; sus tareas 0.2 y 5.5 dependen de la fase 1 del trial de Seenode (a cargo del owner) y se archiva en la release siguiente.
+
 ### Agregado
 
 - Servicio único (API y web en un contenedor, para un Web Service de Seenode; no hay migración ni

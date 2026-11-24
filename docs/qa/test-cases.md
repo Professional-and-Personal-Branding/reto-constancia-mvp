@@ -1,7 +1,7 @@
 # Catálogo de casos de prueba
 
 > Documento generado por `node scripts/validate-test-cases.mjs` a partir de [catalog.mjs](catalog.mjs). No lo edites a mano: cambia el catálogo y vuelve a validar.
-> Última validación: **2026-11-24** · rama `fix/deploy-smoke-build` · commit `81378c5`. Detalle en [validation-report.md](validation-report.md).
+> Última validación: **2026-11-24** · rama `release/1.16.0` · commit `a227947` (con cambios sin commit). Detalle en [validation-report.md](validation-report.md).
 
 **173 casos** · 173 aprobados · 0 fallidos · 0 con limitación conocida · 170 automatizados.
 

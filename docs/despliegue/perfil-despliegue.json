@@ -3,7 +3,7 @@
     "nombre": "reto-constancia-mvp",
     "descripcion": "Plataforma de retos mensuales de constancia: API NestJS 11 + Prisma 5/PostgreSQL 16, web Next.js 15 con render en servidor, fotos en Cloudinary",
     "tipo": "un Web Service (API y web en el mismo contenedor) + PostgreSQL; un solo servicio en compose (postgres) solo para desarrollo local",
-    "version": "1.15.0 (etiqueta v1.15.0, ya fusionada a main)"
+    "version": "1.16.0 (etiqueta v1.16.0)"
   },
   "stack": {
     "lenguajes": ["typescript"],

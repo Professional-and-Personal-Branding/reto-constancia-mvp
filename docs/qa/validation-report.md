@@ -1,7 +1,7 @@
 # Reporte de validación de casos de prueba
 
-- **Fecha:** 2026-11-24 02:14 (UTC)
-- **Código:** rama `fix/deploy-smoke-build`, commit `81378c5`
+- **Fecha:** 2026-11-24 05:41 (UTC)
+- **Código:** rama `release/1.16.0`, commit `a227947` (con cambios sin commit)
 - **Entorno:** Node v22.23.1, win32; API http://localhost:3002/api; Postgres local (Docker, puerto 5433)
 - **Comando:** `node scripts/validate-test-cases.mjs`
 
@@ -15,13 +15,13 @@ Se ejecutaron **971 pruebas** automatizadas: 971 pasaron y 0 fallaron.
 
 | Suite | Ubicación | Pruebas | Pasan | Fallan | Duración | Ejecutada (UTC) |
 |---|---|---:|---:|---:|---:|---|
-| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 442 | 442 | 0 | 9.6 s | 2026-11-24 02:11 |
-| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 92 | 92 | 0 | 2.8 s | 2026-11-24 02:11 |
-| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 221 | 221 | 0 | 36.3 s | 2026-11-24 02:12 |
-| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 86 | 86 | 0 | 75.4 s | 2026-11-24 02:13 |
-| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 27 | 27 | 0 | 30.9 s | 2026-11-24 02:14 |
-| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.1 s | 2026-11-24 02:14 |
-| Scripts de la raíz (node:test) | `scripts/lib/*.test.mjs` | 33 | 33 | 0 | 3.8 s | 2026-11-24 02:14 |
+| Unitarias (Jest) | `backend/src/**/*.spec.ts` | 442 | 442 | 0 | 8.7 s | 2026-11-24 05:38 |
+| Unitarias de la web (node:test) | `frontend/lib/*.test.ts` | 92 | 92 | 0 | 2.5 s | 2026-11-24 05:38 |
+| API e2e (Jest + supertest) | `backend/test/*.e2e-spec.ts` | 221 | 221 | 0 | 33.2 s | 2026-11-24 05:39 |
+| Recorridos de UI (Playwright) | `e2e/tests/*.spec.ts` | 86 | 86 | 0 | 77.0 s | 2026-11-24 05:40 |
+| Capturas de la guía (Playwright) | `e2e/guide/capture.spec.ts` | 27 | 27 | 0 | 31.8 s | 2026-11-24 05:41 |
+| Sesiones paralelas (script) | `scripts/parallel-session-test.mjs` | 70 | 70 | 0 | 1.1 s | 2026-11-24 05:41 |
+| Scripts de la raíz (node:test) | `scripts/lib/*.test.mjs` | 33 | 33 | 0 | 3.7 s | 2026-11-24 05:41 |
 
 ## Casos por prioridad
 

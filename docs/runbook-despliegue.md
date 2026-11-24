@@ -6,7 +6,7 @@ revertir y atender incidentes. El detalle de cada pantalla de Seenode está en
 
 | | |
 |---|---|
-| **Versión de referencia** | `v1.15.0` (tag sobre `main`) |
+| **Versión de referencia** | `v1.16.0` (tag sobre `main`) |
 | **Plataforma** | Seenode: **un** Web Service (API NestJS y web Next.js en el mismo contenedor, `npm run build` / `npm start`) + PostgreSQL administrado; Cloudinary para fotos. El esquema de dos servicios queda en el [Apéndice A](#apéndice-a-despliegue-en-dos-servicios-alternativa) |
 | **Servicio único desde** | El código del supervisor (`scripts/start-prod.mjs`, `package.json` de la raíz) llega con la release 1.16.0 (objetivo); antes de ella solo existe el esquema del Apéndice A |
 | **Rama que se despliega** | `main` (solo llega por PR de `release/*`, ver `gitflow.md`) |
