@@ -19,6 +19,7 @@
 - [x] 2.4 `frontend/lib/deploy-config.mjs` and `frontend/next.config.mjs`: rewrites and `experimental.proxyTimeout` only with `API_INTERNAL_URL`, `headers()` of D6, `poweredByHeader: false`; `frontend/.env.example` documents `API_INTERNAL_URL` (commented) and the `/api` value for this mode
 - [x] 2.5 `Dockerfile.single-service` and root `.dockerignore` (D10)
 - [x] 2.6 `scripts/single-service-smoke.mjs <base-url>` (D10, D5 cases with `X-Forwarded-For`)
+- [x] 2.8 Compiled production seed `npm run seed:prod`: `backend/tsconfig.seed.json` emits `backend/dist-seed/` (apart from `dist/`), `npm run build:seed` runs in `scripts/lib/build-steps.mjs` before the backend `npm prune --omit=dev` (`ts-node` is a devDependency), and `seed:prod` runs it with `node`; `prisma.seed` (ts-node) is unchanged for local development
 - [x] 2.7 New files formatted with `node scripts/format.mjs`; existing files are not reformatted
 
 ## 3. PR 1 — Verification (local only; record each run)

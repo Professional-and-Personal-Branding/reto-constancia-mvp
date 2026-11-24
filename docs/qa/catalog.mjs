@@ -2807,6 +2807,7 @@ export const CASES = [
       'Falta connection_limit en producción: aviso sin la URL ni las credenciales.',
       'La web recibe API_INTERNAL_URL con el puerto de la API, así que el proxy de /api usa el plazo de 60 s.',
       'El build borra los binarios SWC de la otra libc y frontend/.next/cache para que el disco quede por debajo del plan.',
+      'El build compila el seed a dist-seed/ antes de podar las devDependencies: tras el build, `cd backend && npm run seed:prod` crea el administrador sin ts-node y es idempotente.',
     ],
     auto: [
       U('http.spec.ts', 'sin HOST o vacío escucha en todas las interfaces (undefined)'),
@@ -2825,6 +2826,9 @@ export const CASES = [
       R('prune.test.mjs', 'con musl borra solo los binarios SWC de gnu'),
       R('prune.test.mjs', 'no toca otros paquetes ni plataformas y no falla si no hay binarios'),
       R('prune.test.mjs', 'el runtime se detecta como un booleano'),
+      R('build-steps.test.mjs', 'compila el seed de producción antes de podar las devDependencies'),
+      R('build-steps.test.mjs', 'el seed se compila después del nest build y de prisma generate'),
+      R('build-steps.test.mjs', 'conserva npm ci, prisma generate, nest build y la poda'),
       R('supervisor.test.mjs', 'la API escucha en loopback con puerto y heap por omisión; la web en 0.0.0.0 con su heap'),
       R('supervisor.test.mjs', 'en producción sin connection_limit hay un aviso que no contiene la URL, el usuario ni la clave'),
       R('supervisor.test.mjs', 'sin aviso con connection_limit, fuera de producción o sin DATABASE_URL'),

@@ -149,6 +149,18 @@ Testing Library, y el corredor ya tiene dónde enchufarlas.
 Cada release se valida corriendo la batería completa en local antes de desplegar. Se anota
 aquí la versión, la fecha, el entorno y el resultado por suite.
 
+### 2026-11-24 · rama `fix/seed-prod` (seed del administrador en producción, tras fusionar `origin/develop` con `next` 15.5.29)
+
+Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433). Base reiniciada con
+`npx prisma migrate reset --force` antes de la batería y antes del validador. Sin migraciones.
+
+**Batería** (`node scripts/run-tests.mjs`): **14 de 14 pasos en verde**.
+
+**Catálogo** (`node scripts/validate-test-cases.mjs`): **173 de 173 casos aprobados** (170 automatizados,
+3 manuales) con 963 pruebas y 0 fallidas: unitarias del backend 442, unitarias de la web 92, e2e de API 221,
+recorridos de UI 86, capturas de la guía 27, sesiones paralelas 70 y scripts de la raíz 25; "Pruebas sin
+caso: 0". `openspec validate --all --strict` (CLI 1.14.0 fijada): 19 de 19.
+
 ### 2026-11-18 · rama `feature/single-service-deploy` (servicio único, PR 1 de código)
 
 Entorno: Windows 11, Node 22.23.1, Postgres 16 en Docker (puerto 5433), Docker 29.9.3. Base reiniciada con
