@@ -111,7 +111,7 @@ Seenode se maneja desde el panel web: la lista de variables de entorno del servi
 | 2   | La base, vía `/api/health/db`                           | `200`                                                                                                                                                                           |
 | 3   | Una ruta protegida sin sesión                           | `401`                                                                                                                                                                           |
 | 4   | Swagger apagado                                         | `404`                                                                                                                                                                           |
-| 5   | Cabeceras de seguridad de la web y de la API            | Presentes: `x-content-type-options`, `strict-transport-security` y la de marcos (`x-frame-options` o CSP). Si la web de Next no las envía, agregarlas en el cambio de la fase 2 |
+| 5   | Cabeceras de seguridad de la web y de la API            | Presentes: `x-content-type-options`, `strict-transport-security` y la de marcos (`x-frame-options` o CSP). |
 | 6   | Límite de login por cliente detrás del proxy de Seenode | Con **dos redes distintas** (p. ej. tu conexión y un teléfono con datos móviles): el sexto intento de la red A da `429` y la red B no. Con una **cabecera falsificada** (`-H "X-Forwarded-For: 198.51.100.9"`) desde la red A ya bloqueada, sigue dando `429`. Si falla uno, ajustar `TRUST_PROXY` (saltos del proxy; pendiente de medir en la fase 1) |
 | 7   | Superficies por omisión: URLs de vista previa y paneles | Seenode no deja una URL de vista previa pública sin decidirlo; el acceso público a la base está cerrado                                                                         |
 
@@ -214,6 +214,8 @@ Al agotarse los créditos, Seenode **detiene el servicio** (no hay plan gratuito
 | RAM / CPU del servicio Basic | 0,5 GB / 0,2 CPU | Si hay reinicios por memoria, pasar a Standard (7 USD): total 11 USD, reabrir la decisión. Topes de heap por omisión: API 224 MB, web 160 MB, build 400 MB (`API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`, `BUILD_MAX_OLD_SPACE_MB`) |
 | Disco del servicio           | 750 MB           | El build imprime tamaños por suma de archivos (140 + 337 MB); el disco real se mide con `du` (540 MB)                         |
 | Conexiones a la base         | 20               | `connection_limit=5` en `DATABASE_URL`                                                    |
+| Almacenamiento de la base    | 1 GB             | Revisar cada mes; Standard de base: 12 USD                                                |
+| Saldo de créditos            | el que cargues   | Cargar con margen y revisar mensualmente                                                  |
 
 Mediciones del servicio único (cada una se anota en el Registro de la fase 1):
 
@@ -228,8 +230,6 @@ Mediciones del servicio único (cada una se anota en el Registro de la fase 1):
 | Acceso externo a la base y `db-backup.mjs` `OK` | no aplica                                                             | pendiente de medir en la fase 1 |
 | Redeploy de un commit anterior   | no aplica                                                                            | pendiente de medir en la fase 1 |
 | `npm run seed:prod` en la shell del servicio | no aplica                                                                            | pendiente de medir en la fase 1 |
-| Almacenamiento de la base    | 1 GB             | Revisar cada mes; Standard de base: 12 USD                                                |
-| Saldo de créditos            | el que cargues   | Cargar con margen y revisar mensualmente                                                  |
 
 ## Mantenimiento
 
@@ -260,7 +260,7 @@ La salida es estándar: `pg_dump --format=custom` (lo que ya hace `db-backup.mjs
 ## Cierre del despliegue
 
 - [ ] Fase 0: repositorio listo.
-- [ ] Fase 1: los siete supuestos validados y registrados.
+- [ ] Fase 1: los nueve supuestos validados y registrados.
 - [ ] Cambio OpenSpec de la variante aprobado y aplicado (fase 2).
 - [ ] Fases 3 a 6 completas.
 - [ ] Prueba con datos ficticios superada (fase 7).

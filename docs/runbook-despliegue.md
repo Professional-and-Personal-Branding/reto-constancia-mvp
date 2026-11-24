@@ -153,12 +153,12 @@ Variables (ver la referencia completa en §7):
 
 Haz la prueba de humo de §3 completa y además:
 
-- [ ] `node scripts/single-service-smoke.mjs $BASE` (con `BASE=https://<servicio>`) termina en `OK`:
+- [ ] `node scripts/single-service-smoke.mjs $BASE` (con `BASE=https://<servicio>`) termina con `FALLO` solo en la comprobación del límite de login (ver abajo) y con `PASS` en todas las demás:
       comprueba la web, `/api/health`, `/api/health/db`, Swagger apagado, una ruta protegida sin
       sesión y las cabeceras de seguridad. Los tres casos finales (límite de login con
       `X-Forwarded-For` falsos) están pensados para hablar directo con Next: detrás del borde de
-      Seenode todas las peticiones salen de tu misma IP, así que se espera que «otro cliente no
-      comparte el límite» falle (el resto debe pasar; qué hace exactamente el borde con la cabecera
+      Seenode todas las peticiones salen de tu misma IP, así que se espera que termine con FALLO en exactamente esa
+      comprobación («otro cliente no comparte el límite») y todas las demás en PASS ( qué hace exactamente el borde con la cabecera
       está pendiente de medir en la fase 1). La prueba válida del límite en Seenode son las dos redes
       de la fase 5, fila 6, de `despliegue/RUNBOOK-DESPLIEGUE.md`. El script solo usa una cuenta
       inexistente, pero deja tu IP en 429 de login durante un minuto: espera antes de entrar como

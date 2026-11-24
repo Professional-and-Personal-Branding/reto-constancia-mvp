@@ -65,7 +65,7 @@ El único veto del panel fue el de Render. Una nota sobre el conteo: el script v
 | El acceso público a la base para `db-backup.mjs` no está confirmado y, si existe, podría no admitir lista de IP     | Regla de corte 2 y verificación obligatoria en la fase 1                                                             |
 | PostgreSQL 16 no confirmado                                                                                         | Regla de corte 1                                                                                                     |
 | 0,5 GB de RAM, 0,2 CPU y 750 MB de disco para build, SSR, API y argon2                                              | Prueba de carga y de build en el trial (fase 1); si no alcanza, Standard (7 USD) lleva el total a 11 y rompe el tope |
-| Límite de 5 intentos de login por minuto por IP: detrás de Next y del proxy de Seenode la API vería la IP del proxy | `TRUST_PROXY=1` (el borde de Seenode; Next no suma su propio salto, medido en local con la prueba de humo en Next 15.5.28) y prueba explícita con dos clientes. El valor definitivo se confirma en la fase 1 |
+| Límite de 5 intentos de login por minuto por IP: detrás de Next y del proxy de Seenode la API vería la IP del proxy | `TRUST_PROXY=1` (el borde de Seenode; Next no suma su propio salto, medido en local con la prueba de humo en Next 15.5.28; la rama ya trae ^15.5.29, así que la prueba de humo debe repetirse con 15.5.29 antes de la 1.16.0, pendiente) y prueba explícita con dos clientes. El valor definitivo se confirma en la fase 1 |
 | «Mover `main` al tag» contradice el gitflow del proyecto (sin push forzado)                                         | La vuelta atrás es redesplegar el commit del tag anterior desde el panel, o un PR de revert a `main`                 |
 | Un proceso que muere no reinicia al otro                                                                            | El script de arranque termina el contenedor si cualquiera de los dos cae                                             |
 
@@ -95,8 +95,6 @@ En un VPS con `Dockerfile.single-service` (o la API sola) **hace falta un proxy 
 Los tres jueces pusieron primero a Seenode «con reservas»: costo (el colchón es de 2 USD), seguridad («el menos malo, no el probado»: base abierta a internet solo con contraseña si no hay lista de IP) y operación (casi todo lo que sostiene las restricciones duras es supuesto). Riesgos que quedan abiertos hasta cerrar la fase 1: acceso externo a la base, versión 16, recursos del plan Basic y reversión por redespliegue.
 
 ## Cambios de código que el despliegue necesita
-
-Fueron un cambio OpenSpec aprobado por el owner (spec primero, ver `CLAUDE.md`).
 
 Aprobados y hechos con el cambio OpenSpec `single-service-deploy` (código en `develop`; sale con la release 1.16.0, objetivo). El supervisor quedó en Node (`.mjs`), no en shell, para poder probarlo con `node:test` en Windows y Linux.
 
