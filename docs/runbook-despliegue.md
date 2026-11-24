@@ -153,15 +153,17 @@ Variables (ver la referencia completa en §7):
 
 Haz la prueba de humo de §3 completa y además:
 
-- [ ] `node scripts/single-service-smoke.mjs $BASE` (con `BASE=https://<servicio>`) termina con `FALLO` solo en la comprobación del límite de login (ver abajo) y con `PASS` en todas las demás:
+- [ ] `node scripts/single-service-smoke.mjs $BASE --skip-limit` (con `BASE=https://<servicio>`) termina con `OK`
+      (sin `--skip-limit` termina con `FALLO` solo en la comprobación del límite de login, ver abajo) y con `PASS` en todas las demás:
       comprueba la web, `/api/health`, `/api/health/db`, Swagger apagado, una ruta protegida sin
       sesión y las cabeceras de seguridad. Los tres casos finales (límite de login con
       `X-Forwarded-For` falsos) están pensados para hablar directo con Next: detrás del borde de
       Seenode todas las peticiones salen de tu misma IP, así que se espera que termine con FALLO en exactamente esa
-      comprobación («otro cliente no comparte el límite») y todas las demás en PASS ( qué hace exactamente el borde con la cabecera
+      comprobación («otro cliente no comparte el límite») y todas las demás en PASS; `--skip-limit` omite esos tres
+      casos (el resumen dice cuántos se omitieron y que el límite NO se verificó) y evita dejar tu IP en 429 ( qué hace exactamente el borde con la cabecera
       está pendiente de medir en la fase 1). La prueba válida del límite en Seenode son las dos redes
       de la fase 5, fila 6, de `despliegue/RUNBOOK-DESPLIEGUE.md`. El script solo usa una cuenta
-      inexistente, pero deja tu IP en 429 de login durante un minuto: espera antes de entrar como
+      inexistente; sin `--skip-limit` deja tu IP en 429 de login durante un minuto: espera antes de entrar como
       administrador.
 - [ ] La contraseña del administrador ya no es `SEED_ADMIN_PASSWORD`: **Mi cuenta** muestra al
       administrador, entrar con la contraseña vieja del seed responde "Credenciales inválidas" y

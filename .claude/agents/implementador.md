@@ -37,12 +37,12 @@ Playwright). Implementas cambios ya especificados y aprobados; no decides arquit
 
 Backend (`cd backend`):
 - `npm run lint` (ojo: corre con `--fix` y puede modificar archivos; revisa el diff después).
-- `rtk proxy npx tsc --noEmit -p .` (sin `rtk proxy` da un TS2882 falso).
+- `npx tsc --noEmit -p .` (no invoques `rtk tsc`: usa el TypeScript global 7.x y da un TS2882 falso).
 - `npm test` (Jest) y `npm run test:e2e` (necesita Postgres local con migraciones).
 - `npm run build`, y `npm audit --omit=dev --audit-level=moderate`.
 
 Frontend (`cd frontend`):
-- `npm run lint`, `rtk proxy npx tsc --noEmit -p .`, `npm test` (node:test), `npm run build` y
+- `npm run lint`, `npx tsc --noEmit -p .`, `npm test` (node:test), `npm run build` y
   `npm audit --omit=dev --audit-level=moderate`.
 
 Plataforma (desde la raíz):
