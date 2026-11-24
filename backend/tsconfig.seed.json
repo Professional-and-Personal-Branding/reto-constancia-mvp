@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Salida aparte de dist/: el seed importa src/auth/password-hash, así que el rootDir es la raíz del
+    // backend y el resultado queda en dist-seed/prisma/seed.js. Si se compilara dentro de dist/, el
+    // arranque `node dist/main.js` se rompería (ver tsconfig.build.json).
+    "rootDir": "./",
+    "outDir": "./dist-seed",
+    "incremental": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["prisma/seed.ts"],
+  "exclude": ["node_modules", "dist", "dist-seed"]
+}

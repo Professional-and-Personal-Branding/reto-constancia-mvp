@@ -18,3 +18,4 @@ openspec
 **/.env.*
 !**/.env.example
 *.log
+**/dist-seed
