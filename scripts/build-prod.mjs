@@ -4,7 +4,9 @@
  *
  *   node scripts/build-prod.mjs        # también: npm run build en la raíz del repositorio
  *
- * 1. backend: npm ci, prisma generate, nest build, build:seed (seed a JS en dist-seed/), npm prune --omit=dev
+ * 1. backend: npm ci --include=dev (con NODE_ENV=production npm omitiría las devDependencies que
+ *    necesitan nest build y Tailwind), prisma generate, nest build, build:seed (seed a JS en dist-seed/,
+ *    antes de la poda porque tsc es devDependency), npm prune --omit=dev
  *    (prisma y @prisma/client son dependencias de ejecución: migrate deploy sigue funcionando)
  * 2. frontend: npm ci, next build con NEXT_PUBLIC_API_URL=/api y
  *    API_INTERNAL_URL=http://127.0.0.1:API_PORT (salvo que ya estén definidas), npm prune --omit=dev
@@ -19,7 +21,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, lstatSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { backendSteps } from './lib/build-steps.mjs';
+import { buildSteps } from './lib/build-steps.mjs';
 import { runtimeIsGlibc, swcDirsToPrune } from './lib/prune.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,10 +67,7 @@ const webEnv = {
 };
 
 console.log(`Build del servicio único (heap ${heapMb} MB por paso)`);
-for (const { label, cmd } of backendSteps()) step(label, BACKEND, cmd);
-step('frontend · npm ci', FRONTEND, 'npm ci --no-audit --no-fund');
-step(`frontend · next build (NEXT_PUBLIC_API_URL=${webEnv.NEXT_PUBLIC_API_URL})`, FRONTEND, 'npx next build', webEnv);
-step('frontend · npm prune --omit=dev', FRONTEND, 'npm prune --omit=dev --no-audit --no-fund');
+for (const s of buildSteps(webEnv)) step(s.label, s.dir === 'backend' ? BACKEND : FRONTEND, s.cmd, s.env);
 
 // Next instala los binarios SWC de glibc y de musl (137 MB cada uno) y `next start` no usa ninguno:
 // se borran los de la otra libc y la caché del build, que no hacen falta para ejecutar.

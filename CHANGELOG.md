@@ -20,6 +20,17 @@ Versionado [SemVer](https://semver.org/lang/es/).
   y `BUILD_MAX_OLD_SPACE_MB`. El supervisor usa `TRUST_PROXY=1` si no está definida (el proxy de Next no añade su salto a `X-Forwarded-For`) y avisa si
   `DATABASE_URL` no trae `connection_limit`. La batería pasa a 14 pasos (pruebas de `scripts/lib/`). Casos
   TC-HEALTH-07/08 y TC-SEC-15/16. Las guías de despliegue se actualizan en un PR aparte.
+- `scripts/single-service-smoke.mjs --skip-limit`: omite los tres casos del límite de login (detrás del
+  borde real de Seenode todas las peticiones salen de la misma IP y el caso "otro cliente" fallaba,
+  dejando la IP en 429 un minuto). El resumen indica cuántas comprobaciones se omitieron y que el límite
+  NO se verificó. Sin el flag, el comportamiento no cambia. Sin migraciones.
+
+### Corregido
+
+- `scripts/build-prod.mjs` instala con `npm ci --include=dev` en backend y frontend: si el panel aplica
+  `NODE_ENV=production` también al build, npm omitía las devDependencies y fallaban `nest build` y
+  Tailwind. El `npm prune --omit=dev` posterior sigue dejando solo producción. Sin migraciones.
+- El seed del administrador en el servicio único: `npx prisma db seed` fallaba en producción con "ts-node: not found" porque el build poda las devDependencies. Ahora el build compila el seed a `backend/dist-seed/` antes de la poda y se ejecuta con `cd backend && npm run seed:prod` (mismo comportamiento y variables `SEED_*` que el seed local, idempotente; `prisma.seed` sigue con ts-node para desarrollo). Sin migraciones.
 
 ### Cambiado
 
@@ -33,10 +44,6 @@ Versionado [SemVer](https://semver.org/lang/es/).
   en CLAUDE.md y en la guía del implementador: desde la 1.14.1 el modo estricto cuenta como fallo el aviso
   "Requirement text is very long (>500 characters)" y 15 de los 18 elementos fallaban sin que cambiara
   ningún spec. Sin cambios de código.
-
-### Corregido
-
-- El seed del administrador en el servicio único: `npx prisma db seed` fallaba en producción con "ts-node: not found" porque el build poda las devDependencies. Ahora el build compila el seed a `backend/dist-seed/` antes de la poda y se ejecuta con `cd backend && npm run seed:prod` (mismo comportamiento y variables `SEED_*` que el seed local, idempotente; `prisma.seed` sigue con ts-node para desarrollo). Sin migraciones.
 
 ### Seguridad
 
