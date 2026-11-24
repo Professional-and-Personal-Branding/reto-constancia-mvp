@@ -38,6 +38,11 @@ Versionado [SemVer](https://semver.org/lang/es/).
   "Requirement text is very long (>500 characters)" y 15 de los 18 elementos fallaban sin que cambiara
   ningún spec. Sin cambios de código.
 
+### Seguridad
+
+- `next` sube a 15.5.29 en `frontend/`: corrige GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2 y GHSA-pc58-hwjq-p385
+  (`npm audit --omit=dev` vuelve a 0 avisos y el job Frontend de la CI deja de fallar). Sin cambios de código.
+
 ## [1.15.0] — 2026-11-09
 
 **Esta versión trae una migración** (`add_activity_rejection_history`, la primera desde la 1.4.0; solo
