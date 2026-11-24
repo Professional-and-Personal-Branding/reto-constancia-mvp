@@ -36,14 +36,14 @@
 - [x] 4.2 `CLAUDE.md` and `docs/testing.md`: battery 14/14 and the new step; `docs/testing.md` §6 with the runs of section 3
 - [x] 4.3 `CHANGELOG.md` `[Sin publicar]`: new optional variables (`HOST`, `API_INTERNAL_URL`, `API_PORT`, `API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`, `BUILD_MAX_OLD_SPACE_MB`), new root files, no migration
 - [x] 4.4 `node scripts/run-tests.mjs` 14/14, reset the database, `node scripts/validate-test-cases.mjs` ("Pruebas sin caso: 0"), `openspec validate --all --strict` (battery 14/14 and validator 173/173 done; `npx --yes @fission-ai/openspec@1.14.0 validate --all --strict` 19/19 on the merged branch; CLI 2.0.0 gives 4/19 for long requirements of other specs)
-- [ ] 4.5 PR 1 to `develop` in Spanish; the owner merges after the 3 CI jobs are green
+- [x] 4.5 PR 1 to `develop` in Spanish; the owner merges after the 3 CI jobs are green
 
 ## 5. PR 2 — Operational docs (after phase 1 and PR 1)
 
-- [ ] 5.1 Branch `chore/single-service-deploy-docs` from `develop`
-- [ ] 5.2 `docs/runbook-despliegue.md` header table (platform: one Web Service), §1 (1.2 database with `connection_limit=5`; 1.3 single service: Root Directory = repository root, Build `npm run build`, Start `npm start`, Port 3000, health check `/api/health`, variables including `NEXT_PUBLIC_API_URL=/api` as a build variable, `TRUST_PROXY` per phase 1, `CORS_ORIGIN` = the app URL; 1.4/1.5 merged; 1.6 adds `node scripts/single-service-smoke.mjs $BASE`), §2 (one redeploy, not two), §3 (smoke test URLs on one origin), §4 (rollback redeploys one service; "API y web juntas" becomes automatic) and §7 (new variables); two-service steps move to an appendix
-- [ ] 5.3 `docs/deploy-seenode.md`: diagram and steps for one Web Service; two-service layout as an alternative section
-- [ ] 5.4 `docs/despliegue/RUNBOOK-DESPLIEGUE.md`: phase 2 points to this change, phase 5 row 6 adds the two-network and forged-header check; `docs/despliegue/DECISION-DESPLIEGUE.md` checklist marks the code items done and names `start-prod.mjs`; also document that plan B without a proxy that sets X-Forwarded-For lets a client evade the login limit (review finding 12)
+- [x] 5.1 Branch `chore/single-service-deploy-docs` from `develop`
+- [x] 5.2 `docs/runbook-despliegue.md` header table (platform: one Web Service), §1 (1.2 database with `connection_limit=5`; 1.3 single service: Root Directory = repository root, Build `npm run build`, Start `npm start`, Port 3000, health check `/api/health`, variables including `NEXT_PUBLIC_API_URL=/api` as a build variable, `TRUST_PROXY` per phase 1, `CORS_ORIGIN` = the app URL; 1.4/1.5 merged; 1.6 adds `node scripts/single-service-smoke.mjs $BASE`), §2 (one redeploy, not two), §3 (smoke test URLs on one origin), §4 (rollback redeploys one service; "API y web juntas" becomes automatic) and §7 (new variables); two-service steps move to an appendix
+- [x] 5.3 `docs/deploy-seenode.md`: diagram and steps for one Web Service; two-service layout as an alternative section
+- [x] 5.4 `docs/despliegue/RUNBOOK-DESPLIEGUE.md`: phase 2 points to this change, phase 5 row 6 adds the two-network and forged-header check; `docs/despliegue/DECISION-DESPLIEGUE.md` checklist marks the code items done and names `start-prod.mjs`; also document that plan B without a proxy that sets X-Forwarded-For lets a client evade the login limit (review finding 12)
 - [ ] 5.5 Values measured in phase 1 (memory, disk, build time, proxy hops) recorded in the runbook's limits table and in D4 defaults if they changed
 - [ ] 5.6 `openspec validate --all --strict`; PR 2 to `develop` in Spanish; the owner merges
 

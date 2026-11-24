@@ -65,7 +65,7 @@ El único veto del panel fue el de Render. Una nota sobre el conteo: el script v
 | El acceso público a la base para `db-backup.mjs` no está confirmado y, si existe, podría no admitir lista de IP     | Regla de corte 2 y verificación obligatoria en la fase 1                                                             |
 | PostgreSQL 16 no confirmado                                                                                         | Regla de corte 1                                                                                                     |
 | 0,5 GB de RAM, 0,2 CPU y 750 MB de disco para build, SSR, API y argon2                                              | Prueba de carga y de build en el trial (fase 1); si no alcanza, Standard (7 USD) lleva el total a 11 y rompe el tope |
-| Límite de 5 intentos de login por minuto por IP: detrás de Next y del proxy de Seenode la API vería la IP del proxy | `TRUST_PROXY=2` (o el valor que corresponda) y prueba explícita con dos clientes                                     |
+| Límite de 5 intentos de login por minuto por IP: detrás de Next y del proxy de Seenode la API vería la IP del proxy | `TRUST_PROXY=1` (el borde de Seenode; Next no suma su propio salto, medido en local con la prueba de humo en Next 15.5.28; la rama ya trae ^15.5.29, así que la prueba de humo debe repetirse con 15.5.29 antes de la 1.16.0, pendiente) y prueba explícita con dos clientes. El valor definitivo se confirma en la fase 1 |
 | «Mover `main` al tag» contradice el gitflow del proyecto (sin push forzado)                                         | La vuelta atrás es redesplegar el commit del tag anterior desde el panel, o un PR de revert a `main`                 |
 | Un proceso que muere no reinicia al otro                                                                            | El script de arranque termina el contenedor si cualquiera de los dos cae                                             |
 
@@ -74,6 +74,10 @@ El único veto del panel fue el de Render. Una nota sobre el conteo: el script v
 - Un solo contenedor con dos procesos: un fallo de memoria tira API y web a la vez. Mitigación: supervisor que reinicia el servicio y comprobación de `/api/health` tras cada despliegue.
 - Sin plan gratuito: si se agotan los créditos, el servicio se detiene. Mitigación: cargar saldo con margen y revisar el panel cada mes.
 - Seenode es un proveedor chico y varias páginas de su documentación devolvieron 404 al panel; por eso la salida es estándar (`pg_dump`, Node 20, Docker).
+
+## Plan B (VPS): el proxy inverso es obligatorio
+
+En un VPS con `Dockerfile.single-service` (o la API sola) **hace falta un proxy inverso (Caddy, nginx o el de la plataforma) que fije `X-Forwarded-For`** con la dirección real del cliente, y `TRUST_PROXY` debe valer el número de proxies de confianza (1 con un solo proxy delante de Next). Sin ese proxy, la API ve directamente lo que el cliente escribe en `X-Forwarded-For`: con `TRUST_PROXY=1` el cliente controla la entrada que lee el limitador y **evade el límite de 5 logins por minuto** cambiando la cabecera en cada intento; con `TRUST_PROXY=0` el límite se aplica por conexión, pero detrás de Docker o de cualquier NAT todos comparten un cupo. Es el hallazgo 12 de la revisión del cambio. Comprobarlo antes de abrir el VPS con la misma prueba de dos redes y cabecera falsificada de la fase 5, fila 6, del [runbook](RUNBOOK-DESPLIEGUE.md): un `X-Forwarded-For` falso no debe evitar el `429` (la prueba de humo de Next, que habla directo con el servicio, no cubre al proxy).
 
 ## Supuestos que quedan abiertos y cómo se cubren
 
@@ -92,13 +96,14 @@ Los tres jueces pusieron primero a Seenode «con reservas»: costo (el colchón 
 
 ## Cambios de código que el despliegue necesita
 
-No se aplican todavía: son un cambio OpenSpec que el owner debe aprobar (spec primero, ver `CLAUDE.md`).
+Aprobados y hechos con el cambio OpenSpec `single-service-deploy` (código en `develop`; sale con la release 1.16.0, objetivo). El supervisor quedó en Node (`.mjs`), no en shell, para poder probarlo con `node:test` en Windows y Linux.
 
-- [ ] `scripts/start-prod.sh`: `prisma migrate deploy`, API en `127.0.0.1:3001`, Next en `0.0.0.0:3000`, y salida del contenedor si uno de los dos muere.
-- [ ] `frontend/next.config.mjs`: reescritura `/api/:path*` → `http://127.0.0.1:3001/api/:path*` y `NEXT_PUBLIC_API_URL=/api`; revisar llamadas del lado servidor.
-- [ ] Un solo comando de build que compile backend y frontend con memoria acotada (`NODE_OPTIONS=--max-old-space-size`).
-- [ ] `connection_limit=5` en `DATABASE_URL`; `TRUST_PROXY` según la cadena de proxies.
-- [ ] Actualizar `docs/deploy-seenode.md` y el runbook §1, §2, §4 y §5.1 con la variante de un servicio.
+- [x] `scripts/start-prod.mjs` (lógica en `scripts/lib/supervisor.mjs`): `prisma migrate deploy`, API en `127.0.0.1:3001`, Next en `0.0.0.0:3000`, y salida del contenedor si uno de los dos muere.
+- [x] `frontend/next.config.mjs`: reescritura `/api/:path*` → `http://127.0.0.1:3001/api/:path*` (con `API_INTERNAL_URL` al compilar) y `NEXT_PUBLIC_API_URL=/api`; sin llamadas del lado servidor (regla en el spec); además cabeceras de seguridad y sin `X-Powered-By`.
+- [x] Un solo comando de build (`npm run build` → `scripts/build-prod.mjs`) que compila backend y frontend en secuencia con memoria acotada (`BUILD_MAX_OLD_SPACE_MB`, 400 por omisión).
+- [x] `connection_limit=5` en `DATABASE_URL` (el supervisor avisa si falta); `TRUST_PROXY=1` por omisión del supervisor, a confirmar en la fase 1.
+- [x] Actualizar `docs/deploy-seenode.md` y el runbook §1, §2, §3, §4 y §7 con la variante de un servicio (el esquema de dos servicios queda en su apéndice). El §5.1 no cambia.
+- [ ] Fase 1 del owner: PostgreSQL 16, acceso externo a la base y `db-backup.mjs` `OK`, recursos reales de Seenode, saltos del proxy y redeploy de un commit anterior (ver «Registro de la fase 1» del [runbook](RUNBOOK-DESPLIEGUE.md)).
 
 ## Qué reabriría esta decisión
 

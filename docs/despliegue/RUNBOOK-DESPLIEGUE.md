@@ -27,15 +27,15 @@ No cargues datos reales hasta terminar la fase 7 con datos ficticios.
 | Valor                                                                  | Forma                                                                              | Dónde vive                          |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------- |
 | URL de la aplicación                                                   | `https://<servicio>.seenode.app`                                                   | Seenode                             |
-| `DATABASE_URL`                                                         | privada para la aplicación; pública solo para respaldos                            | Panel de Seenode (secreto)          |
+| `DATABASE_URL`                                                         | privada para la aplicación, con `?schema=public&connection_limit=5`; pública solo para respaldos | Panel de Seenode (secreto) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET`                                     | cadenas aleatorias distintas                                                       | Panel de Seenode (secreto)          |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | los da Cloudinary                                                                  | Panel de Seenode (secreto)          |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                              | del primer administrador; rotar tras el primer ingreso                             | Panel de Seenode (secreto)          |
-| `TRUST_PROXY`                                                          | número de proxies delante de la API (2 en esta variante, a confirmar en la fase 1) | Panel de Seenode                    |
+| `TRUST_PROXY`                                                          | saltos de proxy de confianza delante de la API: `1` (el borde de Seenode; Next no añade el suyo) por omisión del supervisor; **pendiente de medir en la fase 1** | Panel de Seenode (opcional)         |
 | `PORT`                                                                 | no lo inyecta Seenode: el puerto se fija en el panel (3000)                        | Panel de Seenode                    |
 | `NODE_ENV`                                                             | `production`                                                                       | Panel de Seenode                    |
 | `CORS_ORIGIN`                                                          | la URL de la aplicación (mismo origen en esta variante)                            | Panel de Seenode                    |
-| `NEXT_PUBLIC_API_URL`                                                  | `/api` (entra al navegador en el build; no es secreta)                             | Panel de Seenode, variable de build |
+| `NEXT_PUBLIC_API_URL`                                                  | `/api` (entra al navegador en el build; no es secreta; `build-prod.mjs` la usa por omisión) | Panel de Seenode, variable de build |
 | `SWAGGER_ENABLED`                                                      | ausente o `false`                                                                  | Panel de Seenode                    |
 
 Los comandos usan Bash desde la raíz del repositorio.
@@ -47,7 +47,7 @@ BASE=https://<servicio>.seenode.app
 ## Fase 0: repositorio listo (Claude)
 
 1. Comprobar que no hay secretos ni datos reales: `node scripts/scan-secrets.mjs`.
-2. Confirmar que la batería está en verde: `node scripts/run-tests.mjs` (13/13).
+2. Confirmar que la batería está en verde: `node scripts/run-tests.mjs` (14/14).
 3. Confirmar que la versión a desplegar está en `main` con su tag.
 4. Visibilidad del repositorio: hoy es **público** (`gh repo view --json isPrivate` da `false`). Es aceptable solo porque el repositorio no lleva secretos ni datos reales (los controla `scan-secrets.mjs` en la CI); los datos sensibles viven en la base y en Cloudinary. Si el owner prefiere un repositorio privado, hay que confirmar que Seenode lo despliega en su plan.
 
@@ -59,7 +59,7 @@ node scripts/scan-secrets.mjs
 node scripts/run-tests.mjs
 ```
 
-**Terminada cuando:** la batería da 13/13 y el escaneo no encuentra nada.
+**Terminada cuando:** la batería da 14/14 y el escaneo no encuentra nada.
 
 ## Fase 1: validar los supuestos en el período de prueba (Vos)
 
@@ -71,20 +71,21 @@ El trial de 7 días de Seenode no pide tarjeta. Crear la cuenta, autorizar GitHu
 | 2   | Activar el acceso público a la base y ver si admite lista de IP o SSL obligatorio                                                                           | Control de origen disponible                                             | Regla de corte 2                                            |
 | 3   | Desde tu máquina, con la cadena pública de la base **cargada en tu entorno, no en un archivo**: `node scripts/db-backup.mjs` (el script usa `DATABASE_URL`) | Termina en `OK` con restauración verificada                              | Regla de corte 2                                            |
 | 4   | Cerrar el acceso público (o dejar solo tu IP) cuando termine                                                                                                | Sin acceso abierto a internet                                            | Dejar la base sin acceso público                            |
-| 5   | Medir el build y el arranque del servicio Basic con la variante de un servicio                                                                              | Compila sin quedarse sin memoria; el arranque no pasa de 750 MB de disco | Regla de corte 3                                            |
-| 6   | Medir un login y la carga del panel con 0,2 CPU (argon2)                                                                                                    | Respuestas de segundos, sin reinicios                                    | Regla de corte 3                                            |
+| 5   | Medir el build y el arranque del servicio Basic con la variante de un servicio (Build `npm run build`, Start `npm start`; anotar tiempo de build, disco medido con `du` y pico de memoria) | Compila sin quedarse sin memoria; el arranque no pasa de 750 MB de disco. Referencia **local** (Docker, no es Seenode): disco 540 MB (backend 171 + frontend 369), pico de 130 a 132 MiB de 512 | Regla de corte 3                                            |
+| 6   | Medir un login y la carga del panel con 0,2 CPU (argon2); medir también los saltos de proxy de Seenode (`TRUST_PROXY`, fase 5 fila 6)                       | Respuestas de segundos, sin reinicios                                    | Regla de corte 3 (CPU); saltos distintos de 1: ajustar `TRUST_PROXY` en el panel |
 | 7   | Ver en el panel cómo se redespliega un commit anterior                                                                                                      | Existe «redeploy» de un commit concreto                                  | Documentar la alternativa (PR de revert a `main`); no corta |
 | 8   | Confirmar en la página de precios y en el panel que el trial no pide tarjeta y qué pasa al terminar                                                         | Sin tarjeta hasta cargar créditos                                        | Regla de corte 4                                            |
+| 9   | Correr `npm run seed:prod` en la shell del servicio de Seenode (con la `DATABASE_URL` interna) | Crea el administrador sin `ts-node` y el login funciona | Si falla, corregir el seed antes de abrir la URL |
 
 Los supuestos que solo esta fase puede cerrar: PostgreSQL 16 (fila 1), acceso externo con control de origen (2 y 3), 0,5 GB de RAM y 0,2 CPU (5 y 6) y reversión por redespliegue (7, con alternativa).
 
-**Terminada cuando:** las filas 1 a 8 están resueltas y registradas en el Registro de la fase 1 (al final del documento), cada una con fecha y resultado.
+**Terminada cuando:** las filas 1 a 9 están resueltas y registradas en el Registro de la fase 1 (al final del documento), cada una con fecha y resultado.
 
 ## Fase 2: código de la variante de un servicio (Claude, tras la aprobación del owner)
 
-Depende del cambio OpenSpec aprobado (ver la lista en [DECISION-DESPLIEGUE.md](DECISION-DESPLIEGUE.md)): `scripts/start-prod.sh`, reescritura `/api/*` en `frontend/next.config.mjs`, `connection_limit=5`, `TRUST_PROXY`.
+Implementada por el cambio OpenSpec `single-service-deploy` (`openspec/changes/single-service-deploy/`, ya fusionado en `develop`; sale con la release 1.16.0, objetivo): supervisor `scripts/start-prod.mjs`, build `scripts/build-prod.mjs`, `package.json` de la raíz (`npm run build` / `npm start`), reescritura `/api/*` y cabeceras de seguridad en `frontend/next.config.mjs`, `connection_limit=5` y `TRUST_PROXY=1` por omisión. Reproducción local sin Seenode: `Dockerfile.single-service` y `node scripts/single-service-smoke.mjs <url>`.
 
-**Terminada cuando:** la batería pasa y una corrida local del contenedor responde `/api/health` y `/` y devuelve `429` al sexto intento de login por minuto desde un mismo cliente (y no para otro).
+**Terminada cuando:** la batería pasa y una corrida local del contenedor responde `/api/health` y `/` y devuelve `429` al sexto intento de login por minuto desde un mismo cliente (y no para otro). **Hecho en local** (Docker, 2026-11-18; ver `docs/testing.md` §6): `OK` con `TRUST_PROXY=1`; falla el caso esperado con `0` y con `2`.
 
 ## Fase 3: secretos (Vos)
 
@@ -96,9 +97,9 @@ Seenode se maneja desde el panel web: la lista de variables de entorno del servi
 
 ## Fase 4: primer despliegue (Claude, con tu confirmación)
 
-1. Crear el Web Service desde la rama `main`, puerto 3000.
+1. Crear el Web Service desde la rama `main`: Root Directory = la raíz del repositorio, Build `npm run build`, Start `npm start`, puerto 3000, health check `/api/health` (pantallas en [`../deploy-seenode.md`](../deploy-seenode.md) §2).
 2. Antes de la primera migración: respaldo verificado (fase 1, fila 3).
-3. Dejar que el servicio arranque; el script aplica `prisma migrate deploy`.
+3. Dejar que el servicio arranque; el supervisor (`scripts/start-prod.mjs`) aplica `prisma migrate deploy`, arranca la API y después la web.
 
 **Terminada cuando:** el panel muestra la URL y `curl -s -o /dev/null -w "%{http_code}\n" $BASE/api/health` imprime `200`.
 
@@ -110,8 +111,8 @@ Seenode se maneja desde el panel web: la lista de variables de entorno del servi
 | 2   | La base, vía `/api/health/db`                           | `200`                                                                                                                                                                           |
 | 3   | Una ruta protegida sin sesión                           | `401`                                                                                                                                                                           |
 | 4   | Swagger apagado                                         | `404`                                                                                                                                                                           |
-| 5   | Cabeceras de seguridad de la web y de la API            | Presentes: `x-content-type-options`, `strict-transport-security` y la de marcos (`x-frame-options` o CSP). Si la web de Next no las envía, agregarlas en el cambio de la fase 2 |
-| 6   | Seis intentos de login seguidos con un mismo cliente    | El sexto da `429`; otro cliente no se ve afectado                                                                                                                               |
+| 5   | Cabeceras de seguridad de la web y de la API            | Presentes: `x-content-type-options`, `strict-transport-security` y la de marcos (`x-frame-options` o CSP). |
+| 6   | Límite de login por cliente detrás del proxy de Seenode | Con **dos redes distintas** (p. ej. tu conexión y un teléfono con datos móviles): el sexto intento de la red A da `429` y la red B no. Con una **cabecera falsificada** (`-H "X-Forwarded-For: 198.51.100.9"`) desde la red A ya bloqueada, sigue dando `429`. Si falla uno, ajustar `TRUST_PROXY` (saltos del proxy; pendiente de medir en la fase 1) |
 | 7   | Superficies por omisión: URLs de vista previa y paneles | Seenode no deja una URL de vista previa pública sin decidirlo; el acceso público a la base está cerrado                                                                         |
 
 ```bash
@@ -134,11 +135,19 @@ curl -s -o /dev/null -w "%{http_code}\n" $BASE/api/docs
 curl -sI $BASE/
 ```
 
-El login de la fila 6 se prueba con un usuario ficticio de la fase 7 y una contraseña incorrecta, para no depender de un acceso real:
+El login de la fila 6 se prueba con un usuario ficticio y una contraseña incorrecta, para no depender de un acceso real. Desde la red A:
 
 ```bash
 for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w "%{http_code}\n" -X POST $BASE/api/auth/login -H "Content-Type: application/json" -d '{"email":"nadie@example.com","password":"incorrecta"}'; done
 ```
+
+Esperado: `401` cinco veces y `429` la sexta. Justo después, desde la red B (misma instrucción, un solo intento): no da `429`. Y desde la red A, aún bloqueada, con la cabecera falsificada: sigue en `429`.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST $BASE/api/auth/login -H "Content-Type: application/json" -H "X-Forwarded-For: 198.51.100.9" -d '{"email":"nadie@example.com","password":"incorrecta"}'
+```
+
+Es la prueba de la parte de la plataforma (qué hace el borde de Seenode con `X-Forwarded-For`); la parte de Next la fija `node scripts/single-service-smoke.mjs` en local. Resultado de las dos redes en Seenode: **pendiente de medir en la fase 1** (anótalo en el Registro de la fase 1).
 
 **Regla de corte:** si la 3, la 4, la 5 o la 6 no coinciden, parate (regla 6).
 
@@ -202,11 +211,25 @@ Al agotarse los créditos, Seenode **detiene el servicio** (no hay plan gratuito
 
 | Recurso                      | Límite           | Acción                                                                                    |
 | ---------------------------- | ---------------- | ----------------------------------------------------------------------------------------- |
-| RAM / CPU del servicio Basic | 0,5 GB / 0,2 CPU | Si hay reinicios por memoria, pasar a Standard (7 USD): total 11 USD, reabrir la decisión |
-| Disco del servicio           | 750 MB           | Vigilar el tamaño de la imagen                                                            |
+| RAM / CPU del servicio Basic | 0,5 GB / 0,2 CPU | Si hay reinicios por memoria, pasar a Standard (7 USD): total 11 USD, reabrir la decisión. Topes de heap por omisión: API 224 MB, web 160 MB, build 400 MB (`API_MAX_OLD_SPACE_MB`, `WEB_MAX_OLD_SPACE_MB`, `BUILD_MAX_OLD_SPACE_MB`) |
+| Disco del servicio           | 750 MB           | El build imprime tamaños por suma de archivos (140 + 337 MB); el disco real se mide con `du` (540 MB)                         |
 | Conexiones a la base         | 20               | `connection_limit=5` en `DATABASE_URL`                                                    |
 | Almacenamiento de la base    | 1 GB             | Revisar cada mes; Standard de base: 12 USD                                                |
 | Saldo de créditos            | el que cargues   | Cargar con margen y revisar mensualmente                                                  |
+
+Mediciones del servicio único (cada una se anota en el Registro de la fase 1):
+
+| Medición                         | Referencia local (Docker `--memory=512m --cpus=0.2`, 2026-11-18; **no es Seenode**) | En Seenode |
+| -------------------------------- | ------------------------------------------------------------------------------------ | ---------- |
+| Disco (`backend/` + `frontend/`) | 540 MB: backend 171 + frontend 369                                                   | pendiente de medir en la fase 1 |
+| Memoria en uso                   | pico de 130 a 132 MiB de 512 (118 MiB en reposo)                                      | pendiente de medir en la fase 1 |
+| Tiempo de build                  | 231 s en la máquina del owner (no comparable con el builder de Seenode)              | pendiente de medir en la fase 1 |
+| Login y panel con 0,2 CPU        | sin reinicios en la prueba de humo                                                   | pendiente de medir en la fase 1 |
+| Saltos de proxy de Seenode       | 1 en local, con el script haciendo de borde                                          | pendiente de medir en la fase 1 |
+| PostgreSQL 16                    | Postgres 16 local                                                                    | pendiente de medir en la fase 1 |
+| Acceso externo a la base y `db-backup.mjs` `OK` | no aplica                                                             | pendiente de medir en la fase 1 |
+| Redeploy de un commit anterior   | no aplica                                                                            | pendiente de medir en la fase 1 |
+| `npm run seed:prod` en la shell del servicio | no aplica                                                                            | pendiente de medir en la fase 1 |
 
 ## Mantenimiento
 
@@ -222,9 +245,9 @@ Al agotarse los créditos, Seenode **detiene el servicio** (no hay plan gratuito
 
 | Síntoma                               | Causa probable                                        | Qué hacer                                                        |
 | ------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| Todos reciben `429` al iniciar sesión | `TRUST_PROXY` mal ajustado: la API ve la IP del proxy | Corregir el valor y repetir la fase 5, fila 5                    |
+| Todos reciben `429` al iniciar sesión | `TRUST_PROXY` mal ajustado: la API ve la IP del proxy | Corregir el valor y repetir la fase 5, fila 6 |
 | El servicio se reinicia solo          | Memoria agotada (0,5 GB)                              | Ver los registros del panel; reglas de corte 3                   |
-| El build falla sin mensaje            | Falta de memoria al compilar                          | Acotar `NODE_OPTIONS=--max-old-space-size` o precompilar         |
+| El build falla sin mensaje            | Falta de memoria al compilar                          | Ajustar `BUILD_MAX_OLD_SPACE_MB` (400 por omisión) o precompilar |
 | `db-backup.mjs` no se conecta         | Acceso público apagado o tu IP cambió                 | Actualizar la lista de IP en el panel, correr, y volver a cerrar |
 | Las fotos no suben                    | `CLOUDINARY_*` ausentes: el backend cae al modo local | Cargar las tres variables y redesplegar                          |
 
@@ -232,12 +255,12 @@ Para ver los errores de producción: pestaña de registros del Web Service en el
 
 ## Salir de Seenode
 
-La salida es estándar: `pg_dump --format=custom` (lo que ya hace `db-backup.mjs`), Node 20 y el `backend/Dockerfile`. Se lleva la base, el repositorio y las fotos (en Cloudinary del owner); se pierde la URL `*.seenode.app` y hay que cambiar `CORS_ORIGIN`. El plan B es un VPS con Docker Compose: ver [DECISION-DESPLIEGUE.md](DECISION-DESPLIEGUE.md). Irreversible: borrar la base o la cuenta de Seenode sin una copia probada.
+La salida es estándar: `pg_dump --format=custom` (lo que ya hace `db-backup.mjs`), Node 20 y los Dockerfile del repositorio (`Dockerfile.single-service` para el servicio único; `backend/Dockerfile` para la API sola). Se lleva la base, el repositorio y las fotos (en Cloudinary del owner); se pierde la URL `*.seenode.app` y hay que cambiar `CORS_ORIGIN`. El plan B es un VPS con Docker Compose: ver [DECISION-DESPLIEGUE.md](DECISION-DESPLIEGUE.md). Irreversible: borrar la base o la cuenta de Seenode sin una copia probada.
 
 ## Cierre del despliegue
 
 - [ ] Fase 0: repositorio listo.
-- [ ] Fase 1: los siete supuestos validados y registrados.
+- [ ] Fase 1: los nueve supuestos validados y registrados.
 - [ ] Cambio OpenSpec de la variante aprobado y aplicado (fase 2).
 - [ ] Fases 3 a 6 completas.
 - [ ] Prueba con datos ficticios superada (fase 7).
